@@ -1,0 +1,435 @@
+:root {
+  --bg: #f4f7f9;
+  --ink: #1a2a32;
+  --muted: #5a6d78;
+  --card: #fff;
+  --line: #d5e0e6;
+  --accent: #1e5a78;
+  --accent-soft: #e8f2f6;
+  --ok: #1f6b4a;
+  --bad: #8b2e2e;
+  --radius: 12px;
+  font-family: "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif;
+  color: var(--ink);
+  background:
+    radial-gradient(1000px 360px at 8% -8%, #dceaf1 0%, transparent 55%),
+    var(--bg);
+  line-height: 1.5;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; min-height: 100vh; }
+
+#app { max-width: 42rem; margin: 0 auto; padding: 0 1rem 2rem; }
+
+.top {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.25rem 0 0.5rem;
+}
+h1.prompt {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+.prompt-sub {
+  margin: 0.35rem 0 0;
+  font-size: 0.95rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+h1 { margin: 0.2rem 0 0; font-size: 1.45rem; }
+h2 { margin: 1rem 0 0.5rem; font-size: 1rem; }
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1rem 1.1rem 1.2rem;
+  box-shadow: 0 1px 2px rgb(26 42 50 / 6%), 0 8px 24px rgb(26 42 50 / 6%);
+}
+
+.meta { margin: 0.25rem 0; color: var(--muted); font-size: 0.9rem; }
+.hint { color: var(--muted); font-size: 0.9rem; }
+code { font-size: 0.85em; }
+
+.badge {
+  align-self: flex-start;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.35rem 0.65rem;
+  border-radius: 999px;
+  border: 1px solid #b9e0cb;
+  background: #e7f6ee;
+  color: var(--ok);
+}
+.badge.offline {
+  background: #f8ebe6;
+  color: var(--bad);
+  border-color: #e5c4bb;
+}
+
+.menu-card { padding: 0; }
+.menu { display: grid; gap: 0; margin: 0; }
+.menu-btn {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.95rem 1.1rem;
+  border: none;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  background: #fff;
+  font: inherit;
+  font-size: 1rem;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.menu-btn:last-child { border-bottom: none; }
+/* タッチ後に :hover が残って「選択中」に見えるのを防ぐ */
+.menu-btn:active {
+  background: var(--accent-soft);
+}
+.menu-btn:focus {
+  outline: none;
+}
+.menu-btn:focus:not(:focus-visible) {
+  background: #fff;
+}
+@media (hover: hover) and (pointer: fine) {
+  .menu-btn:hover { background: var(--accent-soft); }
+}
+.menu-btn.locked {
+  color: var(--muted);
+}
+.menu-btn.multi-on {
+  background: var(--accent-soft);
+  font-weight: 600;
+}
+.menu-btn.multi-on:focus:not(:focus-visible) {
+  background: var(--accent-soft);
+}
+.menu-card .msg { margin: 0; padding: 0.75rem 1.1rem; }
+
+/* ショートカット「リストからの選択」相当の別ダイアログ */
+.sc-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  overflow: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+.sc-dialog-panel {
+  width: 100%;
+  max-width: 42rem;
+  margin: 0 auto;
+  padding: 0 1rem 2rem;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.sc-dialog-head {
+  padding: 1.25rem 0 0.65rem;
+  flex: 0 0 auto;
+  background: var(--bg);
+  position: relative;
+  z-index: 2;
+}
+.sc-dialog-head .prompt {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+.sc-dialog-list {
+  margin-top: 0.25rem;
+}
+.sc-dialog-body {
+  /* 項目が少ないときは内容サイズ。多いときは縮んで内部スクロール */
+  padding: 0;
+  flex: 0 1 auto;
+  min-height: 0;
+  max-height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  z-index: 1;
+  width: 100%;
+}
+.sc-dialog-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+.sc-dialog-detail {
+  padding: 0.85rem 1.1rem 0.75rem;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: var(--ink);
+  border-bottom: 1px solid var(--line);
+  background: #fbfcfd;
+}
+.sc-dialog-detail .net-fail,
+.sc-map-hint.net-fail {
+  color: var(--bad);
+}
+.sc-choice-list {
+  margin: 0;
+}
+.sc-input {
+  display: block;
+  width: calc(100% - 2.2rem);
+  margin: 1rem 1.1rem 0.25rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font: inherit;
+  font-size: 1.05rem;
+}
+.sc-input-date,
+.sc-input-time {
+  min-height: 3.1rem;
+  font-size: 1.35rem;
+  font-variant-numeric: tabular-nums;
+  box-sizing: border-box;
+  width: calc(100% - 2.2rem);
+  max-width: 22rem;
+}
+.sc-input-date::-webkit-calendar-picker-indicator,
+.sc-input-time::-webkit-calendar-picker-indicator {
+  transform: scale(1.35);
+  cursor: pointer;
+  opacity: 0.85;
+}
+.datetime-set {
+  border: none;
+  margin: 0 0 0.75rem;
+  padding: 0;
+}
+.datetime-set legend {
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+}
+.datetime-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+.datetime-part {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 1 1 10rem;
+}
+.datetime-part span {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.datetime-part .sc-input-date,
+.datetime-part .sc-input-time {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+}
+.sc-geo-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 0.85rem 1.1rem 0.35rem;
+}
+.sc-geo-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.sc-geo-field span {
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+.sc-geo-field .sc-input {
+  width: 100%;
+  margin: 0;
+  box-sizing: border-box;
+}
+.sc-map-wrap {
+  padding: 0.5rem 1.1rem 0.25rem;
+}
+.sc-map {
+  display: block;
+  width: 100%;
+  height: 220px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #e8eef2;
+}
+/* 現在地確認マップ: ウィンドウに合わせて拡大 */
+.sc-dialog-panel--map {
+  max-width: min(96vw, 1100px);
+  padding-bottom: 1rem;
+}
+.sc-dialog-panel--map .sc-dialog-head--compact {
+  flex: 0 0 auto;
+  overflow: visible;
+}
+.sc-dialog-body--map {
+  flex: 1 1 0 !important;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+}
+.sc-map-wrap--fill {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 0.35rem 1.1rem 0.15rem;
+}
+.sc-map--fill {
+  flex: 1 1 0;
+  width: 100%;
+  height: auto;
+  min-height: min(55vh, 520px);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #e8eef2;
+}
+.sc-dialog-body--map .sc-actions {
+  flex: 0 0 auto;
+}
+.sc-map-pick-wrap {
+  padding: 0.5rem 1.1rem 0;
+}
+.sc-map-pick {
+  width: 100%;
+  height: min(42vh, 320px);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #e8eef2;
+  z-index: 0;
+}
+.sc-map-hint {
+  margin: 0.35rem 0 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.sc-map-link {
+  margin: 0.4rem 0 0;
+  font-size: 0.9rem;
+}
+.sc-map-link a {
+  color: var(--accent);
+}
+/* Leaflet をダイアログ内で使うときの重なり調整 */
+.sc-dialog .leaflet-container {
+  font: inherit;
+}
+.sc-actions {
+  display: flex;
+  gap: 0.6rem;
+  padding: 0.85rem 1.1rem 1.1rem;
+  border-top: 1px solid var(--line);
+  background: #f8fbfd;
+  flex: 0 0 auto;
+}
+.sc-btn {
+  flex: 1;
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 600;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  -webkit-tap-highlight-color: transparent;
+}
+.sc-btn:focus {
+  outline: none;
+}
+.sc-btn-ok {
+  background: var(--accent);
+  color: #fff;
+}
+.sc-btn-back {
+  background: #fff;
+  color: var(--accent);
+  border-color: #c5d9e3;
+}
+.sc-input-card {
+  padding: 1rem 1.1rem 1.2rem;
+}
+.sc-input-card input {
+  width: 100%;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font: inherit;
+  font-size: 1.05rem;
+}
+
+.row { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.75rem; }
+.sticky { position: sticky; bottom: 0; background: linear-gradient(transparent, #fff 30%); padding-top: 1rem; }
+
+button.primary, button.ghost {
+  font: inherit;
+  border-radius: 8px;
+  padding: 0.6rem 0.95rem;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+button.primary { background: var(--accent); color: #fff; }
+button.ghost { background: var(--accent-soft); color: var(--accent); border-color: #c5d9e3; }
+
+.form { display: grid; gap: 0.65rem; }
+.field { display: grid; gap: 0.3rem; font-size: 0.9rem; }
+.field em { font-style: normal; color: var(--muted); font-size: 0.75rem; margin-left: 0.35rem; }
+.field input, .field select {
+  width: 100%;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font: inherit;
+}
+
+.choice-set {
+  margin: 0;
+  padding: 0.65rem 0.75rem 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.choice-set legend { padding: 0 0.25rem; }
+.choices { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.35rem; }
+.choice {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.55rem 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  min-width: 5.5rem;
+  justify-content: center;
+}
+.choice:has(input:checked) {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  font-weight: 600;
+}
+.choice input { accent-color: var(--accent); }
+
+.msg { min-height: 1.2rem; margin: 0.75rem 0 0; color: var(--ok); font-size: 0.9rem; }
+.foot { margin-top: 1rem; color: var(--muted); font-size: 0.85rem; }

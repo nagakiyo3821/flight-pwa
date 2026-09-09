@@ -3,11 +3,29 @@ import type { FlightRecord, LogFile, PosFile, PlaceRecord, TmpFlag } from './typ
 import { emptyRecord } from './fields'
 import { computeTmp, formatNow, formatNowSeconds, newWorkingKey } from './flag'
 import { parseFlightDate } from './flight-time'
+import {
+  exportCatalogClone,
+  loadBundledDefault,
+  mergeMasters,
+  setCatalog,
+  tryLoadLocalMastersFile,
+  type MastersFile,
+} from './catalog'
+import {
+  defaultSettingsNone,
+  normalizeSettings,
+  setSettings,
+  type SettingsFile,
+} from './settings'
 
 export interface MetaRow {
   id: string
   workingKey: string
   tmp: TmpFlag
+  /** ユーザー選択肢マスタ（欠落時はシード） */
+  masters?: MastersFile
+  /** 同期設定（無ければ none＝手動） */
+  settings?: SettingsFile
 }
 
 /** 初期作業キー（日時なし） */
@@ -47,6 +65,27 @@ export const db = new FlightDB()
 
 const META_ID = 'main'
 
+/** meta を部分更新（settings / masters を落とさない） */
+async function patchMeta(
+  patch: Partial<Pick<MetaRow, 'workingKey' | 'tmp' | 'masters' | 'settings'>>,
+): Promise<MetaRow> {
+  const cur = (await db.meta.get(META_ID)) || {
+    id: META_ID,
+    workingKey: PLAIN_NEW_KEY,
+    tmp: computeTmp(emptyRecord(), 'Mavic2Pro', ''),
+  }
+  const next: MetaRow = {
+    ...cur,
+    id: META_ID,
+    workingKey: patch.workingKey ?? cur.workingKey,
+    tmp: patch.tmp ?? cur.tmp,
+  }
+  if ('masters' in patch) next.masters = patch.masters
+  if ('settings' in patch) next.settings = patch.settings
+  await db.meta.put(next)
+  return next
+}
+
 export async function ensureBootstrap(): Promise<void> {
   const meta = await db.meta.get(META_ID)
   if (!meta) {
@@ -58,21 +97,131 @@ export async function ensureBootstrap(): Promise<void> {
     await db.meta.put({ id: META_ID, workingKey: key, tmp })
   }
 
-  // iCloud Drive/drone と同じ pos03 を public/data に置き、未取込なら自動投入
-  if ((await db.places.count()) === 0) {
-    const pos = await fetchJson<PosFile>('./data/pos03.json')
-    if (pos) await importPos(pos)
-  }
+  await ensureCatalog()
+  await ensureSettings()
+
+  // 場所マスタは空から開始。pos は %JSON入出力 または将来のサーバー同期で取り込む
 }
 
-async function fetchJson<T>(url: string): Promise<T | null> {
-  try {
-    const res = await fetch(url)
-    if (!res.ok) return null
-    return (await res.json()) as T
-  } catch {
-    return null
+/** settings: 無ければ none。あれば正規化してメモリへ */
+export async function ensureSettings(): Promise<SettingsFile> {
+  let row = await db.meta.get(META_ID)
+  if (!row) {
+    const s = defaultSettingsNone()
+    setSettings(s)
+    return s
   }
+  if (!row.settings) {
+    const s = defaultSettingsNone()
+    row = { ...row, settings: s }
+    await db.meta.put(row)
+    setSettings(s)
+    return s
+  }
+  const normalized = normalizeSettings(row.settings)
+  if (JSON.stringify(normalized) !== JSON.stringify(row.settings)) {
+    row = { ...row, settings: normalized }
+    await db.meta.put(row)
+  }
+  setSettings(normalized)
+  return normalized
+}
+
+export async function exportSettings(): Promise<SettingsFile> {
+  await ensureSettings()
+  const meta = await getMeta()
+  return normalizeSettings(meta.settings ?? defaultSettingsNone())
+}
+
+export async function importSettings(data: unknown): Promise<SettingsFile> {
+  const normalized = normalizeSettings(data)
+  const meta = await getMeta()
+  await db.meta.put({ ...meta, settings: normalized })
+  setSettings(normalized)
+  return normalized
+}
+
+/** log 初期化: 全削除 → 空 NEW */
+export async function resetLog(): Promise<void> {
+  await db.flights.clear()
+  const meta = await getMeta()
+  const rec = emptyRecord()
+  const key = PLAIN_NEW_KEY
+  await db.flights.put({ ...rec, key })
+  const drone = meta.tmp.DRONE || 'Mavic2Pro'
+  const tmp = computeTmp(rec, drone, '')
+  tmp.DRONE = drone
+  await db.meta.put({ ...meta, workingKey: key, tmp })
+}
+
+/** pos 初期化: 空 */
+export async function resetPos(): Promise<void> {
+  await db.places.clear()
+}
+
+/** tmp 初期化: FLAG 初期（TIME 空） */
+export async function resetTmp(): Promise<void> {
+  const meta = await getMeta()
+  const { rec } = await getWorking()
+  const drone = rec.A_DRONE.split('_')[0] || meta.tmp.DRONE || 'Mavic2Pro'
+  const tmp = computeTmp(rec, drone, '')
+  tmp.DRONE = drone
+  await db.meta.put({ ...meta, tmp })
+}
+
+/** masters を default のみに戻す */
+export async function resetMasters(): Promise<void> {
+  const defaults = await loadBundledDefault()
+  const meta = await getMeta()
+  await db.meta.put({ ...meta, masters: structuredClone(defaults) })
+  setCatalog(structuredClone(defaults))
+}
+
+/** settings を none に（飛行データは消さない） */
+export async function resetSettings(): Promise<void> {
+  await importSettings(defaultSettingsNone())
+}
+
+/** 同梱デフォルト＋（あれば）ローカル masters.json でシードし、メモリへ載せる */
+export async function ensureCatalog(): Promise<MastersFile> {
+  const defaults = await loadBundledDefault()
+  let row = await db.meta.get(META_ID)
+
+  if (!row) {
+    const local = await tryLoadLocalMastersFile()
+    const seeded = local ? mergeMasters(defaults, local) : structuredClone(defaults)
+    setCatalog(seeded)
+    return seeded
+  }
+
+  if (!row.masters) {
+    const local = await tryLoadLocalMastersFile()
+    const seeded = local ? mergeMasters(defaults, local) : structuredClone(defaults)
+    row = { ...row, masters: seeded }
+    await db.meta.put(row)
+  } else {
+    const merged = mergeMasters(defaults, row.masters)
+    if (JSON.stringify(merged) !== JSON.stringify(row.masters)) {
+      row = { ...row, masters: merged }
+      await db.meta.put(row)
+    }
+  }
+
+  setCatalog(row.masters!)
+  return row.masters!
+}
+
+export async function exportMasters(): Promise<MastersFile> {
+  await ensureCatalog()
+  return exportCatalogClone()
+}
+
+export async function importMasters(data: MastersFile): Promise<void> {
+  const defaults = await loadBundledDefault()
+  const merged = mergeMasters(defaults, data)
+  const meta = await getMeta()
+  await db.meta.put({ ...meta, masters: merged })
+  setCatalog(merged)
 }
 
 export async function getMeta(): Promise<MetaRow> {
@@ -92,10 +241,22 @@ export async function getWorking(): Promise<{ key: string; rec: FlightRecord }> 
   return { key, rec }
 }
 
-/** log キー一覧。通常の文字列昇順（日時キーが先、NEW 系は後ろ） */
+/** log キー一覧。最新順: NEW 系を先頭（プレーン NEW → NEW＋日時の新しい順）、その後は本登録キーの新しい順 */
 export async function listFlightKeys(): Promise<string[]> {
   const keys = (await db.flights.toArray()).map((r) => r.key)
-  return keys.sort((a, b) => a.localeCompare(b))
+  return keys.sort(compareFlightKeysNewestFirst)
+}
+
+/** NEW 系を先頭。同一グループ内は文字列降順（日時キーは新しい方が先）。プレーン NEW は NEW 系の先頭 */
+export function compareFlightKeysNewestFirst(a: string, b: string): number {
+  const aNew = a.startsWith('NEW')
+  const bNew = b.startsWith('NEW')
+  if (aNew !== bNew) return aNew ? -1 : 1
+  if (aNew) {
+    if (a === PLAIN_NEW_KEY && b !== PLAIN_NEW_KEY) return -1
+    if (b === PLAIN_NEW_KEY && a !== PLAIN_NEW_KEY) return 1
+  }
+  return b.localeCompare(a)
 }
 
 export function isNewRecordKey(key: string): boolean {
@@ -118,7 +279,7 @@ export async function setWorkingKey(key: string): Promise<void> {
   tmp.A_SR = rec.A_SR || meta.tmp.A_SR || ''
   tmp.A_SS = rec.A_SS || meta.tmp.A_SS || ''
   tmp.DRONE = drone
-  await db.meta.put({ id: META_ID, workingKey: key, tmp })
+  await patchMeta({ workingKey: key, tmp })
 }
 
 /**
@@ -149,7 +310,7 @@ export async function deleteOrResetRecord(key: string): Promise<void> {
       tmp.A_SR = rec.A_SR || ''
       tmp.A_SS = rec.A_SS || ''
       tmp.DRONE = drone
-      await db.meta.put({ id: META_ID, workingKey: next, tmp })
+      await patchMeta({ workingKey: next, tmp })
       return
     }
 
@@ -166,7 +327,7 @@ export async function deleteOrResetRecord(key: string): Promise<void> {
     const tmp = computeTmp(rec, drone, meta.tmp.TIME)
     tmp.DRONE = drone
     await db.flights.put({ ...rec, key: nk })
-    await db.meta.put({ id: META_ID, workingKey: nk, tmp })
+    await patchMeta({ workingKey: nk, tmp })
   })
 }
 
@@ -188,7 +349,7 @@ export async function saveWorking(rec: FlightRecord): Promise<void> {
         tmp.A_SS = rec.A_SS || meta.tmp.A_SS || ''
         tmp.DRONE = drone
         await db.flights.put({ ...rec, key: target })
-        await db.meta.put({ id: META_ID, workingKey: target, tmp })
+        await patchMeta({ workingKey: target, tmp })
       })
       return
     }
@@ -203,7 +364,7 @@ export async function saveWorking(rec: FlightRecord): Promise<void> {
         tmp.A_SS = rec.A_SS || meta.tmp.A_SS || ''
         tmp.DRONE = drone
         await db.flights.put({ ...rec, key: target })
-        await db.meta.put({ id: META_ID, workingKey: target, tmp })
+        await patchMeta({ workingKey: target, tmp })
       })
       return
     }
@@ -230,7 +391,7 @@ export async function importLog(log: LogFile): Promise<number> {
       const drone = rec.A_DRONE.split('_')[0] || 'Mavic2Pro'
       // log のみ取込時はセット時刻不明。TIME は空（tmp JSON 取込で別途設定）
       const tmp = computeTmp(rec, drone, '')
-      await db.meta.put({ id: META_ID, workingKey: working, tmp })
+      await patchMeta({ workingKey: working, tmp })
     }
   })
   return entries.length
@@ -270,7 +431,7 @@ export async function exportTmp(): Promise<TmpFlag> {
   return (await getMeta()).tmp
 }
 
-/** tmp03.json を取り込み（SR/SS/FLAG 等）。作業キーは TIME から NEW を復元 */
+/** tmp.json を取り込み（SR/SS/FLAG 等）。作業キーは TIME から NEW を復元 */
 export async function importTmp(tmp: TmpFlag): Promise<void> {
   const meta = await getMeta()
   const time = (tmp.TIME || '').trim()
@@ -287,7 +448,7 @@ export async function importTmp(tmp: TmpFlag): Promise<void> {
     A_SR: tmp.A_SR ?? meta.tmp.A_SR,
     A_SS: tmp.A_SS ?? meta.tmp.A_SS,
   }
-  await db.meta.put({ id: META_ID, workingKey, tmp: merged })
+  await patchMeta({ workingKey, tmp: merged })
   const row = await db.flights.get(workingKey)
   if (row) {
     const { key, ...rec } = row
@@ -297,14 +458,80 @@ export async function importTmp(tmp: TmpFlag): Promise<void> {
   }
 }
 
-export function downloadJson(filename: string, data: unknown): void {
-  const text = JSON.stringify(data, null, 4)
-  const blob = new Blob([text], { type: 'application/json' })
+export type ExportResult = 'saved' | 'offered' | 'cancelled'
+
+export type DeviceExportMode = 'share' | 'download'
+export type DeviceExportOutcome = 'ok' | 'cancelled' | 'error'
+
+function triggerAnchorDownload(href: string, filename: string): void {
   const a = document.createElement('a')
-  a.href = URL.createObjectURL(blob)
+  a.href = href
   a.download = filename
+  a.rel = 'noopener'
+  a.style.display = 'none'
+  document.body.appendChild(a)
   a.click()
-  URL.revokeObjectURL(a.href)
+  a.remove()
+}
+
+function toExportText(data: unknown): string {
+  return JSON.stringify(data, null, 4)
+}
+
+/**
+ * JSON を端末へ出力する。**同期開始**（iOS はユーザー操作の同一ターンが必須）。
+ * MIME は octet-stream。
+ */
+export function downloadJsonSync(filename: string, data: unknown): void {
+  const blob = new Blob([toExportText(data)], { type: 'application/octet-stream' })
+  const url = URL.createObjectURL(blob)
+  triggerAnchorDownload(url, filename)
+  window.setTimeout(() => URL.revokeObjectURL(url), 4000)
+}
+
+/**
+ * 端末へ出力を開始する（クリックハンドラから直接呼ぶ）。
+ * - preferShare: iPhone 向け。共有シート →「ファイルに保存」で保存場所を選べる
+ * - それ以外 / 共有不可: 従来のダウンロード（場所選択なし）
+ */
+export function startDeviceExport(
+  filename: string,
+  data: unknown,
+  opts: { preferShare?: boolean } = {},
+): { mode: DeviceExportMode; done: Promise<DeviceExportOutcome> } {
+  const text = toExportText(data)
+  const file = new File([text], filename, { type: 'application/json' })
+  const nav = navigator as Navigator & {
+    canShare?: (data?: ShareData) => boolean
+  }
+
+  if (
+    opts.preferShare &&
+    typeof nav.share === 'function' &&
+    typeof nav.canShare === 'function' &&
+    nav.canShare({ files: [file] })
+  ) {
+    const done = nav
+      .share({ files: [file], title: filename })
+      .then((): DeviceExportOutcome => 'ok')
+      .catch((e: unknown): DeviceExportOutcome => {
+        const name = e && typeof e === 'object' ? (e as { name?: string }).name : ''
+        return name === 'AbortError' ? 'cancelled' : 'error'
+      })
+    return { mode: 'share', done }
+  }
+
+  downloadJsonSync(filename, data)
+  return { mode: 'download', done: Promise.resolve('ok') }
+}
+
+/** @deprecated */
+export async function downloadJson(
+  filename: string,
+  data: unknown,
+): Promise<ExportResult> {
+  downloadJsonSync(filename, data)
+  return 'offered'
 }
 
 /** 場所名一覧（通常の文字列昇順・日本語ロケール） */
@@ -338,8 +565,8 @@ export async function findNearestPlace(
     const plat = Number(place.DATA1)
     const plng = Number(place.DATA2)
     const palt = Number(place.DATA3)
-    const posac = Number(place.POSAC) || 60
-    const altac = Number(place.ALTAC) || 10
+    const posac = Number(place.POSAC) || 15
+    const altac = Number(place.ALTAC) || 5
     if (![plat, plng].every((n) => Number.isFinite(n))) continue
     const dist = haversineM(lat, lng, plat, plng)
     const altDiff = Number.isFinite(palt) ? Math.abs(alt - palt) : Number.POSITIVE_INFINITY
@@ -386,8 +613,8 @@ export async function upsertPlace(
     DATA2: String(data.lng),
     DATA3: String(data.alt),
     ADRS: data.adrs || existing?.ADRS || '',
-    POSAC: data.posac || existing?.POSAC || '60',
-    ALTAC: data.altac || existing?.ALTAC || '10',
+    POSAC: data.posac || existing?.POSAC || '15',
+    ALTAC: data.altac || existing?.ALTAC || '5',
   })
 }
 
@@ -444,7 +671,7 @@ export async function resetWorking(): Promise<void> {
       if (k.startsWith('NEW')) await db.flights.delete(k)
     }
     await db.flights.put({ ...rec, key: PLAIN_NEW_KEY })
-    await db.meta.put({ id: META_ID, workingKey: PLAIN_NEW_KEY, tmp })
+    await patchMeta({ workingKey: PLAIN_NEW_KEY, tmp })
   })
 }
 
@@ -499,7 +726,7 @@ export async function applyWeatherSet(weather: {
     tmp.DRONE = drone
 
     await db.flights.put({ ...rec, key })
-    await db.meta.put({ id: META_ID, workingKey: key, tmp })
+    await patchMeta({ workingKey: key, tmp })
   })
 }
 
@@ -547,7 +774,7 @@ export async function commitWorking(): Promise<string | null> {
   const drone = next.A_DRONE.split('_')[0] || 'Mavic2Pro'
   const tmp = computeTmp(next, drone, meta.tmp.TIME)
   tmp.DRONE = drone
-  await db.meta.put({ id: META_ID, workingKey: nextKey, tmp })
+  await patchMeta({ workingKey: nextKey, tmp })
   return newKey
 }
 

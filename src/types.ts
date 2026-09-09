@@ -94,6 +94,21 @@ export type PosFile = Record<string, PlaceRecord>
 
 export type FieldKey = keyof FlightRecord
 
+export type OptionsKey =
+  | 'ok2'
+  | 'names'
+  | 'flt1'
+  | 'flt2'
+  | 'obst'
+  | 'elemag'
+  | 'third'
+  | 'wind'
+  | 'mode'
+  | 'fails'
+  | 'batn'
+
+export type CustomLabelKey = 'nameCustom' | 'batnCustom' | 'placeCustom'
+
 export interface FieldDef {
   no: number
   key: FieldKey | null
@@ -101,12 +116,16 @@ export interface FieldDef {
   group: 'pre' | 'ops' | 'takeoff' | 'post' | 'meta'
   /** choice2=正常/異常など2択, text=記述, number=数値記述, select=候補選択, readonly=表示のみ, datetime=離着陸日時, time=時分, flightDuration=飛行時間HH:mm */
   input: 'choice2' | 'text' | 'number' | 'select' | 'readonly' | 'datetime' | 'time' | 'flightDuration'
+  /** カタログ lists のキー（実行時に getList で解決） */
+  optionsKey?: OptionsKey
+  /** 旧: 直書き options（places 動的などは呼び出し側で上書き） */
   options?: string[]
   /** 飛行条件など複数選択（+ 連結） */
   multi?: boolean
   /** リスト末尾に任意入力を付ける */
   allowCustom?: boolean
   customLabel?: string
+  customLabelKey?: CustomLabelKey
   /** true なら #?項目の空欄判定対象外（REMARK など任意メモ） */
   skipEmptyCheck?: boolean
 }

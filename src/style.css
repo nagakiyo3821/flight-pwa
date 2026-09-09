@@ -9,6 +9,10 @@
   --ok: #1f6b4a;
   --bad: #8b2e2e;
   --radius: 12px;
+  /* 画面幅フィット共通: 100vw は使わない（スクロールバー分はみ出す） */
+  --content-max: 42rem;
+  --pad-x: 1rem;
+  --inset-x: 1.1rem;
   font-family: "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif;
   color: var(--ink);
   background:
@@ -18,15 +22,84 @@
 }
 
 * { box-sizing: border-box; }
-body { margin: 0; min-height: 100vh; }
+html {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  overflow-x: clip;
+}
+body {
+  margin: 0;
+  min-height: 100vh;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  overflow-x: clip;
+}
 
-#app { max-width: 42rem; margin: 0 auto; padding: 0 1rem 2rem; }
+#app {
+  width: 100%;
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: 0 var(--pad-x) calc(2rem + env(safe-area-inset-bottom, 0px));
+  box-sizing: border-box;
+  overflow-x: hidden;
+  min-width: 0;
+}
 
 .top {
   display: flex;
   justify-content: space-between;
   gap: 1rem;
   padding: 1.25rem 0 0.5rem;
+}
+.top--with-back {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.35rem;
+  padding-top: 0.85rem;
+}
+.top-titles {
+  min-width: 0;
+  width: 100%;
+}
+.nav-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  margin: 0;
+  padding: 0.2rem 0.35rem 0.2rem 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.nav-back:focus {
+  outline: none;
+}
+.nav-back:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.nav-back:active {
+  opacity: 0.65;
+}
+@media (hover: hover) and (pointer: fine) {
+  .nav-back:hover { opacity: 0.8; }
+}
+.nav-back-chevron {
+  display: inline-block;
+  width: 0.55rem;
+  height: 0.55rem;
+  border-left: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg);
+  margin: 0 0.25rem 0.08rem 0.1rem;
 }
 h1.prompt {
   margin: 0;
@@ -47,8 +120,13 @@ h2 { margin: 1rem 0 0.5rem; font-size: 1rem; }
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  padding: 1rem 1.1rem 1.2rem;
+  padding: 1rem var(--inset-x) 1.2rem;
   box-shadow: 0 1px 2px rgb(26 42 50 / 6%), 0 8px 24px rgb(26 42 50 / 6%);
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
+  overflow-x: hidden;
 }
 
 .meta { margin: 0.25rem 0; color: var(--muted); font-size: 0.9rem; }
@@ -71,12 +149,23 @@ code { font-size: 0.85em; }
   border-color: #e5c4bb;
 }
 
-.menu-card { padding: 0; }
-.menu { display: grid; gap: 0; margin: 0; }
+.menu-card { padding: 0; overflow: hidden; }
+.menu {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+/* 全リスト／選択肢共通の行高・間隔 */
 .menu-btn {
   display: block;
   width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
   text-align: left;
+  margin: 0;
   padding: 0.95rem 1.1rem;
   border: none;
   border-bottom: 1px solid var(--line);
@@ -84,8 +173,20 @@ code { font-size: 0.85em; }
   background: #fff;
   font: inherit;
   font-size: 1rem;
+  font-weight: 400;
+  line-height: 1.35;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.menu-btn-multiline {
+  line-height: 1.35;
+}
+.menu-btn-multiline br {
+  content: '';
+  display: block;
+  margin-top: 0.15rem;
 }
 .menu-btn:last-child { border-bottom: none; }
 /* タッチ後に :hover が残って「選択中」に見えるのを防ぐ */
@@ -112,6 +213,16 @@ code { font-size: 0.85em; }
   background: var(--accent-soft);
 }
 .menu-card .msg { margin: 0; padding: 0.75rem 1.1rem; }
+/* タイトル直下のフラッシュ／進捗メッセージ（リスト末尾には置かない） */
+.menu-flash {
+  margin: 0 0 0.55rem;
+  padding: 0 0.15rem;
+  min-height: 0;
+}
+.menu-flash:empty {
+  display: none;
+  margin: 0;
+}
 
 /* ショートカット「リストからの選択」相当の別ダイアログ */
 .sc-dialog {
@@ -120,22 +231,29 @@ code { font-size: 0.85em; }
   z-index: 1000;
   display: flex;
   flex-direction: column;
+  width: 100%;
+  max-width: 100%;
   background: var(--bg);
   overflow: hidden;
+  overflow-x: hidden;
+  box-sizing: border-box;
   -webkit-overflow-scrolling: touch;
 }
 .sc-dialog-panel {
   width: 100%;
-  max-width: 42rem;
+  max-width: min(var(--content-max), 100%);
   margin: 0 auto;
-  padding: 0 1rem 2rem;
+  padding: 0 var(--pad-x) calc(2rem + env(safe-area-inset-bottom, 0px));
   flex: 1;
+  min-width: 0;
   min-height: 0;
   height: 100%;
   max-height: 100%;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  overflow-x: hidden;
+  box-sizing: border-box;
 }
 .sc-dialog-head {
   padding: 1.25rem 0 0.65rem;
@@ -143,35 +261,47 @@ code { font-size: 0.85em; }
   background: var(--bg);
   position: relative;
   z-index: 2;
+  min-width: 0;
+  max-width: 100%;
 }
 .sc-dialog-head .prompt {
   margin: 0;
   font-size: 1.15rem;
   font-weight: 600;
   line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 .sc-dialog-list {
   margin-top: 0.25rem;
+  min-width: 0;
+  max-width: 100%;
 }
 .sc-dialog-body {
-  /* 項目が少ないときは内容サイズ。多いときは縮んで内部スクロール */
+  /* ヘッダ以外の残り高さを使い、内部スクロール可能にする */
   padding: 0;
-  flex: 0 1 auto;
+  flex: 1 1 auto;
+  min-width: 0;
   min-height: 0;
-  max-height: 100%;
+  max-height: none;
   overflow: hidden;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
   position: relative;
   z-index: 1;
   width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 .sc-dialog-scroll {
   flex: 1 1 auto;
+  min-width: 0;
   min-height: 0;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
+  max-width: 100%;
 }
 .sc-dialog-detail {
   padding: 0.85rem 1.1rem 0.75rem;
@@ -187,25 +317,108 @@ code { font-size: 0.85em; }
 }
 .sc-choice-list {
   margin: 0;
+  min-width: 0;
+  max-width: 100%;
+  width: 100%;
 }
-.sc-input {
+/* ダイアログ選択肢: 詳細スクロール外で行高・間隔を統一（.menu-btn と同じ） */
+.sc-dialog-body > .sc-choice-list {
+  flex: 0 0 auto;
+  border-top: 1px solid var(--line);
+  background: #fff;
+}
+.sc-dialog-body > .sc-choice-list .menu-btn:last-child {
+  border-bottom: none;
+}
+/* スクロール内に残るリストも同じ行間隔 */
+.sc-dialog-scroll .sc-choice-list .menu-btn {
+  padding: 0.95rem 1.1rem;
+  line-height: 1.35;
+}
+/* 親パディング＋ width:100%。calc(100%-余白)+margin は使わない */
+.sc-field-block {
+  padding: 1rem var(--inset-x) 0.35rem;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
+}
+/* 入力＋消去（×） */
+.sc-input-wrap {
+  position: relative;
   display: block;
-  width: calc(100% - 2.2rem);
-  margin: 1rem 1.1rem 0.25rem;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+.sc-input-wrap .sc-input,
+.sc-input-wrap .sc-input--fill,
+.sc-input-wrap input[type='text'],
+.sc-input-wrap input.num-input {
+  padding-right: 2.1rem;
+}
+/* 日付・時刻は右端にピッカーがあるので、× はその左に置く */
+.sc-input-wrap .sc-input-date,
+.sc-input-wrap .sc-input-time {
+  padding-right: 3.6rem;
+  max-width: 100%;
+}
+.sc-input-wrap:has(.sc-input-date) .sc-input-clear,
+.sc-input-wrap:has(.sc-input-time) .sc-input-clear {
+  right: 2rem;
+}
+.sc-input-clear {
+  position: absolute;
+  top: 50%;
+  right: 0.2rem;
+  transform: translateY(-50%);
+  width: 1.7rem;
+  height: 1.7rem;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.sc-input-clear:hover,
+.sc-input-clear:active {
+  color: var(--ink);
+  background: rgb(26 42 50 / 8%);
+}
+.sc-input-clear[hidden] {
+  display: none !important;
+}
+.sc-input,
+.sc-input-date,
+.sc-input-time {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
   padding: 0.7rem 0.8rem;
   border: 1px solid var(--line);
   border-radius: 8px;
   font: inherit;
   font-size: 1.05rem;
+  box-sizing: border-box;
 }
 .sc-input-date,
 .sc-input-time {
   min-height: 3.1rem;
   font-size: 1.35rem;
   font-variant-numeric: tabular-nums;
-  box-sizing: border-box;
-  width: calc(100% - 2.2rem);
   max-width: 22rem;
+}
+.sc-field-block .sc-input-date,
+.sc-field-block .sc-input-time {
+  max-width: 100%;
 }
 .sc-input-date::-webkit-calendar-picker-indicator,
 .sc-input-time::-webkit-calendar-picker-indicator {
@@ -217,6 +430,9 @@ code { font-size: 0.85em; }
   border: none;
   margin: 0 0 0.75rem;
   padding: 0;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 .datetime-set legend {
   font-weight: 600;
@@ -226,12 +442,15 @@ code { font-size: 0.85em; }
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
+  width: 100%;
+  min-width: 0;
 }
 .datetime-part {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
   flex: 1 1 10rem;
+  min-width: 0;
 }
 .datetime-part span {
   font-size: 0.85rem;
@@ -247,12 +466,18 @@ code { font-size: 0.85em; }
   display: flex;
   flex-direction: column;
   gap: 0.55rem;
-  padding: 0.85rem 1.1rem 0.35rem;
+  padding: 0.85rem var(--inset-x) 0.35rem;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
 }
 .sc-geo-field {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
+  min-width: 0;
+  max-width: 100%;
 }
 .sc-geo-field span {
   font-size: 0.9rem;
@@ -260,23 +485,32 @@ code { font-size: 0.85em; }
 }
 .sc-geo-field .sc-input {
   width: 100%;
+  max-width: 100%;
   margin: 0;
   box-sizing: border-box;
 }
 .sc-map-wrap {
-  padding: 0.5rem 1.1rem 0.25rem;
+  padding: 0.5rem var(--inset-x) 0.25rem;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
 }
 .sc-map {
   display: block;
   width: 100%;
+  max-width: 100%;
   height: 220px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #e8eef2;
+  overflow: hidden;
+  box-sizing: border-box;
+  contain: paint;
 }
-/* 現在地確認マップ: ウィンドウに合わせて拡大 */
+/* 現在地確認マップ: 親幅に合わせて拡大（vw 禁止） */
 .sc-dialog-panel--map {
-  max-width: min(96vw, 1100px);
+  max-width: min(var(--content-max), 100%);
   padding-bottom: 1rem;
 }
 .sc-dialog-panel--map .sc-dialog-head--compact {
@@ -293,32 +527,53 @@ code { font-size: 0.85em; }
 }
 .sc-map-wrap--fill {
   flex: 1 1 0;
+  min-width: 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  padding: 0.35rem 1.1rem 0.15rem;
+  padding: 0.35rem var(--inset-x) 0.15rem;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 .sc-map--fill {
   flex: 1 1 0;
   width: 100%;
+  max-width: 100%;
   height: auto;
   min-height: min(55vh, 520px);
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #e8eef2;
+  overflow: hidden;
+  box-sizing: border-box;
+  contain: paint;
 }
 .sc-dialog-body--map .sc-actions {
   flex: 0 0 auto;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 .sc-map-pick-wrap {
-  padding: 0.5rem 1.1rem 0;
+  padding: 0.5rem var(--inset-x) 0.75rem;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
+  overflow: hidden;
 }
 .sc-map-pick {
   width: 100%;
-  height: min(42vh, 320px);
+  max-width: 100%;
+  height: min(34vh, 260px);
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #e8eef2;
+  overflow: hidden;
+  box-sizing: border-box;
+  contain: paint;
   z-index: 0;
 }
 .sc-map-hint {
@@ -326,27 +581,319 @@ code { font-size: 0.85em; }
   font-size: 0.85rem;
   color: var(--muted);
 }
+.sc-geo-live {
+  margin: 0.65rem var(--inset-x) 0;
+  padding: 0.55rem 0.65rem;
+  border-radius: 6px;
+  background: #eef4f7;
+  border: 1px solid var(--line);
+  font-size: 0.9rem;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.sc-geo-live--ready {
+  background: #e7f6ee;
+  border-color: #b9e0cb;
+  font-weight: 600;
+}
+.sc-geo-fields--above-map {
+  padding-top: 0.45rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--line);
+}
+.sc-geo-fields--compact {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0.4rem;
+  padding: 0;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 0.4rem;
+  margin-bottom: 0.35rem;
+  flex: 0 0 auto;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+.sc-geo-fields--compact .sc-geo-field {
+  min-width: 0;
+}
+.sc-geo-fields--compact .sc-geo-field span {
+  font-size: 0.78rem;
+}
+.sc-geo-fields--compact .sc-geo-field .sc-input {
+  padding: 0.4rem 0.45rem;
+  font-size: 0.88rem;
+  width: 100%;
+  max-width: 100%;
+}
+@media (max-width: 360px) {
+  .sc-geo-fields--compact {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 親内いっぱい（互換クラス。通常の .sc-input と同じ） */
+.sc-input--fill {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  box-sizing: border-box;
+}
+
+/* マップ新規場所登録: 上から縦に詰める（6値＝緯度経度高度＋精度2＋住所） */
+.sc-dialog--geopick {
+  display: block !important;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  background: var(--bg);
+  box-sizing: border-box;
+}
+.sc-geopick-stack {
+  width: 100%;
+  max-width: min(var(--content-max), 100%);
+  margin: 0 auto;
+  padding: 0.35rem 0.65rem calc(0.55rem + env(safe-area-inset-bottom, 0px));
+  box-sizing: border-box;
+  overflow-x: hidden;
+  min-width: 0;
+}
+.sc-geopick-title {
+  margin: 0 0 0.3rem;
+  font-size: 0.84rem;
+  font-weight: 600;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+  max-width: 100%;
+}
+.sc-geo-fields--geopick {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  margin: 0 0 0.3rem;
+  padding: 0.4rem 0.5rem;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow-x: hidden;
+  min-width: 0;
+}
+/* 緯度・経度・高度は1行。高度をやや広げ、緯度経度をその分狭く */
+.sc-geo-fields--geopick-nums {
+  display: grid;
+  grid-template-columns: 4.6fr 4.6fr 2.8fr;
+  gap: 0.3rem;
+  width: 100%;
+  min-width: 0;
+}
+/* 位置精度・高度精度を横並び */
+.sc-geo-fields--geopick-acc {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.3rem;
+  width: 100%;
+  min-width: 0;
+}
+.sc-geo-fields--geopick .sc-geo-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+.sc-geo-fields--geopick .sc-geo-field span {
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+.sc-geo-fields--geopick .sc-geo-field .sc-input {
+  padding: 0.35rem 1.7rem 0.35rem 0.35rem;
+  /* iOS: 16px未満だとフォーカス時に画面全体がズームする */
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+}
+.sc-geo-fields--geopick .sc-geo-field .sc-input.sc-input--locked {
+  background: #eef2f4;
+  color: var(--ink);
+  opacity: 1;
+}
+.sc-geo-fields--geopick .sc-input-clear {
+  width: 1.4rem;
+  height: 1.4rem;
+  right: 0.1rem;
+  font-size: 1.05rem;
+}
+.sc-geo-fields--geopick-nums .sc-geo-field:nth-child(3) .sc-input {
+  font-size: 16px;
+  padding: 0.35rem 1.55rem 0.35rem 0.3rem;
+  text-align: right;
+}
+.sc-geo-fields--geopick .sc-geo-field--adrs .sc-input {
+  font-size: 16px;
+  padding: 0.4rem 2rem 0.4rem 0.45rem;
+  font-variant-numeric: normal;
+  text-align: left;
+  overflow-x: hidden;
+}
+@media (max-width: 360px) {
+  .sc-geo-fields--geopick-nums {
+    grid-template-columns: 1fr;
+  }
+  .sc-geo-fields--geopick-nums .sc-geo-field:nth-child(3) .sc-input {
+    text-align: left;
+  }
+}
+.sc-map-pick--geopick,
+.sc-dialog--geopick .sc-map-pick.sc-map-pick--geopick {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: 300px;
+  min-height: 300px;
+  max-height: 300px;
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #e8eef2;
+  overflow: hidden;
+  box-sizing: border-box;
+  contain: paint;
+  z-index: 0;
+}
+.sc-dialog--geopick .sc-map-hint {
+  margin: 0.2rem 0 0.4rem;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
 .sc-map-link {
   margin: 0.4rem 0 0;
   font-size: 0.9rem;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 .sc-map-link a {
   color: var(--accent);
 }
-/* Leaflet をダイアログ内で使うときの重なり調整 */
+/* Leaflet: 全ダイアログ共通でタイルはみ出しをクリップ */
 .sc-dialog .leaflet-container {
   font: inherit;
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+}
+.sc-dialog .leaflet-map-pane,
+.sc-dialog .leaflet-tile-pane,
+.sc-dialog .leaflet-overlay-pane,
+.sc-dialog .leaflet-shadow-pane,
+.sc-dialog .leaflet-marker-pane,
+.sc-dialog .leaflet-tooltip-pane,
+.sc-dialog .leaflet-popup-pane {
+  max-width: 100%;
+}
+.sc-dialog .leaflet-control-container {
+  max-width: 100%;
 }
 .sc-actions {
   display: flex;
   gap: 0.6rem;
-  padding: 0.85rem 1.1rem 1.1rem;
+  padding: 0.85rem var(--inset-x) 1.1rem;
   border-top: 1px solid var(--line);
   background: #f8fbfd;
   flex: 0 0 auto;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
+}
+.sc-actions.sc-geopick-actions {
+  position: static;
+  margin: 0;
+  padding: 0.15rem 0 0;
+  border-top: none;
+  background: transparent;
+  box-shadow: none;
+  transform: none;
+  left: auto;
+  bottom: auto;
+}
+.sc-actions.sc-geopick-actions .sc-btn {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.9rem;
+}
+.sc-actions .sc-btn {
+  flex: 1 1 0;
+  min-width: 0;
+}
+/* 取込／保存などの結果通知（通常のアラート） */
+.sc-dialog--alert {
+  align-items: center;
+  justify-content: center;
+  background: rgb(26 42 50 / 42%);
+  padding: 1.25rem;
+  overflow: auto;
+  overflow-x: hidden;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+}
+.sc-alert {
+  width: min(100%, 19.5rem);
+  max-width: 100%;
+  max-height: min(70vh, 22rem);
+  margin: auto;
+  padding: 1.2rem 1.15rem 1rem;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 10px 36px rgb(26 42 50 / 28%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.05rem;
+  overflow: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  box-sizing: border-box;
+}
+.sc-alert-msg {
+  margin: 0;
+  width: 100%;
+  font-size: 0.95rem;
+  font-weight: 500;
+  line-height: 1.45;
+  color: var(--ink);
+  text-align: center;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+.sc-alert .sc-btn-ok {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 5.5rem;
+  padding: 0.55rem 1.4rem;
+  font-size: 0.95rem;
 }
 .sc-btn {
-  flex: 1;
+  flex: 1 1 0;
+  min-width: 0;
   font: inherit;
   font-size: 1rem;
   font-weight: 600;
@@ -369,18 +916,24 @@ code { font-size: 0.85em; }
   border-color: #c5d9e3;
 }
 .sc-input-card {
-  padding: 1rem 1.1rem 1.2rem;
+  padding: 1rem var(--inset-x) 1.2rem;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
 }
 .sc-input-card input {
   width: 100%;
+  max-width: 100%;
   padding: 0.7rem 0.8rem;
   border: 1px solid var(--line);
   border-radius: 8px;
   font: inherit;
   font-size: 1.05rem;
+  box-sizing: border-box;
 }
 
-.row { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.75rem; }
+.row { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.75rem; min-width: 0; }
 .sticky { position: sticky; bottom: 0; background: linear-gradient(transparent, #fff 30%); padding-top: 1rem; }
 
 button.primary, button.ghost {
@@ -393,15 +946,17 @@ button.primary, button.ghost {
 button.primary { background: var(--accent); color: #fff; }
 button.ghost { background: var(--accent-soft); color: var(--accent); border-color: #c5d9e3; }
 
-.form { display: grid; gap: 0.65rem; }
-.field { display: grid; gap: 0.3rem; font-size: 0.9rem; }
+.form { display: grid; gap: 0.65rem; width: 100%; max-width: 100%; min-width: 0; }
+.field { display: grid; gap: 0.3rem; font-size: 0.9rem; min-width: 0; max-width: 100%; }
 .field em { font-style: normal; color: var(--muted); font-size: 0.75rem; margin-left: 0.35rem; }
 .field input, .field select {
   width: 100%;
+  max-width: 100%;
   padding: 0.55rem 0.7rem;
   border: 1px solid var(--line);
   border-radius: 8px;
   font: inherit;
+  box-sizing: border-box;
 }
 
 .choice-set {
@@ -409,6 +964,10 @@ button.ghost { background: var(--accent-soft); color: var(--accent); border-colo
   padding: 0.65rem 0.75rem 0.85rem;
   border: 1px solid var(--line);
   border-radius: 8px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
 }
 .choice-set legend { padding: 0 0.25rem; }
 .choices { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.35rem; }
@@ -432,4 +991,87 @@ button.ghost { background: var(--accent-soft); color: var(--accent); border-colo
 .choice input { accent-color: var(--accent); }
 
 .msg { min-height: 1.2rem; margin: 0.75rem 0 0; color: var(--ok); font-size: 0.9rem; }
+.msg.bad { color: var(--bad); }
+.msg.io-status {
+  margin: 0 0 0.85rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 8px;
+  background: var(--accent-soft);
+  border: 1px solid #c5d9e3;
+  color: var(--ink);
+  white-space: pre-wrap;
+}
+.msg.io-status:empty { display: none; }
+.msg.io-status.ok {
+  background: #e7f6ee;
+  border-color: #b9e0cb;
+  color: var(--ok);
+  font-weight: 600;
+}
+.msg.io-status.bad {
+  background: #f8ebe6;
+  border-color: #e5c4bb;
+  color: var(--bad);
+  font-weight: 600;
+}
+.msg.io-status.busy {
+  background: #fff8e6;
+  border-color: #e6d59a;
+  color: #6b5a00;
+  font-weight: 600;
+}
+.msg.io-status.busy::before {
+  content: '';
+  display: inline-block;
+  width: 0.85em;
+  height: 0.85em;
+  margin-right: 0.45em;
+  border: 2px solid #c9b56a;
+  border-top-color: #6b5a00;
+  border-radius: 50%;
+  vertical-align: -0.1em;
+  animation: io-spin 0.7s linear infinite;
+}
+@keyframes io-spin {
+  to { transform: rotate(360deg); }
+}
+
+.io-panel[data-busy='1'] button.ghost:not(.is-busy) {
+  opacity: 0.45;
+  pointer-events: none;
+}
+button.ghost.is-busy {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  font-weight: 700;
+  opacity: 1 !important;
+  pointer-events: none;
+}
+
+.settings-detail {
+  margin: 0.5rem 0 1rem;
+  padding-left: 1.25rem;
+  font-size: 0.9rem;
+  color: var(--muted);
+  line-height: 1.45;
+}
+.settings-detail li { margin: 0.15rem 0; }
+.settings-stub { color: #6b5a00; }
+.settings-actions {
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.settings-actions .ghost[disabled] {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.io-file-inputs {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
 .foot { margin-top: 1rem; color: var(--muted); font-size: 0.85rem; }

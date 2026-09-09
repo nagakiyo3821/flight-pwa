@@ -1,7 +1,7 @@
 import './style.css'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { FIELDS, filled } from './fields'
+import { FIELDS, filled, resolveCustomLabel, resolveOptions } from './fields'
 import {
   canOpen,
   formatNow,
@@ -12,10 +12,12 @@ import {
   commitWorking,
   deleteOrResetRecord,
   deletePlace,
-  downloadJson,
+  startDeviceExport,
   ensureBootstrap,
   exportLog,
+  exportMasters,
   exportPos,
+  exportSettings,
   exportTmp,
   findNearestPlace,
   getCurrentPosition,
@@ -23,13 +25,20 @@ import {
   getPlace,
   getWorking,
   importLog,
+  importMasters,
   importPos,
+  importSettings,
   importTmp,
   isNewRecordKey,
   listFlightKeys,
   listPlaceNames,
   nextDerivedPlaceName,
   renamePlace,
+  resetLog,
+  resetMasters,
+  resetPos,
+  resetSettings,
+  resetTmp,
   resetWorking,
   savePlaceRecord,
   saveWorking,
@@ -37,6 +46,30 @@ import {
   upsertPlace,
 } from './db'
 import type { FieldDef, FlightRecord, LogFile, PlaceRecord, PosFile, TmpFlag } from './types'
+import type { MastersFile } from './catalog'
+import {
+  droneTypeFrom,
+  getDroneIds,
+  getDroneTypes,
+  getHiddenKeys,
+  getLabel,
+  isKnownDroneType,
+} from './catalog'
+import {
+  getSettings,
+  isServerSyncConfigured,
+  settingsDetailLines,
+  syncNotImplementedMessage,
+  syncStatusLabel,
+} from './settings'
+import {
+  clearGoogleSession,
+  isGoogleClientConfigured,
+  isGoogleSignedIn,
+  requestGoogleAccessToken,
+} from './google-auth'
+import { probeConfiguredDriveFolder } from './google-drive'
+import { maybeAutoSync, persistFolderId, runGoogleDriveSync } from './google-sync'
 import {
   COMMIT_BACK,
   COMMIT_OK,
@@ -53,6 +86,9 @@ import {
   GPS_LABEL_ALT,
   GPS_LABEL_LAT,
   GPS_LABEL_LNG,
+  GPS_LABEL_ADRS,
+  GPS_LABEL_POSAC,
+  GPS_LABEL_ALTAC,
   LANDING_UPDATE_OK,
   LANDING_UPDATE_PROMPT,
   MAP_DONE,
@@ -80,11 +116,14 @@ import {
   PLACE_HERE_SKIP,
   PLACE_MENU_BACK,
   PLACE_MENU_HERE,
+  PLACE_MENU_HERE_NEW,
+  PLACE_MENU_MAP_NEW,
+  PLACE_DEFAULT_POSAC,
+  PLACE_DEFAULT_ALTAC,
   PLACE_UPDATE_BACK,
   REC_DEL_BACK,
   REC_DEL_OK,
   REC_DEL_PROMPT,
-  REC_JSON_IO,
   REC_MENU_BACK,
   RESET_OK,
   RESET_BACK,
@@ -92,6 +131,17 @@ import {
   SET_BACK,
   SET_OK,
   SET_PROMPT,
+  SETTINGS_HINT_MANUAL,
+  SETTINGS_HINT_OFF_DONE,
+  SETTINGS_OFF,
+  SETTINGS_OFF_CONFIRM,
+  GOOGLE_LOGIN,
+  GOOGLE_LOGOUT,
+  GOOGLE_PROBE,
+  GOOGLE_PULL,
+  GOOGLE_PUSH,
+  GOOGLE_SYNC,
+  SYS_DATA_TITLE,
   TAKEOFF_UPDATE_OK,
   TAKEOFF_UPDATE_PROMPT,
   TIMER_RESET_LATER,
@@ -100,7 +150,6 @@ import {
   TIMER_SET_LATER,
   TIMER_SET_OK,
   TIMER_SET_PROMPT,
-  VER,
   droneIdInputPrompt,
   droneIdPrompt,
   droneTypePrompt,
@@ -114,10 +163,13 @@ import {
   placeDecisionCopy,
   placeEditCopyCmd,
   placeHereCopy,
+  placeHereCopyNew,
   targetDataLine,
 } from './ui-strings'
 import { fetchWeatherSet } from './weather'
-import { fetchGroundElevation, osmEmbedUrl, osmOpenUrl, reverseGeocode } from './geo'
+import { APP_VERSION } from './version'
+import { isIosDevice } from './platform'
+import { fetchGroundElevation, osmEmbedUrl, osmOpenUrl, reverseGeocode, JP_BASE_TILE_OPTS, JP_BASE_TILE_URL, JP_PHOTO_TILE_OPTS, JP_PHOTO_TILE_URL } from './geo'
 import {
   combineYmdAndHm,
   displayFlightHm,
@@ -134,7 +186,6 @@ import {
   evaluateTimers,
   type TimerNeed,
 } from './session-timers'
-import { DRONE_ID_CUSTOM, DRONE_IDS, DRONE_TYPES, isDroneType } from './drone-master'
 
 /** ショートカットの T＝セット（tmp.TIME）からの経過秒 */
 let menuTick: number | undefined
@@ -142,7 +193,16 @@ let menuTick: number | undefined
 let timerPromptDismissed: { time: string; need: TimerNeed } | null = null
 let timerCheckRunning = false
 
-type View = 'menu' | 'newa' | 'newb' | 'record-edit' | 'records' | 'checklist' | 'io' | 'places' | 'place-edit'
+type View =
+  | 'menu'
+  | 'newa'
+  | 'newb'
+  | 'record-edit'
+  | 'records'
+  | 'checklist'
+  | 'io'
+  | 'places'
+  | 'place-edit'
 
 let view: View = 'menu'
 let placeEditName: string | null = null
@@ -167,16 +227,46 @@ async function render(): Promise<void> {
   clearStickyFocus()
 }
 
-function shell(title: string, body: string, subtitle = ''): string {
+let autoSyncWired = false
+function wireAutoSync(): void {
+  if (autoSyncWired) return
+  autoSyncWired = true
+  void maybeAutoSync('launch').then((msg) => {
+    if (!msg) return
+    flashMsg = msg
+    void render()
+  })
+  window.addEventListener('online', () => {
+    void maybeAutoSync('online').then((msg) => {
+      if (!msg) return
+      flashMsg = msg
+      if (view === 'menu' || view === 'io') void render()
+    })
+  })
+}
+
+function shell(
+  title: string,
+  body: string,
+  subtitle = '',
+  opts: { backId?: string } = {},
+): string {
+  const back = opts.backId
+    ? `<button type="button" class="nav-back" id="${escapeHtml(opts.backId)}" aria-label="戻る">
+        <span class="nav-back-chevron" aria-hidden="true"></span>
+        <span>戻る</span>
+      </button>`
+    : ''
   return `
-  <header class="top">
-    <div>
+  <header class="top${opts.backId ? ' top--with-back' : ''}">
+    ${back}
+    <div class="top-titles">
       <h1 class="prompt">${title}</h1>
       ${subtitle ? `<p class="prompt-sub" id="promptSub">${subtitle}</p>` : ''}
     </div>
   </header>
   <main>${body}</main>
-  <footer class="foot">飛行記録 PWA · ver${VER}（ショートカット互換）</footer>`
+  <footer class="foot">飛行記録 PWA · v${APP_VERSION}</footer>`
 }
 
 function srSsOrQ(v: string | undefined): string {
@@ -231,9 +321,10 @@ async function renderMenu(): Promise<void> {
     { action: 'reset', text: '6.データリセット' },
     { action: 'records', text: '7.登録データ管理' },
     { action: 'places', text: '8.場所データ管理' },
+    { action: 'io', text: '9.システムデータ管理' },
     {
       action: 'exit',
-      text: '9.終了(手動でタブを閉じる)',
+      text: '10.終了(手動でタブを閉じる)',
       inert: true,
     },
   ]
@@ -249,9 +340,9 @@ async function renderMenu(): Promise<void> {
   app.innerHTML = shell(
     MENU_PROMPT,
     `
+    <p id="msg" class="msg menu-flash"></p>
     <section class="card menu-card">
       <div class="menu">${list}</div>
-      <p id="msg" class="msg"></p>
     </section>`,
     titleSubtitle(t.A_SR, t.A_SS, t.TIME),
   )
@@ -294,17 +385,28 @@ function dialogShell(
   bodyHtml: string,
   actionsHtml: string,
   detailHtml = '',
+  panelClass = '',
 ): string {
   const detail = detailHtml
     ? `<div class="sc-dialog-detail">${detailHtml}</div>`
     : ''
-  return `
-    <div class="sc-dialog-panel">
-      <header class="sc-dialog-head">
+  const panelCls = panelClass ? ` sc-dialog-panel ${panelClass}` : ' sc-dialog-panel'
+  const head =
+    String(promptHtml ?? '').trim().length > 0
+      ? `<header class="sc-dialog-head">
         <h1 class="prompt">${promptHtml}</h1>
-      </header>
+      </header>`
+      : ''
+  // 選択肢リストはスクロール外に置き、行間隔を揃える
+  const choiceOnly = /^\s*<div\s+class="menu\s+sc-choice-list"/.test(bodyHtml)
+  const scrollInner = choiceOnly ? detail : `${detail}${bodyHtml}`
+  const listPart = choiceOnly ? bodyHtml : ''
+  return `
+    <div class="${panelCls.trim()}">
+      ${head}
       <section class="card sc-dialog-body">
-        <div class="sc-dialog-scroll">${detail}${bodyHtml}</div>
+        <div class="sc-dialog-scroll">${scrollInner}</div>
+        ${listPart}
         ${actionsHtml}
       </section>
     </div>`
@@ -321,10 +423,99 @@ function dialogActions(opts: { ok?: boolean; back?: boolean }): string {
   return `<div class="sc-actions">${ok}${back}</div>`
 }
 
+/** 出力確認。OK タップ＝ユーザー操作内で出力開始（iOS 必須） */
+function showExportConfirmDialog(filename: string, data: unknown): Promise<void> {
+  return new Promise((resolve) => {
+    const root = openDialogRoot()
+    root.classList.add('sc-dialog--alert')
+    const appEl = document.getElementById('app')
+    appEl?.setAttribute('inert', '')
+    root.innerHTML = `
+      <div class="sc-alert" role="document">
+        <p class="sc-alert-msg">${escapeHtml(filename)} を出力します</p>
+        <button type="button" class="sc-btn sc-btn-ok" id="sc-ok">OK</button>
+      </div>`
+    let done = false
+    const finish = () => {
+      if (done) return
+      done = true
+      appEl?.removeAttribute('inert')
+      closeDialogSafely(root, () => resolve())
+    }
+    root.querySelector('#sc-ok')?.addEventListener('click', (e) => {
+      e.preventDefault()
+      e.stopPropagation()
+      const { done } = startDeviceExport(filename, data, {
+        preferShare: isIosDevice(),
+      })
+      finish()
+      void done.then(async (outcome) => {
+        const applyIoMsg = (t: string, kind: 'ok' | 'bad') => {
+          const el = app.querySelector<HTMLElement>('#msg')
+          if (el && view === 'io') {
+            el.textContent = t
+            el.classList.toggle('ok', kind === 'ok')
+            el.classList.toggle('bad', kind === 'bad')
+            return
+          }
+          flashMsg = t
+        }
+        if (outcome === 'cancelled') {
+          applyIoMsg('出力を中止しました', 'ok')
+          return
+        }
+        if (outcome === 'error') {
+          applyIoMsg('出力に失敗しました', 'bad')
+          return
+        }
+        await showNoticeDialog(
+          `${filename}\nファイル出力が成功したか確認してください。`,
+        )
+        applyIoMsg(`確認してください（${filename}）`, 'ok')
+      })
+    })
+    root.querySelector('.sc-alert')?.addEventListener('click', (e) => {
+      e.stopPropagation()
+    })
+  })
+}
+
+/** 通常アプリ風の通知ダイアログ（半透明オーバーレイ＋中央パネル＋OK） */
+function showNoticeDialog(prompt: string): Promise<void> {
+  return new Promise((resolve) => {
+    const root = openDialogRoot()
+    root.classList.add('sc-dialog--alert')
+    const appEl = document.getElementById('app')
+    appEl?.setAttribute('inert', '')
+    const promptHtml = escapeHtml(prompt).replace(/\n/g, '<br/>')
+    root.innerHTML = `
+      <div class="sc-alert" role="document">
+        <p class="sc-alert-msg">${promptHtml}</p>
+        <button type="button" class="sc-btn sc-btn-ok" id="sc-ok">OK</button>
+      </div>`
+    let done = false
+    const finish = () => {
+      if (done) return
+      done = true
+      appEl?.removeAttribute('inert')
+      closeDialogSafely(root, () => resolve())
+    }
+    root.querySelector('#sc-ok')?.addEventListener('click', (e) => {
+      e.preventDefault()
+      e.stopPropagation()
+      finish()
+    })
+    root.querySelector('.sc-alert')?.addEventListener('click', (e) => {
+      e.stopPropagation()
+    })
+  })
+}
+
 function openDialogRoot(): HTMLDivElement {
   stopMenuTick()
   clearStickyFocus()
   document.getElementById('sc-dialog')?.remove()
+  document.getElementById('app')?.removeAttribute('inert')
   const root = document.createElement('div')
   root.id = 'sc-dialog'
   root.className = 'sc-dialog'
@@ -542,9 +733,10 @@ function askText(
     const start = mode === 'number' ? sanitizeNumberDraft(initial) : initial
     const body =
       mode === 'number'
-        ? `<input id="sc-input" class="sc-input" type="text" inputmode="decimal" autocomplete="off" value="${escapeHtml(start)}" />`
-        : `<input id="sc-input" class="sc-input" type="text" inputmode="text" value="${escapeHtml(start)}" />`
+        ? `<div class="sc-field-block">${clearableInputHtml('sc-input', 'class="sc-input" type="text" inputmode="decimal" autocomplete="off"', start)}</div>`
+        : `<div class="sc-field-block">${clearableInputHtml('sc-input', 'class="sc-input" type="text" inputmode="text"', start)}</div>`
     root.innerHTML = dialogShell(promptHtml, body, dialogActions({ ok: true, back: true }))
+    wireClearableInputs(root)
     const input = root.querySelector<HTMLInputElement>('#sc-input')!
     input.focus()
     input.select()
@@ -620,8 +812,9 @@ function askDate(prompt: string, initialYmd: string): Promise<string | null> {
     const root = openDialogRoot()
     const promptHtml = escapeHtml(prompt).replace(/\n/g, '<br/>')
     const value = toDateInputValue(initialYmd)
-    const body = `<input id="sc-input" class="sc-input sc-input-date" type="date" value="${escapeHtml(value)}" required />`
+    const body = `<div class="sc-field-block">${clearableInputHtml('sc-input', 'class="sc-input sc-input-date" type="date"', value)}</div>`
     root.innerHTML = dialogShell(promptHtml, body, dialogActions({ ok: true, back: true }))
+    wireClearableInputs(root)
     const input = root.querySelector<HTMLInputElement>('#sc-input')!
     input.focus()
     let done = false
@@ -657,8 +850,9 @@ function askTime(prompt: string, initialHm: string): Promise<string | null> {
     const root = openDialogRoot()
     const promptHtml = escapeHtml(prompt).replace(/\n/g, '<br/>')
     const value = toTimeInputValue(initialHm) || '00:00'
-    const body = `<input id="sc-input" class="sc-input sc-input-time" type="time" step="60" value="${escapeHtml(value)}" required />`
+    const body = `<div class="sc-field-block">${clearableInputHtml('sc-input', 'class="sc-input sc-input-time" type="time" step="60"', value)}</div>`
     root.innerHTML = dialogShell(promptHtml, body, dialogActions({ ok: true, back: true }))
+    wireClearableInputs(root)
     const input = root.querySelector<HTMLInputElement>('#sc-input')!
     input.focus()
     let done = false
@@ -687,11 +881,23 @@ function askTime(prompt: string, initialHm: string): Promise<string | null> {
   })
 }
 
-type LatLngAlt = { lat: number; lng: number; alt: number }
+type LatLngAlt = {
+  lat: number
+  lng: number
+  alt: number
+  adrs?: string
+  posac?: string
+  altac?: string
+}
 type GeoParts = { lat?: number; lng?: number; alt?: number }
 
 function isFiniteNum(n: unknown): n is number {
   return typeof n === 'number' && Number.isFinite(n)
+}
+
+/** 高度(m)を小数第2位に丸める（GPS等の過剰桁を抑える） */
+function roundAltMeters(n: number): number {
+  return Math.round(n * 100) / 100
 }
 
 function isRequiredNumber(raw: string): boolean {
@@ -703,51 +909,200 @@ function geoFieldHtml(
   id: string,
   label: string,
   initial: string,
+  opts?: { fill?: boolean; text?: boolean },
 ): string {
+  const inputClass = opts?.fill ? 'sc-input sc-input--fill' : 'sc-input'
+  if (opts?.text) {
+    return `<label class="sc-geo-field sc-geo-field--adrs"><span>${escapeHtml(label)}</span>
+    ${clearableInputHtml(id, `class="${inputClass}" type="text" inputmode="text" autocomplete="street-address"`, initial)}</label>`
+  }
   return `<label class="sc-geo-field"><span>${escapeHtml(label)}</span>
-    <input id="${id}" class="sc-input" type="text" inputmode="decimal" autocomplete="off" value="${escapeHtml(sanitizeNumberDraft(initial))}" /></label>`
+    ${clearableInputHtml(id, `class="${inputClass}" type="text" inputmode="decimal" autocomplete="off"`, sanitizeNumberDraft(initial))}</label>`
+}
+
+/** テキスト／数値／日付／時刻入力＋消去（×） */
+function clearableInputHtml(id: string, inputAttrs: string, value: string): string {
+  return `<div class="sc-input-wrap">
+    <input id="${id}" ${inputAttrs} value="${escapeHtml(value)}" />
+    <button type="button" class="sc-input-clear" aria-label="消去" tabindex="-1" hidden>&times;</button>
+  </div>`
+}
+
+/** 入力が空でなければ × を表示。クリックで値を消して input/change を発火。戻り値で再同期可 */
+function wireClearableInputs(root: ParentNode): () => void {
+  const syncAll: Array<() => void> = []
+  root.querySelectorAll<HTMLElement>('.sc-input-wrap').forEach((wrap) => {
+    const input = wrap.querySelector<HTMLInputElement>(
+      'input:not([type="hidden"]):not([type="radio"]):not([type="checkbox"]):not([type="file"])',
+    )
+    const btn = wrap.querySelector<HTMLButtonElement>('.sc-input-clear')
+    if (!input || !btn) return
+    const sync = () => {
+      btn.hidden = String(input.value ?? '').length === 0
+    }
+    sync()
+    syncAll.push(sync)
+    input.addEventListener('input', sync)
+    input.addEventListener('change', sync)
+    btn.addEventListener('click', (e) => {
+      e.preventDefault()
+      e.stopPropagation()
+      input.value = ''
+      input.setCustomValidity('')
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+      input.dispatchEvent(new Event('change', { bubbles: true }))
+      sync()
+      input.focus()
+    })
+  })
+  return () => {
+    for (const sync of syncAll) sync()
+  }
 }
 
 /**
  * 未定の座標項目を入力。緯度・経度が必要なときはマップクリックと数値入力が連動。
  * known は GPS などで既に確定した値。戻るで null。
+ * mapRegister: フィールドは空開始。マップタップで緯度・経度・高度・住所をセットし、
+ * 数値修正でピン移動＋住所再抽出。住所の手修正は確定値として採用。
+ * gpsReview: マップ新規場所登録と同じ6値UI。GPS点を表示し、位置（マップ／緯度経度高度）は固定。
  */
 function askMissingGeo(
   known: GeoParts,
   need: { lat: boolean; lng: boolean; alt: boolean },
   prefill?: { lat?: string; lng?: string; alt?: string },
-  opts?: { lowAccuracy?: boolean; pcManual?: boolean },
+  opts?: {
+    lowAccuracy?: boolean
+    pcManual?: boolean
+    mapRegister?: boolean
+    /** GPS現在地レビュー（geopick UI・位置固定） */
+    gpsReview?: boolean
+    /** マップ初期中心（フィールド初期値とは別。mapRegister 用） */
+    mapCenter?: { lat: number; lng: number }
+    /** gpsReview / mapRegister の住所・精度初期値 */
+    extraPrefill?: { adrs?: string; posac?: string; altac?: string }
+  },
 ): Promise<LatLngAlt | null> {
   return new Promise((resolve) => {
     const root = openDialogRoot()
+    const mapReg = !!opts?.mapRegister
+    const gpsReview = !!opts?.gpsReview
+    const geopick = mapReg || gpsReview
     const promptHtml = escapeHtml(gpsMissingPrompt(need, opts)).replace(/\n/g, '<br/>')
     const showMap = need.lat && need.lng
+    const fieldPrefill = mapReg ? {} : prefill
     const parts: string[] = []
-    if (need.lat) parts.push(geoFieldHtml('sc-lat', GPS_LABEL_LAT, prefill?.lat ?? ''))
-    if (need.lng) parts.push(geoFieldHtml('sc-lng', GPS_LABEL_LNG, prefill?.lng ?? ''))
-    if (need.alt) parts.push(geoFieldHtml('sc-alt', GPS_LABEL_ALT, prefill?.alt ?? ''))
+    const fill = geopick
+    if (need.lat) parts.push(geoFieldHtml('sc-lat', GPS_LABEL_LAT, fieldPrefill?.lat ?? '', { fill }))
+    if (need.lng) parts.push(geoFieldHtml('sc-lng', GPS_LABEL_LNG, fieldPrefill?.lng ?? '', { fill }))
+    if (need.alt) parts.push(geoFieldHtml('sc-alt', GPS_LABEL_ALT, fieldPrefill?.alt ?? '', { fill }))
+    const accHtml = geopick
+      ? `<div class="sc-geo-fields--geopick-acc">
+          ${geoFieldHtml('sc-posac', GPS_LABEL_POSAC, opts?.extraPrefill?.posac ?? PLACE_DEFAULT_POSAC, { fill })}
+          ${geoFieldHtml('sc-altac', GPS_LABEL_ALTAC, opts?.extraPrefill?.altac ?? PLACE_DEFAULT_ALTAC, { fill })}
+        </div>`
+      : ''
+    const adrsHtml = geopick
+      ? geoFieldHtml('sc-adrs', GPS_LABEL_ADRS, opts?.extraPrefill?.adrs ?? '', { fill: true, text: true })
+      : ''
     const mapHtml = showMap
       ? `<div class="sc-map-pick-wrap">
           <div id="sc-map-pick" class="sc-map-pick" role="application" aria-label="位置選択マップ"></div>
-          <p class="sc-map-hint" id="sc-map-hint">マップをクリック／タップすると緯度・経度と地表標高をセット</p>
+          <p class="sc-map-hint" id="sc-map-hint">${
+            gpsReview
+              ? 'GPS現在地（位置は変更できません）'
+              : mapReg
+                ? 'タップで緯度・経度・高度・住所をセット'
+                : 'マップをタップすると緯度・経度と地表標高をセット'
+          }</p>
         </div>`
       : ''
-    const body = `${mapHtml}<div class="sc-geo-fields">${parts.join('')}</div>`
-    root.innerHTML = dialogShell(promptHtml, body, dialogActions({ ok: true, back: true }))
+    const fieldsHtml = geopick
+      ? `<div class="sc-geo-fields--geopick">
+          <div class="sc-geo-fields--geopick-nums">${parts.join('')}</div>
+          ${accHtml}
+          ${adrsHtml}
+        </div>`
+      : `<div class="sc-geo-fields${showMap ? ' sc-geo-fields--above-map' : ''}">${parts.join('')}</div>`
+    const body = `${fieldsHtml}${mapHtml}`
+    if (geopick) {
+      // 全高flexは使わない。幅は CSS（100% / overflow-x）で画面に合わせる。
+      root.classList.add('sc-dialog--geopick')
+      const hint = gpsReview
+        ? 'GPS現在地（位置は変更できません）'
+        : 'タップで緯度・経度・高度・住所をセット'
+      root.innerHTML = `
+        <div class="sc-geopick-stack">
+          <h1 class="prompt sc-geopick-title">${promptHtml}</h1>
+          ${fieldsHtml}
+          <div id="sc-map-pick" class="sc-map-pick sc-map-pick--geopick" role="application" aria-label="位置選択マップ"></div>
+          <p class="sc-map-hint" id="sc-map-hint">${hint}</p>
+          <div class="sc-actions sc-geopick-actions">
+            <button type="button" class="sc-btn sc-btn-ok" id="sc-ok">${escapeHtml(ITEM_OK)}</button>
+            <button type="button" class="sc-btn sc-btn-back" id="sc-back">${escapeHtml(ITEM_BACK)}</button>
+          </div>
+        </div>`
+    } else {
+      root.innerHTML = dialogShell(
+        promptHtml,
+        body,
+        dialogActions({ ok: true, back: true }),
+      )
+    }
+    const refreshClearable = wireClearableInputs(root)
 
     const latEl = root.querySelector<HTMLInputElement>('#sc-lat')
     const lngEl = root.querySelector<HTMLInputElement>('#sc-lng')
     const altEl = root.querySelector<HTMLInputElement>('#sc-alt')
-    const inputs = [latEl, lngEl, altEl].filter((el): el is HTMLInputElement => !!el)
+    const posacEl = root.querySelector<HTMLInputElement>('#sc-posac')
+    const altacEl = root.querySelector<HTMLInputElement>('#sc-altac')
+    const adrsEl = root.querySelector<HTMLInputElement>('#sc-adrs')
+    const liveEl = root.querySelector<HTMLElement>('#sc-geo-live')
+    const inputs = [latEl, lngEl, altEl, posacEl, altacEl].filter(
+      (el): el is HTMLInputElement => !!el,
+    )
+
+    if (gpsReview) {
+      for (const el of [latEl, lngEl, altEl]) {
+        if (!el) continue
+        el.readOnly = true
+        el.classList.add('sc-input--locked')
+        const wrap = el.closest('.sc-input-wrap')
+        const clr = wrap?.querySelector<HTMLButtonElement>('.sc-input-clear')
+        if (clr) {
+          clr.hidden = true
+          clr.disabled = true
+        }
+      }
+    }
 
     let map: L.Map | undefined
     let marker: L.CircleMarker | undefined
     let syncing = false
+    /** マップタップ由来の標高取得中は、手入力で上書きされないよう世代管理 */
+    let elevReq = 0
+    /** ポイント移動ごとの住所再抽出の世代管理 */
+    let adrsReq = 0
 
     const parseField = (el: HTMLInputElement | null): number | undefined => {
       if (!el) return undefined
       const v = normalizeNumberInput(el.value)
       return isRequiredNumber(v) ? Number(v) : undefined
+    }
+
+    const updateLive = () => {
+      if (!liveEl) return
+      const lat = parseField(latEl) ?? known.lat
+      const lng = parseField(lngEl) ?? known.lng
+      const alt = parseField(altEl) ?? known.alt
+      const fmt = (n: number | undefined, unit = '') =>
+        n != null && Number.isFinite(n) ? `${n}${unit}` : '—'
+      liveEl.textContent =
+        `選択位置\n緯度 ${fmt(lat)}°\n経度 ${fmt(lng)}°\n高度 ${fmt(alt, 'm')}`
+      liveEl.classList.toggle(
+        'sc-geo-live--ready',
+        lat != null && lng != null && alt != null,
+      )
     }
 
     const setMarker = (lat: number, lng: number, pan: boolean) => {
@@ -777,27 +1132,44 @@ function askMissingGeo(
         lngEl.setCustomValidity('')
       }
       syncing = false
+      refreshClearable()
+      updateLive()
     }
 
-    const syncMapFromFields = () => {
+    const syncMapFromFields = (pan = true) => {
       if (!map || syncing) return
       const lat = parseField(latEl)
       const lng = parseField(lngEl)
       if (lat == null || lng == null) return
       if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return
-      setMarker(lat, lng, true)
+      setMarker(lat, lng, pan)
+      updateLive()
     }
 
-    let elevReq = 0
     const mapHint = root.querySelector<HTMLElement>('#sc-map-hint')
-    const defaultMapHint =
-      'マップをクリック／タップすると緯度・経度と地表標高をセット'
-    const fetchElevation = async (lat: number, lng: number) => {
+    const defaultMapHint = gpsReview
+      ? 'GPS現在地（位置は変更できません）'
+      : mapReg
+        ? 'タップで緯度・経度・高度・住所をセット'
+        : 'マップをタップすると緯度・経度と地表標高をセット'
+
+    const fetchElevation = async (
+      lat: number,
+      lng: number,
+      mode: 'mapClick' | 'soft',
+    ) => {
       if (!need.alt || !altEl) return
       const req = ++elevReq
       const prev = altEl.value
-      altEl.placeholder = '標高取得中…'
+      if (mode === 'mapClick') {
+        altEl.value = ''
+        altEl.placeholder = '標高取得中…'
+      } else {
+        altEl.placeholder = '標高取得中…'
+      }
       if (mapHint) mapHint.textContent = '標高を取得中…'
+      refreshClearable()
+      updateLive()
       const elev = await fetchGroundElevation(lat, lng)
       if (req !== elevReq) return
       altEl.placeholder = ''
@@ -806,27 +1178,66 @@ function askMissingGeo(
           mapHint.textContent = NET_FAIL_ELEVATION
           mapHint.classList.add('net-fail')
         }
+        refreshClearable()
+        updateLive()
         return
       }
       if (mapHint) {
         mapHint.textContent = defaultMapHint
         mapHint.classList.remove('net-fail')
       }
-      // 取得中に手入力されていなければ、指定点の地表標高で更新
-      if (altEl.value === prev) {
+      // マップタップ: 常に地表標高で確定。ソフト: 取得中に手入力されていなければ更新
+      if (mode === 'mapClick' || altEl.value === prev || altEl.value === '') {
         altEl.value = String(elev)
         altEl.setCustomValidity('')
       }
+      refreshClearable()
+      updateLive()
+    }
+
+    /** ポイントが動いたら住所を再抽出（手修正は次のポイント移動まで保持） */
+    const fetchAddress = async (lat: number, lng: number) => {
+      if (!mapReg || !adrsEl) return
+      const req = ++adrsReq
+      adrsEl.placeholder = '住所取得中…'
+      if (mapHint) {
+        mapHint.textContent = '住所を取得中…'
+        mapHint.classList.remove('net-fail')
+      }
+      const adrs = await reverseGeocode(lat, lng)
+      if (req !== adrsReq) return
+      adrsEl.placeholder = ''
+      adrsEl.value = String(adrs ?? '').trim()
+      refreshClearable()
+      if (!adrsEl.value) {
+        if (mapHint) {
+          mapHint.textContent = NET_FAIL_ADDRESS
+          mapHint.classList.add('net-fail')
+        }
+        return
+      }
+      if (mapHint) {
+        mapHint.textContent = defaultMapHint
+        mapHint.classList.remove('net-fail')
+      }
+    }
+
+    const onPointMoved = (lat: number, lng: number, elevMode: 'mapClick' | 'soft') => {
+      if (gpsReview) return
+      void fetchElevation(lat, lng, elevMode)
+      void fetchAddress(lat, lng)
     }
 
     if (showMap) {
-      const startLat =
+      const centerLat =
+        opts?.mapCenter?.lat ??
         parseField(latEl) ??
         known.lat ??
         (isRequiredNumber(normalizeNumberInput(prefill?.lat ?? ''))
           ? Number(normalizeNumberInput(prefill!.lat!))
           : 39.672926)
-      const startLng =
+      const centerLng =
+        opts?.mapCenter?.lng ??
         parseField(lngEl) ??
         known.lng ??
         (isRequiredNumber(normalizeNumberInput(prefill?.lng ?? ''))
@@ -834,31 +1245,61 @@ function askMissingGeo(
           : 140.122693)
 
       const mapEl = root.querySelector<HTMLDivElement>('#sc-map-pick')!
-      map = L.map(mapEl, { zoomControl: true }).setView([startLat, startLng], 15)
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '&copy; OpenStreetMap',
-      }).addTo(map)
+      const fitMapWidth = () => {
+        if (!map) return
+        mapEl.style.width = '100%'
+        mapEl.style.maxWidth = '100%'
+        mapEl.style.boxSizing = 'border-box'
+        mapEl.style.overflow = 'hidden'
+        if (geopick) {
+          mapEl.style.height = '300px'
+        }
+        const c = map.getContainer()
+        c.style.width = '100%'
+        c.style.maxWidth = '100%'
+        c.style.boxSizing = 'border-box'
+        if (geopick) c.style.height = '300px'
+        map.invalidateSize({ animate: false })
+      }
+      if (geopick) {
+        mapEl.style.cssText =
+          'height:300px;min-height:300px;max-height:300px;width:100%;max-width:100%;overflow:hidden;box-sizing:border-box;'
+      }
+      map = L.map(mapEl, { zoomControl: true }).setView([centerLat, centerLng], 16)
+      const base = L.tileLayer(JP_BASE_TILE_URL, { ...JP_BASE_TILE_OPTS })
+      const photo = L.tileLayer(JP_PHOTO_TILE_URL, { ...JP_PHOTO_TILE_OPTS })
+      base.addTo(map)
+      // 標準地図／写真の切替（住宅の有無確認用）
+      L.control
+        .layers(
+          { 標準地図: base, 写真: photo },
+          {},
+          { position: 'topright', collapsed: true },
+        )
+        .addTo(map)
 
+      // 初期フィールドに座標があるときだけピン表示（mapRegister は空なのでタップ待ち）
       if (parseField(latEl) != null && parseField(lngEl) != null) {
-        setMarker(startLat, startLng, false)
+        setMarker(parseField(latEl)!, parseField(lngEl)!, false)
       }
 
-      map.on('click', (e: L.LeafletMouseEvent) => {
-        const { lat, lng } = e.latlng
-        const latR = Math.round(lat * 1e8) / 1e8
-        const lngR = Math.round(lng * 1e8) / 1e8
-        applyLatLngToFields(latR, lngR)
-        setMarker(latR, lngR, false)
-        void fetchElevation(latR, lngR)
-      })
+      if (!gpsReview) {
+        map.on('click', (e: L.LeafletMouseEvent) => {
+          const { lat, lng } = e.latlng
+          const latR = Math.round(lat * 1e8) / 1e8
+          const lngR = Math.round(lng * 1e8) / 1e8
+          applyLatLngToFields(latR, lngR)
+          setMarker(latR, lngR, false)
+          onPointMoved(latR, lngR, 'mapClick')
+        })
+      }
 
-      // ダイアログ表示後にサイズ再計算
-      requestAnimationFrame(() => {
-        map?.invalidateSize()
-      })
-      setTimeout(() => map?.invalidateSize(), 100)
+      requestAnimationFrame(() => fitMapWidth())
+      setTimeout(() => fitMapWidth(), 100)
+      setTimeout(() => fitMapWidth(), 300)
     }
+
+    updateLive()
 
     let done = false
     const finish = (value: LatLngAlt | null) => {
@@ -870,17 +1311,39 @@ function askMissingGeo(
 
     for (const el of inputs) {
       el.addEventListener('input', () => {
+        if (gpsReview && (el === latEl || el === lngEl || el === altEl)) return
         const cleaned = sanitizeNumberDraft(el.value)
         if (cleaned !== el.value) el.value = cleaned
         el.setCustomValidity('')
-        if (el === latEl || el === lngEl) syncMapFromFields()
+        updateLive()
+        if (!gpsReview && (el === latEl || el === lngEl)) syncMapFromFields(true)
+      })
+      el.addEventListener('change', () => {
+        // 緯度経度を確定編集したら標高・住所も点に合わせて再取得
+        if (gpsReview) return
+        if (el !== latEl && el !== lngEl) return
+        const lat = parseField(latEl)
+        const lng = parseField(lngEl)
+        if (lat == null || lng == null) return
+        if (mapReg) onPointMoved(lat, lng, 'soft')
+        else void fetchElevation(lat, lng, 'soft')
       })
       el.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') confirm()
         if (e.key === 'Escape') finish(null)
       })
     }
-    inputs[0]?.focus()
+
+    // 住所は手修正を許可（ポイント移動で再抽出されるまで保持）
+    if (adrsEl) {
+      adrsEl.addEventListener('input', () => {
+        adrsEl.setCustomValidity('')
+      })
+      adrsEl.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') confirm()
+        if (e.key === 'Escape') finish(null)
+      })
+    }
 
     const readRequired = (el: HTMLInputElement | null): number | null => {
       if (!el) return null
@@ -915,7 +1378,23 @@ function askMissingGeo(
         alt = v
       }
       if (!isFiniteNum(lat) || !isFiniteNum(lng) || !isFiniteNum(alt)) return
-      finish({ lat, lng, alt })
+      let posac: string | undefined
+      let altac: string | undefined
+      if (geopick) {
+        const p = readRequired(posacEl)
+        if (p === null) return
+        const a = readRequired(altacEl)
+        if (a === null) return
+        posac = String(p)
+        altac = String(a)
+      }
+      const adrs = geopick ? String(adrsEl?.value ?? '').trim() : undefined
+      finish({
+        lat,
+        lng,
+        alt,
+        ...(geopick ? { adrs, posac, altac } : {}),
+      })
     }
 
     root.querySelector('#sc-ok')!.addEventListener('click', confirm)
@@ -933,7 +1412,7 @@ function showMapDialog(lat: number, lng: number, alt?: number): Promise<void> {
         MAP_PROMPT,
         `${GPS_LABEL_LAT}(${lat})`,
         `${GPS_LABEL_LNG}(${lng})`,
-        `${GPS_LABEL_ALT}(${altText})m`,
+        `${GPS_LABEL_ALT} ${altText}`,
       ].join('\n'),
     ).replace(/\n/g, '<br/>')
     const embed = osmEmbedUrl(lat, lng)
@@ -1007,7 +1486,7 @@ async function resolveLatLngAlt(initial?: {
     const { latitude: lat, longitude: lng, altitude } = pos.coords
     if (isFiniteNum(lat)) known.lat = lat
     if (isFiniteNum(lng)) known.lng = lng
-    if (altitude != null && isFiniteNum(altitude)) known.alt = altitude
+    if (altitude != null && isFiniteNum(altitude)) known.alt = roundAltMeters(altitude)
   } catch {
     // GPS 自体が使えない → 未定のまま手入力
   }
@@ -1077,10 +1556,11 @@ async function editOneField(f: FieldDef, rec: FlightRecord): Promise<string | nu
     return editDroneField(cur)
   }
 
+  const drone = droneTypeFrom(rec.A_DRONE)
   const prompt = fieldPrompt(f, cur)
 
   if (f.input === 'choice2' || f.input === 'select') {
-    let opts = [...(f.options ?? [])]
+    let opts = resolveOptions(f, drone)
     if (f.key === 'A_POS' || f.key === 'B_POS') {
       const places = await listPlaceNames()
       opts = [...places]
@@ -1100,11 +1580,12 @@ async function editOneField(f: FieldDef, rec: FlightRecord): Promise<string | nu
       return picked.join('+')
     }
 
+    const customLabel = resolveCustomLabel(f)
     const choices = [...opts]
-    if (f.allowCustom) choices.push(f.customLabel || '任意の入力')
+    if (f.allowCustom) choices.push(customLabel)
     const selected = await chooseFromList(prompt, choices)
     if (selected === null) return null
-    if (f.allowCustom && selected === (f.customLabel || '任意の入力')) {
+    if (f.allowCustom && selected === customLabel) {
       return askText(prompt, cur === '?' ? '' : cur, 'text')
     }
     return selected
@@ -1138,17 +1619,19 @@ async function askDateTimeField(f: FieldDef, current: string): Promise<string | 
   return combined
 }
 
-/** 項目1: 機種3択（Mavic2Pro/Tello/Other）→ 識別番号リスト＋任意入力 */
+/** 項目1: 機種選択 → 識別番号リスト＋任意入力（カタログ） */
 async function editDroneField(current: string): Promise<string | null> {
-  const typeSel = await chooseFromList(droneTypePrompt(current), [...DRONE_TYPES])
-  if (typeSel === null || !isDroneType(typeSel)) return null
+  const types = getDroneTypes()
+  const typeSel = await chooseFromList(droneTypePrompt(current), types)
+  if (typeSel === null || !isKnownDroneType(typeSel)) return null
 
-  const ids = [...DRONE_IDS[typeSel], DRONE_ID_CUSTOM]
+  const customId = getLabel('droneIdCustom')
+  const ids = [...getDroneIds(typeSel), customId]
   const idSel = await chooseFromList(droneIdPrompt(current, typeSel), ids)
   if (idSel === null) return null
 
   let id = idSel
-  if (idSel === DRONE_ID_CUSTOM) {
+  if (idSel === customId) {
     const typed = await askText(droneIdInputPrompt(current, typeSel), '', 'text')
     if (typed === null) return null
     id = typed.trim()
@@ -1381,7 +1864,14 @@ async function runTakeoffLanding(action: 'takeoff' | 'landing'): Promise<void> {
 
     if (saveToMaster) {
       // ショートカット新規登録は POSAC/ALTAC=1
-      await upsertPlace(posName, { lat, lng, alt, adrs, posac: '1', altac: '1' })
+      await upsertPlace(posName, {
+        lat,
+        lng,
+        alt,
+        adrs,
+        posac: PLACE_DEFAULT_POSAC,
+        altac: PLACE_DEFAULT_ALTAC,
+      })
     }
 
     const updateTime = flag === '2'
@@ -1426,7 +1916,6 @@ async function runTakeoffLanding(action: 'takeoff' | 'landing'): Promise<void> {
 }
 
 async function onMenu(action: string): Promise<void> {
-  const msg = () => app.querySelector('#msg')
   if (action === 'pre') {
     view = 'newa'
     await render()
@@ -1444,6 +1933,11 @@ async function onMenu(action: string): Promise<void> {
   }
   if (action === 'places') {
     view = 'places'
+    await render()
+    return
+  }
+  if (action === 'io') {
+    view = 'io'
     await render()
     return
   }
@@ -1507,12 +2001,12 @@ async function runDataSetFlow(opts: { skipConfirm?: boolean } = {}): Promise<boo
   }
 }
 
-/** メニュー表示時: 2h 超で再セット、24h 超でリセット要求 */
+/** メニュー表示時: 2h 超で再セット、24h 超でリセット要求（TIME 無しでは催促しない） */
 async function enforceSessionTimers(timeRaw: string): Promise<void> {
   if (timerCheckRunning || view !== 'menu') return
   const need = evaluateTimers(timeRaw)
-  if (need === 'ok') {
-    timerPromptDismissed = null
+  if (need === 'ok' || need === 'no_time') {
+    if (need === 'ok') timerPromptDismissed = null
     return
   }
   const key = String(timeRaw ?? '')
@@ -1545,13 +2039,9 @@ async function enforceSessionTimers(timeRaw: string): Promise<void> {
       return
     }
 
-    if (need === 'need_set' || need === 'no_time') {
-      const prompt =
-        need === 'no_time'
-          ? 'セット日時が無いため、気象データをセットしてください。'
-          : TIMER_SET_PROMPT
+    if (need === 'need_set') {
       const sel = await chooseFromList(
-        prompt,
+        TIMER_SET_PROMPT,
         [TIMER_SET_OK, TIMER_SET_LATER],
         { withBackButton: false },
       )
@@ -1570,26 +2060,41 @@ async function enforceSessionTimers(timeRaw: string): Promise<void> {
   }
 }
 
-function newaFields(): FieldDef[] {
+function withoutHidden(fields: FieldDef[], droneType: string): FieldDef[] {
+  const hidden = new Set(getHiddenKeys(droneType))
+  if (!hidden.size) return fields
+  return fields.filter((f) => !f.key || !hidden.has(f.key))
+}
+
+function newaFields(droneType: string): FieldDef[] {
   // NEWA: #?項目の次は 1〜37、最後に 63
-  return FIELDS.filter((f) => (f.no >= 1 && f.no <= 37) || f.no === 63).sort(
-    (a, b) => a.no - b.no,
+  return withoutHidden(
+    FIELDS.filter((f) => (f.no >= 1 && f.no <= 37) || f.no === 63).sort(
+      (a, b) => a.no - b.no,
+    ),
+    droneType,
   )
 }
 
-function newbFields(): FieldDef[] {
+function newbFields(droneType: string): FieldDef[] {
   // NEWB: 38〜63
-  return FIELDS.filter((f) => f.no >= 38 && f.no <= 63).sort((a, b) => a.no - b.no)
+  return withoutHidden(
+    FIELDS.filter((f) => f.no >= 38 && f.no <= 63).sort((a, b) => a.no - b.no),
+    droneType,
+  )
 }
 
-function freeFields(): FieldDef[] {
-  return FIELDS.filter((f) => f.no >= 1 && f.no <= 63).sort((a, b) => a.no - b.no)
+function freeFields(droneType: string): FieldDef[] {
+  return withoutHidden(
+    FIELDS.filter((f) => f.no >= 1 && f.no <= 63).sort((a, b) => a.no - b.no),
+    droneType,
+  )
 }
 
-function editFieldsFor(kind: 'A' | 'B' | 'F'): FieldDef[] {
-  if (kind === 'A') return newaFields()
-  if (kind === 'B') return newbFields()
-  return freeFields()
+function editFieldsFor(kind: 'A' | 'B' | 'F', droneType: string): FieldDef[] {
+  if (kind === 'A') return newaFields(droneType)
+  if (kind === 'B') return newbFields(droneType)
+  return freeFields(droneType)
 }
 
 async function renderRecords(): Promise<void> {
@@ -1599,7 +2104,6 @@ async function renderRecords(): Promise<void> {
   const rows = [
     { id: 'back', text: REC_MENU_BACK },
     ...keys.map((k) => ({ id: `k:${k}`, text: k })),
-    { id: 'io', text: REC_JSON_IO },
   ]
   const list = rows
     .map(
@@ -1609,11 +2113,11 @@ async function renderRecords(): Promise<void> {
     .join('')
 
   app.innerHTML = shell(
-    escapeHtml(`登録データ管理（ver${VER}${drone}）`),
+    escapeHtml(`登録データ管理（${drone}）`),
     `
+    <p id="msg" class="msg menu-flash"></p>
     <section class="card menu-card">
       <div class="menu">${list}</div>
-      <p id="msg" class="msg"></p>
     </section>`,
   )
 
@@ -1638,11 +2142,6 @@ async function onRecords(id: string): Promise<void> {
     await render()
     return
   }
-  if (id === 'io') {
-    view = 'io'
-    await render()
-    return
-  }
   if (id.startsWith('k:')) {
     const key = id.slice(2)
     await setWorkingKey(key)
@@ -1655,7 +2154,7 @@ async function renderEditList(kind: 'A' | 'B' | 'F'): Promise<void> {
   const meta = await getMeta()
   const { key, rec } = await getWorking()
   const drone = meta.tmp.DRONE || rec.A_DRONE.split('_')[0] || 'Mavic2Pro'
-  const fields = editFieldsFor(kind)
+  const fields = editFieldsFor(kind, drone)
   const prompt =
     kind === 'A' ? newaPrompt(drone) : kind === 'B' ? newbPrompt(drone) : freePrompt(drone)
   const sel = /^NEW\d{4}\//.test(key) ? key : key.startsWith('NEW') ? 'NEW' : key
@@ -1703,9 +2202,9 @@ async function renderEditList(kind: 'A' | 'B' | 'F'): Promise<void> {
   app.innerHTML = shell(
     escapeHtml(prompt),
     `
+    <p id="msg" class="msg menu-flash"></p>
     <section class="card menu-card">
       <div class="menu">${list}</div>
-      <p id="msg" class="msg"></p>
     </section>`,
     escapeHtml(targetDataLine(sel)),
   )
@@ -1780,13 +2279,18 @@ async function onEditList(kind: 'A' | 'B' | 'F', id: string): Promise<void> {
     return
   }
   if (id === 'all') {
-    await runSequentialFields(editFieldsFor(kind))
+    const meta = await getMeta()
+    const { rec } = await getWorking()
+    const drone = droneTypeFrom(rec.A_DRONE, meta.tmp.DRONE)
+    await runSequentialFields(editFieldsFor(kind, drone))
     await render()
     return
   }
   if (id === 'empty') {
+    const meta = await getMeta()
     const { rec } = await getWorking()
-    const fields = editFieldsFor(kind).filter((f) => isFieldEmpty(rec, f))
+    const drone = droneTypeFrom(rec.A_DRONE, meta.tmp.DRONE)
+    const fields = editFieldsFor(kind, drone).filter((f) => isFieldEmpty(rec, f))
     await runSequentialFields(fields)
     await render()
     return
@@ -1805,18 +2309,23 @@ async function onEditList(kind: 'A' | 'B' | 'F', id: string): Promise<void> {
 
 async function renderChecklist(): Promise<void> {
   const { rec } = await getWorking()
+  const meta = await getMeta()
+  const drone = droneTypeFrom(rec.A_DRONE, meta.tmp.DRONE)
   const places = await listPlaceNames()
-  const fields = FIELDS.filter((f) => {
-    if (checklistFilter === 'pre') return f.group === 'pre' || f.group === 'ops' || f.no === 63
-    if (checklistFilter === 'post') return f.group === 'post' || f.group === 'takeoff' || f.no === 63
-    return true
-  })
+  const fields = withoutHidden(
+    FIELDS.filter((f) => {
+      if (checklistFilter === 'pre') return f.group === 'pre' || f.group === 'ops' || f.no === 63
+      if (checklistFilter === 'post') return f.group === 'post' || f.group === 'takeoff' || f.no === 63
+      return true
+    }),
+    drone,
+  )
 
   const title =
     checklistFilter === 'pre' ? '離陸前チェック' : checklistFilter === 'post' ? '着陸後・離着陸' : '全項目'
 
   const rows = fields
-    .map((f) => fieldRow(f, rec, places))
+    .map((f) => fieldRow(f, rec, places, drone))
     .join('')
 
   app.innerHTML = shell(
@@ -1840,6 +2349,7 @@ async function renderChecklist(): Promise<void> {
     void render()
   })
   const formEl = app.querySelector<HTMLFormElement>('#cf')!
+  wireClearableInputs(formEl)
   formEl.querySelectorAll<HTMLInputElement>('input.num-input').forEach((input) => {
     input.addEventListener('input', () => {
       const cleaned = sanitizeNumberDraft(input.value)
@@ -1925,11 +2435,11 @@ async function renderChecklist(): Promise<void> {
   })
 }
 
-function fieldRow(f: FieldDef, rec: FlightRecord, places: string[]): string {
+function fieldRow(f: FieldDef, rec: FlightRecord, places: string[], droneType: string): string {
   if (f.input === 'flightDuration' || !f.key) {
     const hm = displayFlightHm(rec.A_DATE, rec.B_DATE)
     return `<label class="field"><span>${f.no}. ${f.label} <em>時分</em></span>
-      <input name="FLIGHT_HM" class="sc-input-time" type="time" step="60" value="${escapeHtml(toTimeInputValue(hm) || '')}" /></label>`
+      ${clearableInputHtml('cf-FLIGHT_HM', 'name="FLIGHT_HM" class="sc-input-time" type="time" step="60"', toTimeInputValue(hm) || '')}</label>`
   }
   const val = escapeHtml(rec[f.key] ?? '')
   const kind =
@@ -1947,8 +2457,10 @@ function fieldRow(f: FieldDef, rec: FlightRecord, places: string[]): string {
                 ? '時分'
                 : ''
 
-  if (f.input === 'choice2' && f.options) {
-    const opts = f.options
+  const catalogOpts = resolveOptions(f, droneType)
+
+  if (f.input === 'choice2' && catalogOpts.length) {
+    const opts = catalogOpts
     const radios = opts
       .map((o) => {
         const id = `${f.key}-${o}`
@@ -1966,17 +2478,17 @@ function fieldRow(f: FieldDef, rec: FlightRecord, places: string[]): string {
   if (f.key === 'A_POS' || f.key === 'B_POS') {
     const opts = places.map((p) => `<option value="${escapeHtml(p)}" ${p === rec[f.key!] ? 'selected' : ''}>${escapeHtml(p)}</option>`).join('')
     return `<label class="field"><span>${f.no}. ${f.label} <em>記述／候補</em></span>
-      <input list="places" name="${f.key}" value="${val}" />
+      ${clearableInputHtml(`cf-${f.key}`, `list="places" name="${f.key}" type="text" inputmode="text"`, rec[f.key] ?? '')}
       <datalist id="places">${opts}</datalist>
     </label>`
   }
-  if (f.input === 'select' && f.options) {
-    const opts = f.options
+  if (f.input === 'select' && (catalogOpts.length || f.optionsKey)) {
+    const opts = catalogOpts
       .map((o) => `<option value="${escapeHtml(o)}" ${o === rec[f.key!] ? 'selected' : ''}>${escapeHtml(o)}</option>`)
       .join('')
     return `<label class="field"><span>${f.no}. ${f.label} <em>${kind}</em></span>
       <select name="${f.key}"><option value="">（未入力）</option>${opts}
-      ${rec[f.key] && !f.options.includes(rec[f.key]) ? `<option value="${val}" selected>${val}</option>` : ''}
+      ${rec[f.key] && !catalogOpts.includes(rec[f.key]) ? `<option value="${val}" selected>${val}</option>` : ''}
       </select></label>`
   }
   if (f.input === 'datetime') {
@@ -1986,9 +2498,9 @@ function fieldRow(f: FieldDef, rec: FlightRecord, places: string[]): string {
     return `<fieldset class="field datetime-set"><legend>${f.no}. ${f.label} <em>${kind}</em></legend>
       <div class="datetime-row">
         <label class="datetime-part"><span>月日</span>
-          <input name="${f.key}__date" class="sc-input-date" type="date" value="${escapeHtml(dateVal)}" /></label>
+          ${clearableInputHtml(`cf-${f.key}-date`, `name="${f.key}__date" class="sc-input-date" type="date"`, dateVal)}</label>
         <label class="datetime-part"><span>時間</span>
-          <input name="${f.key}__time" class="sc-input-time" type="time" step="60" value="${escapeHtml(timeVal)}" /></label>
+          ${clearableInputHtml(`cf-${f.key}-time`, `name="${f.key}__time" class="sc-input-time" type="time" step="60"`, timeVal)}</label>
       </div>
       <input type="hidden" name="${f.key}" value="${val}" />
     </fieldset>`
@@ -1996,15 +2508,19 @@ function fieldRow(f: FieldDef, rec: FlightRecord, places: string[]): string {
   if (f.input === 'time') {
     const hm = toTimeInputValue(String(rec[f.key] ?? '').trim())
     return `<label class="field"><span>${f.no}. ${f.label} <em>${kind}</em></span>
-      <input name="${f.key}" class="sc-input-time" type="time" step="60" value="${escapeHtml(hm)}" /></label>`
+      ${clearableInputHtml(`cf-${f.key}`, `name="${f.key}" class="sc-input-time" type="time" step="60"`, hm)}</label>`
   }
   const ph = f.input === 'number' ? '数値を入力' : '記述入力'
   if (f.input === 'number') {
     return `<label class="field"><span>${f.no}. ${f.label} <em>${kind}</em></span>
-      <input name="${f.key}" class="num-input" type="text" inputmode="decimal" autocomplete="off" placeholder="${ph}" value="${val}" /></label>`
+      ${clearableInputHtml(`cf-${f.key}`, `name="${f.key}" class="num-input" type="text" inputmode="decimal" autocomplete="off" placeholder="${ph}"`, rec[f.key] ?? '')}</label>`
+  }
+  if (f.input === 'text') {
+    return `<label class="field"><span>${f.no}. ${f.label} <em>${kind}</em></span>
+      ${clearableInputHtml(`cf-${f.key}`, `name="${f.key}" type="text" inputmode="text" placeholder="${ph}"`, rec[f.key] ?? '')}</label>`
   }
   return `<label class="field"><span>${f.no}. ${f.label} <em>${kind}</em></span>
-    <input name="${f.key}" type="text" inputmode="text" placeholder="${ph}" value="${val}" /></label>`
+    ${clearableInputHtml(`cf-${f.key}`, `name="${f.key}" type="text" inputmode="text" placeholder="${ph}"`, rec[f.key] ?? '')}</label>`
 }
 
 async function renderPlaces(): Promise<void> {
@@ -2012,6 +2528,8 @@ async function renderPlaces(): Promise<void> {
   const rows = [
     { id: 'back', text: PLACE_MENU_BACK },
     { id: 'here', text: PLACE_MENU_HERE },
+    { id: 'herenew', text: PLACE_MENU_HERE_NEW },
+    { id: 'mapnew', text: PLACE_MENU_MAP_NEW },
     ...names.map((n) => ({ id: `p:${n}`, text: n })),
   ]
   const list = rows
@@ -2024,9 +2542,9 @@ async function renderPlaces(): Promise<void> {
   app.innerHTML = shell(
     '場所データ管理',
     `
+    <p id="msg" class="msg menu-flash"></p>
     <section class="card menu-card">
       <div class="menu">${list}</div>
-      <p id="msg" class="msg"></p>
     </section>`,
   )
   const msgEl = app.querySelector('#msg')!
@@ -2052,6 +2570,16 @@ async function onPlaceMenu(id: string): Promise<void> {
   }
   if (id === 'here') {
     await runPlaceHereSearch()
+    await render()
+    return
+  }
+  if (id === 'herenew') {
+    await runPlaceHereSearchNew()
+    await render()
+    return
+  }
+  if (id === 'mapnew') {
+    await runPlaceMapRegister()
     await render()
     return
   }
@@ -2113,10 +2641,196 @@ async function runPlaceHereSearch(): Promise<void> {
       flashMsg = '場所登録をキャンセルしました'
       return
     }
-    await upsertPlace(entered, { lat, lng, alt, adrs: curAdrs, posac: '1', altac: '1' })
+    await upsertPlace(entered, {
+      lat,
+      lng,
+      alt,
+      adrs: curAdrs,
+      posac: PLACE_DEFAULT_POSAC,
+      altac: PLACE_DEFAULT_ALTAC,
+    })
     placeEditName = entered
     view = 'place-edit'
     flashMsg = `場所を登録しました（${entered}）`
+  } catch (e) {
+    flashMsg = `失敗: ${(e as Error).message}`
+  }
+}
+
+/**
+ * %現在地検索NEW（デバッグ）
+ * GPS → 6値レビュー（位置固定）→ GPSデータ／検索結果 → 登録選択
+ */
+async function runPlaceHereSearchNew(): Promise<void> {
+  const msg = () => app.querySelector('#msg')
+  try {
+    msg()!.textContent = 'GPS現在地を取得中…'
+    let lat: number | undefined
+    let lng: number | undefined
+    let alt: number | undefined
+    // 照合用の許容値（固定デフォルト）
+    let posac = PLACE_DEFAULT_POSAC
+    let altac = PLACE_DEFAULT_ALTAC
+
+    try {
+      const pos = await getCurrentPosition()
+      const c = pos.coords
+      if (isFiniteNum(c.latitude)) lat = c.latitude
+      if (isFiniteNum(c.longitude)) lng = c.longitude
+      if (c.altitude != null && isFiniteNum(c.altitude)) alt = roundAltMeters(c.altitude)
+    } catch {
+      // GPS 失敗 → 後続で補完
+    }
+
+    if (lat == null || lng == null || alt == null) {
+      msg()!.textContent = '位置の不足分を入力…'
+      const filled = await resolveLatLngAlt({
+        lat: lat != null ? String(lat) : undefined,
+        lng: lng != null ? String(lng) : undefined,
+        alt: alt != null ? String(alt) : undefined,
+      })
+      if (!filled) {
+        flashMsg = '位置入力をキャンセルしました'
+        return
+      }
+      lat = filled.lat
+      lng = filled.lng
+      alt = filled.alt
+    }
+
+    msg()!.textContent = '住所を取得中…'
+    let adrs = String((await reverseGeocode(lat, lng)) ?? '').trim()
+    if (alt == null || !Number.isFinite(alt)) {
+      const elev = await fetchGroundElevation(lat, lng)
+      if (elev != null) alt = elev
+    }
+    if (alt == null || !Number.isFinite(alt)) {
+      flashMsg = '高度を取得できませんでした'
+      return
+    }
+
+    const round8 = (n: number) => Math.round(n * 1e8) / 1e8
+    lat = round8(lat)
+    lng = round8(lng)
+
+    const reviewed = await askMissingGeo(
+      { lat, lng, alt },
+      { lat: true, lng: true, alt: true },
+      { lat: String(lat), lng: String(lng), alt: String(alt) },
+      {
+        gpsReview: true,
+        mapCenter: { lat, lng },
+        extraPrefill: { adrs, posac, altac },
+      },
+    )
+    if (!reviewed) {
+      flashMsg = '場所登録をキャンセルしました'
+      return
+    }
+    lat = reviewed.lat
+    lng = reviewed.lng
+    alt = reviewed.alt
+    adrs = String(reviewed.adrs ?? '').trim()
+    posac = String(reviewed.posac ?? posac).trim() || PLACE_DEFAULT_POSAC
+    altac = String(reviewed.altac ?? altac).trim() || PLACE_DEFAULT_ALTAC
+    const addrFetchFailed = !adrs
+
+    msg()!.textContent = '場所を照合中…'
+    const hit = await findNearestPlace(lat, lng, alt)
+    // GPSデータの場所: ヒット無→住所、ヒット有→検索結果名_xx
+    const gpsPlaceName = hit
+      ? await nextDerivedPlaceName(hit.name)
+      : adrs.trim() || '新規'
+
+    const copy = placeHereCopyNew({
+      lat,
+      lng,
+      alt,
+      curAdrs: adrs,
+      hitName: hit?.name ?? '',
+      hitAdrs: hit?.place.ADRS ?? '',
+      hitLat: hit?.place.DATA1 ?? '',
+      hitLng: hit?.place.DATA2 ?? '',
+      hitAlt: hit?.place.DATA3 ?? '',
+      posDif: hit ? hit.dist.toFixed(1) : '',
+      altDif: hit ? hit.altDiff.toFixed(1) : '',
+      gpsPlaceName,
+    })
+    const detail = addrFetchFailed
+      ? `${copy.detail}\n\n${NET_FAIL_ADDRESS}`
+      : copy.detail
+    const selected = await chooseFromList(copy.title, [PLACE_HERE_SKIP, PLACE_HERE_NEW], {
+      withBackButton: false,
+      detail,
+    })
+    if (!selected || selected === PLACE_HERE_SKIP) {
+      flashMsg = '場所登録をキャンセルしました'
+      return
+    }
+    const entered = await askNewPlaceName(gpsPlaceName)
+    if (!entered) {
+      flashMsg = '場所登録をキャンセルしました'
+      return
+    }
+    await upsertPlace(entered, { lat, lng, alt, adrs, posac, altac })
+    placeEditName = entered
+    view = 'place-edit'
+    flashMsg = addrFetchFailed
+      ? `場所を登録しました（${entered}）。住所は後から編集できます`
+      : `場所を登録しました（${entered}）`
+  } catch (e) {
+    flashMsg = `失敗: ${(e as Error).message}`
+  }
+}
+
+/** 場所管理の %マップ新規場所登録（マップ点選択 → 6値確認 → 名称。住所・精度は画面上の確定値） */
+async function runPlaceMapRegister(): Promise<void> {
+  const msg = () => app.querySelector('#msg')
+  try {
+    let mapCenter: { lat: number; lng: number } | undefined
+    const home = await getPlace('自宅')
+    if (home) {
+      const lat = Number(home.DATA1)
+      const lng = Number(home.DATA2)
+      if (Number.isFinite(lat) && Number.isFinite(lng)) mapCenter = { lat, lng }
+    }
+    msg()!.textContent = 'マップで登録点を選択…'
+    const coords = await askMissingGeo(
+      {},
+      { lat: true, lng: true, alt: true },
+      undefined,
+      { mapRegister: true, mapCenter },
+    )
+    if (!coords) {
+      flashMsg = '場所登録をキャンセルしました'
+      return
+    }
+    const { lat, lng, alt } = coords
+    const curAdrs = String(coords.adrs ?? '').trim()
+    const posac =
+      String(coords.posac ?? PLACE_DEFAULT_POSAC).trim() || PLACE_DEFAULT_POSAC
+    const altac =
+      String(coords.altac ?? PLACE_DEFAULT_ALTAC).trim() || PLACE_DEFAULT_ALTAC
+    const addrFetchFailed = !curAdrs
+    const nameDefault = curAdrs || '新規'
+    const entered = await askNewPlaceName(nameDefault)
+    if (!entered) {
+      flashMsg = '場所登録をキャンセルしました'
+      return
+    }
+    await upsertPlace(entered, {
+      lat,
+      lng,
+      alt,
+      adrs: curAdrs,
+      posac,
+      altac,
+    })
+    placeEditName = entered
+    view = 'place-edit'
+    flashMsg = addrFetchFailed
+      ? `場所を登録しました（${entered}）。住所は後から編集できます`
+      : `場所を登録しました（${entered}）`
   } catch (e) {
     flashMsg = `失敗: ${(e as Error).message}`
   }
@@ -2129,9 +2843,9 @@ const PLACE_EDIT_FIELDS: { no: number; key: PlaceFieldKey; label: string; number
   { no: 2, key: 'ADRS', label: '住所' },
   { no: 3, key: 'DATA1', label: '緯度', number: true },
   { no: 4, key: 'DATA2', label: '経度', number: true },
-  { no: 5, key: 'DATA3', label: '高度', number: true },
-  { no: 6, key: 'POSAC', label: '位置精度', number: true },
-  { no: 7, key: 'ALTAC', label: '高度精度', number: true },
+  { no: 5, key: 'DATA3', label: '高度m', number: true },
+  { no: 6, key: 'POSAC', label: '位置精度m', number: true },
+  { no: 7, key: 'ALTAC', label: '高度精度m', number: true },
 ]
 
 function placeFieldValue(
@@ -2183,9 +2897,9 @@ async function renderPlaceEdit(): Promise<void> {
   app.innerHTML = shell(
     escapeHtml(PLACE_EDIT_PROMPT),
     `
+    <p id="msg" class="msg menu-flash"></p>
     <section class="card menu-card">
       <div class="menu">${list}</div>
-      <p id="msg" class="msg"></p>
     </section>`,
     escapeHtml(`対象場所:${name}`),
   )
@@ -2242,9 +2956,9 @@ async function onPlaceEdit(id: string, name: string, place: PlaceRecord): Promis
       `住所:${place.ADRS || ''}`,
       `緯度:${place.DATA1 || ''}`,
       `経度:${place.DATA2 || ''}`,
-      `高度:${place.DATA3 || ''}`,
-      `位置精度:${place.POSAC || ''}`,
-      `高度精度:${place.ALTAC || ''}`,
+      `高度m:${place.DATA3 || ''}`,
+      `位置精度m:${place.POSAC || ''}`,
+      `高度精度m:${place.ALTAC || ''}`,
     ].join('\n')
     try {
       await navigator.clipboard.writeText(text)
@@ -2294,66 +3008,402 @@ async function onPlaceEdit(id: string, name: string, place: PlaceRecord): Promis
 }
 
 async function renderIO(): Promise<void> {
+  const syncOn = isServerSyncConfigured()
+  const status = syncStatusLabel()
+  const detailHtml = settingsDetailLines()
+    .map((line) => `<li>${escapeHtml(line)}</li>`)
+    .join('')
+  const clientOk = isGoogleClientConfigured()
+  const signedIn = isGoogleSignedIn()
+  const syncNote = syncOn
+    ? `<p class="hint settings-stub">${escapeHtml(syncNotImplementedMessage())}</p>`
+    : `<p class="hint">${escapeHtml(SETTINGS_HINT_MANUAL)}</p>`
+  const googleBlock =
+    syncOn && getSettings().active === 'google'
+      ? `
+      <p class="hint">Client ID: ${clientOk ? '設定あり（.env）' : '未設定 — .env に VITE_GOOGLE_CLIENT_ID を入れて dev 再起動'}</p>
+      <p class="hint">Google セッション: ${signedIn ? 'ログイン中' : '未ログイン'}</p>
+      <div class="row settings-actions">
+        <button type="button" class="ghost" id="googleLogin"${clientOk ? '' : ' disabled'}>${escapeHtml(GOOGLE_LOGIN)}</button>
+        <button type="button" class="ghost" id="googleProbe"${clientOk ? '' : ' disabled'}>${escapeHtml(GOOGLE_PROBE)}</button>
+        <button type="button" class="ghost" id="googleLogout"${signedIn ? '' : ' disabled'}>${escapeHtml(GOOGLE_LOGOUT)}</button>
+      </div>
+      <div class="row settings-actions">
+        <button type="button" class="ghost" id="googlePull"${clientOk ? '' : ' disabled'}>${escapeHtml(GOOGLE_PULL)}</button>
+        <button type="button" class="ghost" id="googlePush"${clientOk ? '' : ' disabled'}>${escapeHtml(GOOGLE_PUSH)}</button>
+        <button type="button" class="ghost" id="googleSync"${clientOk ? '' : ' disabled'}>${escapeHtml(GOOGLE_SYNC)}</button>
+      </div>`
+      : ''
+
   app.innerHTML = shell(
-    'JSON入出力',
+    SYS_DATA_TITLE,
     `
-    <section class="card">
-      <h2>インポート（現行 JSON）</h2>
-      <p class="hint">ショートカットと同じ log / pos / tmp を読み込みます。</p>
-      <label class="field">log JSON<input type="file" id="logFile" accept="application/json,.json" /></label>
-      <label class="field">pos JSON<input type="file" id="posFile" accept="application/json,.json" /></label>
-      <label class="field">tmp JSON<input type="file" id="tmpFile" accept="application/json,.json" /></label>
-      <h2>エクスポート</h2>
+    <section class="card io-panel" id="ioPanel">
+      <p id="msg" class="msg io-status" role="status" aria-live="polite"></p>
+
+      <h2>同期（settings）</h2>
+      <p class="hint"><strong>いま:</strong> ${escapeHtml(status)}</p>
+      ${syncNote}
+      <ul class="settings-detail">${detailHtml}</ul>
+      <div class="row settings-actions">
+        <button type="button" class="ghost" id="settingsOff"${syncOn ? '' : ' disabled'}>${escapeHtml(SETTINGS_OFF)}</button>
+      </div>
+      ${googleBlock}
+      <p class="hint">オフは接続設定だけを none に戻します（飛行データは消しません）。有効化は下の settings 取込。</p>
+
+      <h2>取込</h2>
+      <p class="hint">JSON を選ぶと端末の最新として反映します。サーバー障害時の復旧にも使えます。</p>
       <div class="row">
-        <button type="button" class="primary" id="exLog">log を保存</button>
-        <button type="button" class="primary" id="exPos">pos を保存</button>
-        <button type="button" class="ghost" id="exTmp">tmp を保存</button>
+        <button type="button" class="ghost" id="impLog">log</button>
+        <button type="button" class="ghost" id="impPos">pos</button>
+        <button type="button" class="ghost" id="impTmp">tmp</button>
+        <button type="button" class="ghost" id="impMasters">masters</button>
+        <button type="button" class="ghost" id="impSettings">settings</button>
       </div>
-      <div class="row" style="margin-top:1rem">
-        <button type="button" class="ghost" id="back">登録データ一覧へ</button>
+      <div class="io-file-inputs" aria-hidden="true">
+        <input type="file" id="logFile" accept="application/json,.json" />
+        <input type="file" id="posFile" accept="application/json,.json" />
+        <input type="file" id="tmpFile" accept="application/json,.json" />
+        <input type="file" id="mastersFile" accept="application/json,.json" />
+        <input type="file" id="settingsFile" accept="application/json,.json" />
       </div>
-      <p id="msg" class="msg"></p>
+
+      <h2>書出</h2>
+      <p class="hint">準備後に出力。保存完了は OS 側のため、終了後に確認ダイアログを出します。</p>
+      <div class="row">
+        <button type="button" class="ghost" id="exLog">log</button>
+        <button type="button" class="ghost" id="exPos">pos</button>
+        <button type="button" class="ghost" id="exTmp">tmp</button>
+        <button type="button" class="ghost" id="exMasters">masters</button>
+        <button type="button" class="ghost" id="exSettings">settings</button>
+      </div>
+
+      <h2>初期化（端末）</h2>
+      <p class="hint">確認後に実行。端末のみ。settings の解除は上の「サーバー同期をオフ」を使う。</p>
+      <label class="choice" style="margin:0.5rem 0">
+        <input type="checkbox" id="wipeServer" disabled />
+        <span>サーバー上も空で上書き（準備中・現在は無効）</span>
+      </label>
+      <div class="row">
+        <button type="button" class="ghost" id="rstLog">log</button>
+        <button type="button" class="ghost" id="rstPos">pos</button>
+        <button type="button" class="ghost" id="rstTmp">tmp</button>
+        <button type="button" class="ghost" id="rstMasters">masters</button>
+      </div>
     </section>`,
+    '',
+    { backId: 'back' },
   )
 
   const msg = app.querySelector('#msg')!
+  const panel = app.querySelector<HTMLElement>('#ioPanel')!
+  let ioBusy = false
+
+  const setMsg = (t: string, kind: 'ok' | 'bad' | 'busy' | '' = 'ok') => {
+    msg.textContent = t
+    msg.classList.toggle('ok', kind === 'ok')
+    msg.classList.toggle('bad', kind === 'bad')
+    msg.classList.toggle('busy', kind === 'busy')
+    if (t) msg.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }
+
+  const setIoBusy = (busy: boolean, activeBtn?: HTMLElement | null, busyLabel?: string) => {
+    ioBusy = busy
+    panel.dataset.busy = busy ? '1' : '0'
+    if (busy && activeBtn) {
+      activeBtn.classList.add('is-busy')
+      if (busyLabel) {
+        activeBtn.dataset.labelBefore = activeBtn.textContent || ''
+        activeBtn.textContent = busyLabel
+      }
+    } else if (!busy && activeBtn) {
+      if (activeBtn.dataset.labelBefore) {
+        activeBtn.textContent = activeBtn.dataset.labelBefore
+        delete activeBtn.dataset.labelBefore
+      }
+      activeBtn.classList.remove('is-busy')
+    }
+  }
+
+  /** クリック直後に反応を出し、完了まで他ボタンを止める */
+  const withIoBusy = async <T>(
+    activeBtn: HTMLElement | null,
+    busyLabel: string,
+    statusText: string,
+    work: () => Promise<T>,
+  ): Promise<T | undefined> => {
+    if (ioBusy) return undefined
+    setIoBusy(true, activeBtn, busyLabel)
+    setMsg(statusText, 'busy')
+    try {
+      return await work()
+    } finally {
+      setIoBusy(false, activeBtn)
+    }
+  }
+
+  if (flashMsg) {
+    setMsg(flashMsg, flashMsg.startsWith('失敗') ? 'bad' : 'ok')
+    flashMsg = ''
+  }
+
   app.querySelector('#back')!.addEventListener('click', () => {
-    view = 'records'
+    if (ioBusy) return
+    view = 'menu'
     void render()
   })
-  app.querySelector('#logFile')!.addEventListener('change', async (ev) => {
-    const file = (ev.target as HTMLInputElement).files?.[0]
-    if (!file) return
-    const data = JSON.parse(await file.text()) as LogFile
-    const n = await importLog(data)
-    msg.textContent = `log を ${n} 件取り込みました`
+
+  app.querySelector('#settingsOff')!.addEventListener('click', async (ev) => {
+    if (!isServerSyncConfigured() || ioBusy) return
+    const btn = ev.currentTarget as HTMLElement
+    const sel = await chooseFromList(
+      SETTINGS_OFF_CONFIRM,
+      ['1.解除する', '2.戻る'],
+      { withBackButton: false },
+    )
+    if (!sel?.includes('解除')) return
+    await withIoBusy(btn, '解除中…', 'サーバー同期をオフにしています…', async () => {
+      clearGoogleSession()
+      await resetSettings()
+      flashMsg = SETTINGS_HINT_OFF_DONE
+      await render()
+    })
   })
-  app.querySelector('#posFile')!.addEventListener('change', async (ev) => {
-    const file = (ev.target as HTMLInputElement).files?.[0]
-    if (!file) return
-    const data = JSON.parse(await file.text()) as PosFile
-    const n = await importPos(data)
-    msg.textContent = `pos を ${n} 件取り込みました`
+
+  const googleLoginBtn = app.querySelector('#googleLogin')
+  if (googleLoginBtn) {
+    googleLoginBtn.addEventListener('click', async (ev) => {
+      const btn = ev.currentTarget as HTMLElement
+      await withIoBusy(btn, 'ログイン中…', 'Google ログイン画面を開いています…', async () => {
+        try {
+          await requestGoogleAccessToken()
+          flashMsg = 'Google ログイン成功'
+          await render()
+        } catch (e) {
+          setMsg(`失敗: ${(e as Error).message}`, 'bad')
+        }
+      })
+    })
+  }
+  const googleProbeBtn = app.querySelector('#googleProbe')
+  if (googleProbeBtn) {
+    googleProbeBtn.addEventListener('click', async (ev) => {
+      const btn = ev.currentTarget as HTMLElement
+      await withIoBusy(btn, 'テスト中…', 'Drive 疎通テスト中…', async () => {
+        try {
+          if (!isGoogleSignedIn()) await requestGoogleAccessToken()
+          const r = await probeConfiguredDriveFolder()
+          await persistFolderId(r.folderId)
+          const names = r.files.map((f) => f.name).join(', ') || '（空）'
+          const text = `疎通OK: フォルダ「${r.folderName}」(${r.folderId})\nファイル: ${names}`
+          setMsg(text, 'ok')
+          await showNoticeDialog(text)
+        } catch (e) {
+          setMsg(`失敗: ${(e as Error).message}`, 'bad')
+        }
+      })
+    })
+  }
+  const googleLogoutBtn = app.querySelector('#googleLogout')
+  if (googleLogoutBtn) {
+    googleLogoutBtn.addEventListener('click', () => {
+      if (ioBusy) return
+      clearGoogleSession()
+      flashMsg = 'Google ログアウトしました'
+      void render()
+    })
+  }
+
+  const runSyncBtn = (
+    btnId: string,
+    direction: 'pull' | 'push' | 'both',
+    busyLabel: string,
+    statusText: string,
+  ) => {
+    const btn = app.querySelector(`#${btnId}`)
+    if (!btn) return
+    btn.addEventListener('click', async (ev) => {
+      const el = ev.currentTarget as HTMLElement
+      await withIoBusy(el, busyLabel, statusText, async () => {
+        try {
+          const report = await runGoogleDriveSync(direction)
+          const text = report.lines.join('\n')
+          setMsg(text, 'ok')
+          await showNoticeDialog(text)
+          flashMsg = text.split('\n')[0] || text
+          await render()
+        } catch (e) {
+          setMsg(`失敗: ${(e as Error).message}`, 'bad')
+        }
+      })
+    })
+  }
+  runSyncBtn('googlePull', 'pull', '取得中…', 'Drive から取得してマージしています…（数十秒かかることがあります）')
+  runSyncBtn('googlePush', 'push', '送信中…', 'Drive へ送信しています…（数十秒かかることがあります）')
+  runSyncBtn('googleSync', 'both', '同期中…', '双方向同期しています…（取得→送信）')
+
+  const showResult = async (text: string, kind: 'ok' | 'bad') => {
+    setMsg(text, kind)
+    await showNoticeDialog(text)
+  }
+
+  const bindImport = (
+    btnId: string,
+    fileId: string,
+    handler: (data: unknown, fileName: string) => Promise<string>,
+  ) => {
+    const input = app.querySelector<HTMLInputElement>(`#${fileId}`)!
+    const btn = app.querySelector(`#${btnId}`)!
+    btn.addEventListener('click', () => {
+      if (ioBusy) return
+      setMsg(`${btnId.replace('imp', '')} のファイルを選んでください…`, 'busy')
+      input.click()
+    })
+    input.addEventListener('change', async (ev) => {
+      const file = (ev.target as HTMLInputElement).files?.[0]
+      if (!file) {
+        setMsg('ファイル選択をキャンセルしました', 'ok')
+        return
+      }
+      await withIoBusy(btn as HTMLElement, '取込中…', `取込中: ${file.name}…`, async () => {
+        try {
+          const data = JSON.parse(await file.text()) as unknown
+          const text = await handler(data, file.name)
+          await showResult(text, 'ok')
+          if (fileId === 'settingsFile') {
+            flashMsg = text
+            await render()
+          }
+        } catch (e) {
+          await showResult(`失敗: ${(e as Error).message}`, 'bad')
+        }
+      })
+      ;(ev.target as HTMLInputElement).value = ''
+    })
+  }
+
+  bindImport('impLog', 'logFile', async (data, name) => {
+    const n = await importLog(data as LogFile)
+    return `取込完了: log（${name}）→ ${n} 件を最新として反映しました`
   })
-  app.querySelector('#tmpFile')!.addEventListener('change', async (ev) => {
-    const file = (ev.target as HTMLInputElement).files?.[0]
-    if (!file) return
-    const data = JSON.parse(await file.text()) as TmpFlag
-    await importTmp(data)
-    msg.textContent = `tmp を取り込みました（SR ${data.A_SR || '?'} / SS ${data.A_SS || '?'}）`
+  bindImport('impPos', 'posFile', async (data, name) => {
+    const n = await importPos(data as PosFile)
+    return `取込完了: pos（${name}）→ ${n} 件を最新として反映しました`
   })
-  app.querySelector('#exLog')!.addEventListener('click', async () => {
-    downloadJson('log03.json', await exportLog())
-    msg.textContent = 'log をダウンロードしました（ファイルアプリ／保存先へ）'
+  bindImport('impTmp', 'tmpFile', async (data, name) => {
+    await importTmp(data as TmpFlag)
+    return `取込完了: tmp（${name}）を最新として反映しました`
   })
-  app.querySelector('#exPos')!.addEventListener('click', async () => {
-    downloadJson('pos03.json', await exportPos())
-    msg.textContent = 'pos をダウンロードしました'
+  bindImport('impMasters', 'mastersFile', async (data, name) => {
+    await importMasters(data as MastersFile)
+    return `取込完了: masters（${name}）を最新として反映しました`
   })
-  app.querySelector('#exTmp')!.addEventListener('click', async () => {
-    downloadJson('tmp03.json', await exportTmp())
-    msg.textContent = 'tmp をダウンロードしました'
+  bindImport('impSettings', 'settingsFile', async (data, name) => {
+    const s = await importSettings(data)
+    const extra =
+      s.sync.enabled && s.active === 'google' ? ` ${syncNotImplementedMessage()}` : ''
+    return `取込完了: settings（${name}）→ ${syncStatusLabel()}。${extra}`
   })
+
+  type ExportKey = 'log' | 'pos' | 'tmp' | 'masters' | 'settings'
+  const exportCache: Partial<Record<ExportKey, unknown>> = {}
+  const exportSpecs: {
+    key: ExportKey
+    btn: string
+    file: string
+    load: () => Promise<unknown>
+  }[] = [
+    { key: 'log', btn: 'exLog', file: 'log.json', load: () => exportLog() },
+    { key: 'pos', btn: 'exPos', file: 'pos.json', load: () => exportPos() },
+    { key: 'tmp', btn: 'exTmp', file: 'tmp.json', load: () => exportTmp() },
+    { key: 'masters', btn: 'exMasters', file: 'masters.json', load: () => exportMasters() },
+    { key: 'settings', btn: 'exSettings', file: 'settings.json', load: () => exportSettings() },
+  ]
+
+  void withIoBusy(null, '', 'エクスポート準備中…', async () => {
+    try {
+      await Promise.all(
+        exportSpecs.map(async (s) => {
+          exportCache[s.key] = await s.load()
+        }),
+      )
+      setMsg('エクスポートの準備ができました。ボタンを押して出力してください。', 'ok')
+    } catch (e) {
+      setMsg(`準備失敗: ${(e as Error).message}`, 'bad')
+    }
+  })
+
+  for (const spec of exportSpecs) {
+    app.querySelector(`#${spec.btn}`)!.addEventListener('click', (ev) => {
+      const el = ev.currentTarget as HTMLElement
+      if (ioBusy) return
+      const cached = exportCache[spec.key]
+      if (cached !== undefined) {
+        void withIoBusy(el, '出力中…', `${spec.file} を出力しています…`, async () => {
+          const { done } = startDeviceExport(spec.file, cached, {
+            preferShare: isIosDevice(),
+          })
+          const outcome = await done
+          if (outcome === 'cancelled') {
+            setMsg('出力を中止しました', 'ok')
+            return
+          }
+          if (outcome === 'error') {
+            setMsg('出力に失敗しました', 'bad')
+            return
+          }
+          await showNoticeDialog(
+            `${spec.file}\nファイル出力が成功したか確認してください。`,
+          )
+          setMsg(`確認してください（${spec.file}）`, 'ok')
+          void spec.load().then((d) => {
+            exportCache[spec.key] = d
+          })
+        })
+        return
+      }
+      void withIoBusy(el, '準備中…', `${spec.file} を準備しています…`, async () => {
+        try {
+          const data = await spec.load()
+          exportCache[spec.key] = data
+          await showExportConfirmDialog(spec.file, data)
+          setMsg(`確認してください（${spec.file}）`, 'ok')
+        } catch (e) {
+          await showResult(`失敗: ${(e as Error).message}`, 'bad')
+        }
+      })
+    })
+  }
+
+  const confirmReset = async (label: string): Promise<boolean> => {
+    const sel = await chooseFromList(
+      `本当に端末の ${label} を初期化しますか？\n（サーバーは変更しません）`,
+      ['1.初期化する', '2.戻る'],
+      { withBackButton: false },
+    )
+    return Boolean(sel?.includes('初期化'))
+  }
+
+  const bindReset = (btnId: string, label: string, work: () => Promise<void>, doneMsg: string) => {
+    app.querySelector(`#${btnId}`)!.addEventListener('click', async (ev) => {
+      if (ioBusy) return
+      const btn = ev.currentTarget as HTMLElement
+      if (!(await confirmReset(label))) return
+      await withIoBusy(btn, '初期化中…', `${label} を初期化しています…`, async () => {
+        await work()
+        await showResult(doneMsg, 'ok')
+      })
+    })
+  }
+  bindReset('rstLog', 'log', () => resetLog(), '初期化完了: log（空の NEW）')
+  bindReset('rstPos', 'pos', () => resetPos(), '初期化完了: pos（空）')
+  bindReset('rstTmp', 'tmp', () => resetTmp(), '初期化完了: tmp')
+  bindReset(
+    'rstMasters',
+    'masters',
+    () => resetMasters(),
+    '初期化完了: masters を default に戻しました',
+  )
 }
 
 
@@ -2365,4 +3415,6 @@ function escapeHtml(s: string): string {
     .replace(/"/g, '&quot;')
 }
 
-void render()
+void render().then(() => {
+  wireAutoSync()
+})

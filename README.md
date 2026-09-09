@@ -15,17 +15,21 @@ status: wip
 
 アーキテクチャ対応（4 本ショートカット → 1 SPA）は [[ドローン飛行記録#PWA 構成（4 本 → 1 アプリ）]] と [[@DroneLog#PWA（flight-pwa）構成]]。
 
+**機能の正本:** [[飛行記録_PWA機能仕様]]（初回／手動 I/O／settings／種別初期化）
+
 ## Phase 1 の範囲
 
 | 含む | まだ含まない |
 |---|---|
-| メインメニュー＋FLAG 工程ロック | **Phase 2:** Google Drive 自動同期（[[飛行記録_Phase2仕様]]） |
-| 離陸前／着陸後などの項目編集（1〜63） | Excel / Sheets 側の本変更（Sheets は将来） |
-| 離着陸の GPS／手動＋場所照合・マップ・登録選択 | クリップボード地図 URL 取込 |
-| 飛行時間↔離着陸日時の 3 値同期、日付・時刻ピッカー | `#データ同期`（DJI/AIRDATA） |
-| 8.場所データ管理（一覧は場所名昇順・現在地検索・1〜7編集） | 旧ショートカットの廃止 |
-| 7.登録データ管理（レコード一覧→FREE 編集） | Git 固定 URL 配布（Phase 2 配布層） |
-| log / pos / tmp の JSON 入出力（`%JSON入出力`） | |
+| メインメニュー＋FLAG 工程ロック | Excel / Sheets 側の本変更（Sheets は将来） |
+| 離陸前／着陸後などの項目編集（1〜63） | クリップボード地図 URL 取込 |
+| 離着陸の GPS／手動＋場所照合・マップ・登録選択 | `#データ同期`（DJI/AIRDATA） |
+| 飛行時間↔離着陸日時の 3 値同期、日付・時刻ピッカー | 旧ショートカットの廃止 |
+| 8.場所データ管理（一覧・現在地検索・マップ新規登録・1〜7編集） | |
+| 7.登録データ管理（レコード一覧→FREE 編集） | |
+| **9.システムデータ管理**（settings／JSON 入出力／Drive 同期） | **GitHub Pages 固定 URL（Phase 2c）** |
+| Google Drive pull/push（端末優先マージ・要 OAuth） | |
+| 種別ごとの端末初期化（確認付き） | サーバー空上書き |
 | セット／リセットタイマー（T・2h／24h） | |
 | PWA（オフラインキャッシュ） | |
 
@@ -52,7 +56,8 @@ status: wip
 | タイトル SR／SS／**T** | T＝直近 **データセット** 日時からの経過秒。セットでほぼ 0 |
 | **2 時間**経過 | メニュー表示時に気象の再セットを要求 |
 | **24 時間**経過 | リセット＋セットを要求 |
-| **9.終了(手動でタブを閉じる)** | 案内のみ（ロック色）。ブラウザ／PWA を脚本では閉じられない |
+| **9.データ入出力** | log / pos / tmp / masters / settings の出入・種別初期化 |
+| **10.終了(手動でタブを閉じる)** | 案内のみ（ロック色）。ブラウザ／PWA を脚本では閉じられない |
 | 通信 | 常時オンライン表示は無し。気象・住所・標高の失敗時だけメッセージ |
 
 ### PC だけで開発
@@ -68,21 +73,21 @@ npm run dev
 
 本番の正本（ショートカット／Excel と同じ）:
 
-`C:\Users\owner\iCloudDrive\drone\` … `log03.json` / `pos03.json` / `tmp03.json`
+`C:\Users\owner\iCloudDrive\drone\` … `log.json` / `pos.json` / `tmp.json`（旧 `log03.json` 等も手動取込可）
 
-PWA 開発用コピー（起動時、場所マスタが空なら自動取込）:
+PWA 開発用コピー（任意。手動取込用。場所は空から開始）:
 
-`flight-pwa/public/data/` … 上記と同じ3ファイル
+`flight-pwa/public/data/` … 上記と同じ3ファイル（自動取込はしない）
 
 Vault 資料用: `MainVault/DroneLog/` にも同名ファイルを同期済み。
 
 ## 初回の使い方
 
-1. **7.登録データ管理** → レコードを選んで編集（一覧はキー昇順・日時が先／NEW は後ろ）。JSON の読み書きは一覧の **`%JSON入出力`**
+1. **7.登録データ管理** → レコードを選んで編集（一覧は最新順・NEW 系先頭）
 2. メニューで「離陸前チェック」などを入力
 3. 「離陸登録」「着陸登録」で位置・場所を確定
 4. 「データ登録」で本登録
-5. `%JSON入出力` から log / pos / tmp をダウンロード → iCloud Drive の `drone/` へ置けば従来の Excel クエリ経路に載せられる
+5. **9.データ入出力** から log / pos / tmp をダウンロード → iCloud Drive の `drone/` へ置けば従来の Excel クエリ経路に載せられる
 
 ### NEW キーの動き（登録データ管理）
 
@@ -104,25 +109,30 @@ Vault 資料用: `MainVault/DroneLog/` にも同名ファイルを同期済み�
 | T 表示 | `TIME` からの経過秒。セットでほぼ 0 |
 | 維持 | レコード切替・項目保存・本登録後も **上書きしない** |
 | 更新 | `#データセット` 成功時に現在時刻／リセット時に空 |
-| 期限 | 2h 超→再セット要求、24h 超→リセット＋セット要求（メニュー） |
+| 期限 | 2h 超→再セット要求、24h 超→リセット＋セット要求（メニュー）。**TIME 無しでは催促しない** |
 
 ### レコード一覧の並び
 
-キー文字列の通常昇順。日時キー（数字始まり）が先、`NEW` / `NEW`＋日時は後ろ。
+最新順。`NEW` 系を先頭（プレーン `NEW` → `NEW`＋日時の新しい順）、その後は本登録キーの新しい順。
 
 ## 技術構成
 
 | レイヤ | 内容 |
 |---|---|
 | UI フロー | `src/main.ts`（view: menu / newa / newb / records / places …） |
-| 永続化 | Dexie（`flights` / `places` / `meta`） |
-| 項目・マスタ | `fields.ts` / `masters.ts` / `drone-master.ts` |
+| 永続化 | Dexie（`flights` / `places` / `meta` ※meta に masters） |
+| 項目・マスタ | `fields.ts`（optionsKey）/ `catalog.ts` / `public/data/masters.default.json` |
 | FLAG | `flag.ts` |
 | 住所・標高 | `geo.ts`（HeartRails / Nominatim / 国土地理院） |
 | 飛行時間同期 | `flight-time.ts` |
 | 気象セット | `weather.ts`（Open-Meteo） |
 | セット／リセット期限 | `session-timers.ts`（2h／24h） |
 | ビルド | Vite + TypeScript + vite-plugin-pwa |
+| アプリ Ver | `package.json` / `src/version.ts`（現状 **0.x.x**。正式スタート時 **1.0.0**。履歴は Git） |
+
+個人の氏名・機体 ID・機種別項目取捨は `public/data/masters.json`（gitignore）または **9.データ入出力** で管理。  
+初回用の完成サンプル: `public/data/masters.sample.json`（機種 Mavic2Pro/Tello/Other＋選択肢群＋Tello hiddenKeys）。項目差の正本は [[飛行記録_PWA選択肢マトリクス#6. Mavic2Pro と Tello の項目差（ショートカット実運用）]]。
+JSON 種と例: [[飛行記録_PWAデータJSON]]
 
 仕様の正本: [[飛行記録_仕様書]] ／ 実装解説: [[飛行記録_詳細説明書]] ／ 移行トピック: [[ドローン飛行記録]] ／ **構造説明: [[飛行記録_PWA構造説明]]**
 ---

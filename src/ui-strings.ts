@@ -1,13 +1,25 @@
 /**
- * ショートカット（ver03）画面文言の正本寄せ。
- * 出典: iPhoneショートカット説明書.xlsx「ショートカット19」
- * 以後、独自文言を増やさずここに揃える。
+ * 画面文言（旧ショートカット表記に寄せつつ、PWA 用に整理）。
+ * 出典の骨格: iPhoneショートカット説明書.xlsx「ショートカット19」
  */
 
-export const VER = '03'
+/** 飛行記録メイン：リストからの選択プロンプト */
+export const MENU_PROMPT = '項目を選択してください。'
 
-/** 飛行記録03 メイン：リストからの選択プロンプト */
-export const MENU_PROMPT = `項目を選択してください。（ver${VER}）`
+/** 9.システムデータ管理（同期 settings ＋ JSON 入出力・初期化） */
+export const SYS_DATA_TITLE = 'システムデータ管理'
+export const SETTINGS_OFF = 'サーバー同期をオフ'
+export const SETTINGS_OFF_CONFIRM =
+  'サーバー設定を解除して手動のみに戻しますか？\n（飛行データは消しません）'
+export const SETTINGS_HINT_MANUAL =
+  '既定は手動のみ。Google 同期を使うときは下の「取込」で settings（sample）を取り込んでください。'
+export const SETTINGS_HINT_OFF_DONE = 'サーバー同期をオフにしました（手動のみ）'
+export const GOOGLE_LOGIN = 'Google でログイン'
+export const GOOGLE_LOGOUT = 'Google ログアウト'
+export const GOOGLE_PROBE = 'Drive 疎通テスト'
+export const GOOGLE_PULL = 'Driveから取得（マージ）'
+export const GOOGLE_PUSH = 'Driveへ送信'
+export const GOOGLE_SYNC = '双方向同期'
 
 /** 登録データ管理 NEWA（動作説明＋実機指摘） */
 export const CMD_BACK = '#戻る'
@@ -22,7 +34,6 @@ export const CMD_LANDING = '#着陸'
 
 /** 登録データ管理 直接起動（レコード一覧） */
 export const REC_MENU_BACK = '%戻る'
-export const REC_JSON_IO = '%JSON入出力'
 
 export const REC_DEL_PROMPT = '本当にこのデータを削除しますか？'
 export const REC_DEL_OK = '1.削除'
@@ -144,19 +155,19 @@ export function droneIdInputPrompt(current: string, typeName: string): string {
   return `環境条件:\n・機種名と機体識別番号を確認\n${parenData(current)}\n・機種名を選択\n${parenData(typeName)}\n・機体識別番号を入力`
 }
 
-/** NEWA タイトル（ユーザー実機: 飛行点検／ver+機種連結） */
+/** NEWA タイトル */
 export function newaPrompt(drone: string): string {
-  return `更新したい飛行点検を選択してください。（ver${VER}${drone}）`
+  return `更新したい飛行点検を選択してください。（${drone}）`
 }
 
-/** NEWB タイトル（ショートカット19） */
+/** NEWB タイトル */
 export function newbPrompt(drone: string): string {
-  return `更新したい飛行後点検を選択してください。（ver${VER}${drone}）`
+  return `更新したい飛行後点検を選択してください。（${drone}）`
 }
 
 /** 登録データ管理 直接起動（FREE）タイトル */
 export function freePrompt(drone: string): string {
-  return `更新したい項目1~63を選択してください。(ver${VER}${drone})`
+  return `更新したい項目1~63を選択してください。（${drone}）`
 }
 
 export function targetDataLine(sel: string): string {
@@ -194,17 +205,31 @@ export const COMMIT_BACK = '2.戻る'
 /** GPS 未定値の手入力（必要な項目だけ） */
 export const GPS_LABEL_LAT = '緯度'
 export const GPS_LABEL_LNG = '経度'
-export const GPS_LABEL_ALT = '高度'
+export const GPS_LABEL_ALT = '高度m'
+export const GPS_LABEL_ADRS = '住所'
+export const GPS_LABEL_POSAC = '位置精度m'
+export const GPS_LABEL_ALTAC = '高度精度m'
 
 export function gpsMissingPrompt(
   need: { lat: boolean; lng: boolean; alt: boolean },
-  opts?: { lowAccuracy?: boolean; pcManual?: boolean },
+  opts?: {
+    lowAccuracy?: boolean
+    pcManual?: boolean
+    mapRegister?: boolean
+    gpsReview?: boolean
+  },
 ): string {
   const labels: string[] = []
   if (need.lat) labels.push(GPS_LABEL_LAT)
   if (need.lng) labels.push(GPS_LABEL_LNG)
   if (need.alt) labels.push(GPS_LABEL_ALT)
   const list = labels.join('・')
+  if (opts?.gpsReview) {
+    return 'GPS現在地を確認\n精度・住所を確認して確定'
+  }
+  if (opts?.mapRegister) {
+    return 'マップをタップして位置を選択\n各項目を確認して確定'
+  }
   if (opts?.pcManual) {
     return (
       `PCでは位置情報の精度が期待できないため、手動入力します。\n` +
@@ -265,15 +290,15 @@ export function placeDecisionCopy(parts: {
     detail: [
       `・場所${parenOrQ(parts.curPos)}`,
       `・住所${parenOrQ(parts.curAdrs)}`,
-      `・緯度${parenOrQ(String(parts.lat))}°`,
-      `・経度${parenOrQ(String(parts.lng))}°`,
-      `・高度${parenOrQ(String(parts.alt))}m`,
+      `・緯度${parenOrQ(String(parts.lat))}`,
+      `・経度${parenOrQ(String(parts.lng))}`,
+      `・高度m${parenOrQ(String(parts.alt))}`,
       '',
       '検索結果',
       `・場所${parenOrQ(parts.hitName)}`,
       `・住所${parenOrQ(parts.hitAdrs)}`,
-      `・位置誤差${parenOrQ(parts.posDif)}m`,
-      `・高度誤差${parenOrQ(parts.altDif)}m`,
+      `・位置誤差m${parenOrQ(parts.posDif)}`,
+      `・高度誤差m${parenOrQ(parts.altDif)}`,
       '',
       '新規生成の場所',
       `・場所${parenOrQ(parts.newName)}`,
@@ -290,12 +315,18 @@ export function placeDecisionPrompt(parts: Parameters<typeof placeDecisionCopy>[
 /** 8.場所データ管理（直接起動） */
 export const PLACE_MENU_BACK = '%戻る'
 export const PLACE_MENU_HERE = '%現在地検索'
+export const PLACE_MENU_HERE_NEW = '%現在地検索NEW'
+export const PLACE_MENU_MAP_NEW = '%マップ新規場所登録'
+
+/** 場所マスタの位置／高度精度デフォルト（m） */
+export const PLACE_DEFAULT_POSAC = '15'
+export const PLACE_DEFAULT_ALTAC = '5'
 export const PLACE_HERE_SKIP = '1.登録しない'
-export const PLACE_HERE_NEW = '2.新規生成の場所名で登録'
+export const PLACE_HERE_NEW = '2.GPSデータで新規登録'
 export const PLACE_EDIT_BACK = '#戻る'
 export const PLACE_EDIT_DEL = '#データ削除'
 export const PLACE_EDIT_MAP = '#マップ表示'
-export const PLACE_EDIT_PROMPT = '削除または更新したい項目1~7を選択してください。（ver03）'
+export const PLACE_EDIT_PROMPT = '削除または更新したい項目1~7を選択してください。'
 export const PLACE_DEL_PROMPT = '本当にこの場所データを削除しますか？'
 export const PLACE_DEL_OK = '1.削除'
 export const PLACE_DEL_BACK = '2.戻る'
@@ -329,18 +360,56 @@ export function placeHereCopy(parts: {
     detail: [
       `・場所${parenOrQ('')}`,
       `・住所${parenOrQ(parts.curAdrs)}`,
-      `・緯度${parenOrQ(String(parts.lat))}°`,
-      `・経度${parenOrQ(String(parts.lng))}°`,
-      `・高度${parenOrQ(String(parts.alt))}m`,
+      `・緯度${parenOrQ(String(parts.lat))}`,
+      `・経度${parenOrQ(String(parts.lng))}`,
+      `・高度m${parenOrQ(String(parts.alt))}`,
       '',
       '検索結果',
       `・場所${parenOrQ(parts.hitName)}`,
       `・住所${parenOrQ(parts.hitAdrs)}`,
-      `・位置誤差${parenOrQ(parts.posDif)}m`,
-      `・高度誤差${parenOrQ(parts.altDif)}m`,
+      `・位置誤差m${parenOrQ(parts.posDif)}`,
+      `・高度誤差m${parenOrQ(parts.altDif)}`,
       '',
       '新規生成の場所',
       `・場所${parenOrQ(parts.newName)}`,
+    ].join('\n'),
+  }
+}
+
+/** %現在地検索NEW 用（GPSデータ → 検索結果 → 登録選択） */
+export function placeHereCopyNew(parts: {
+  lat: number
+  lng: number
+  alt: number
+  curAdrs: string
+  hitName: string
+  hitAdrs: string
+  hitLat: string
+  hitLng: string
+  hitAlt: string
+  posDif: string
+  altDif: string
+  /** GPS側の場所名（無ヒット時は住所、ヒット時は派生名_xx） */
+  gpsPlaceName: string
+}): { title: string; detail: string } {
+  return {
+    title: '',
+    detail: [
+      'GPSデータ',
+      `・場所${parenOrQ(parts.gpsPlaceName)}`,
+      `・住所${parenOrQ(parts.curAdrs)}`,
+      `・緯度${parenOrQ(String(parts.lat))}`,
+      `・経度${parenOrQ(String(parts.lng))}`,
+      `・高度m${parenOrQ(String(parts.alt))}`,
+      '',
+      '検索結果',
+      `・場所${parenOrQ(parts.hitName)}`,
+      `・住所${parenOrQ(parts.hitAdrs)}`,
+      `・緯度${parenOrQ(parts.hitLat)}`,
+      `・経度${parenOrQ(parts.hitLng)}`,
+      `・高度m${parenOrQ(parts.hitAlt)}`,
+      `・位置誤差m${parenOrQ(parts.posDif)}`,
+      `・高度誤差m${parenOrQ(parts.altDif)}`,
     ].join('\n'),
   }
 }

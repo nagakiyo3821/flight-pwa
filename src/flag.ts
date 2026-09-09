@@ -1,5 +1,6 @@
 import type { FlightRecord, TmpFlag } from './types'
 import { filled } from './fields'
+import { getHiddenKeys, isCatalogReady } from './catalog'
 
 const PRE_KEYS_OUTDOOR = [
   'A_DRONE',
@@ -23,8 +24,19 @@ function isIndoor(flt2: string): boolean {
   return flt2.includes('屋内')
 }
 
-function allFilled(rec: FlightRecord, keys: readonly string[]): boolean {
-  return keys.every((k) => filled(rec[k as keyof FlightRecord]))
+function hiddenFor(drone: string): Set<string> {
+  if (!isCatalogReady()) return new Set()
+  return new Set(getHiddenKeys(drone))
+}
+
+function requiredFilled(
+  rec: FlightRecord,
+  keys: readonly string[],
+  hidden: Set<string>,
+): boolean {
+  return keys.every(
+    (k) => hidden.has(k) || filled(rec[k as keyof FlightRecord]),
+  )
 }
 
 /** FLAG 再計算。TIME はセット実行時刻（呼び出し側が渡す）。A_DATE やキーから入れない */
@@ -33,12 +45,18 @@ export function computeTmp(
   drone: string,
   setTime = '',
 ): TmpFlag {
+  const type = drone || (rec.A_DRONE.split('_')[0] ?? 'Mavic2Pro')
+  const hidden = hiddenFor(type)
   const indoor = isIndoor(rec.A_FLT2 || '')
-  const preOk = allFilled(rec, indoor ? PRE_KEYS_INDOOR : PRE_KEYS_OUTDOOR)
+  const preOk = requiredFilled(
+    rec,
+    indoor ? PRE_KEYS_INDOOR : PRE_KEYS_OUTDOOR,
+    hidden,
+  )
   const takeoffOk = filled(rec.A_DATE) && filled(rec.A_POS)
   const landingOk = filled(rec.B_DATE) && filled(rec.B_POS)
   const postOk =
-    filled(rec.B_BATB) && filled(rec['B_PBAT%']) && filled(rec.B_PROP)
+    requiredFilled(rec, ['B_BATB', 'B_PBAT%', 'B_PROP'], hidden)
 
   let DATA1 = '0'
   let DATA2 = '0'
@@ -75,7 +93,7 @@ export function computeTmp(
     DATA4,
     DATA5,
     TIME: setTime,
-    DRONE: drone || (rec.A_DRONE.split('_')[0] ?? 'Mavic2Pro'),
+    DRONE: type,
     A_SR: rec.A_SR || '',
     A_SS: rec.A_SS || '',
   }

@@ -24,7 +24,14 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci
-      - run: npm run build
+      - name: Build
+        env:
+          VITE_GOOGLE_CLIENT_ID: ${{ secrets.VITE_GOOGLE_CLIENT_ID }}
+        run: |
+          if [ -z "$VITE_GOOGLE_CLIENT_ID" ]; then
+            echo "::warning::VITE_GOOGLE_CLIENT_ID secret is empty; Google login will be disabled on Pages."
+          fi
+          npm run build
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

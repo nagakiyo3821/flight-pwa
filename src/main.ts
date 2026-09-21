@@ -1028,7 +1028,9 @@ function askMissingGeo(
           <div id="sc-map-pick" class="sc-map-pick" role="application" aria-label="位置選択マップ"></div>
           <p class="sc-map-hint" id="sc-map-hint">${
             gpsReview
-              ? 'GPS現在地（位置は変更できません）'
+              ? mapTiles === 'detail'
+                ? 'GPS現在地（位置は変更できません・詳細タイル・拡大可）'
+                : 'GPS現在地（位置は変更できません）'
               : mapReg
                 ? mapTiles === 'detail'
                   ? 'タップで緯度・経度・高度・住所をセット（詳細タイル・拡大可）'
@@ -1168,7 +1170,9 @@ function askMissingGeo(
 
     const mapHint = root.querySelector<HTMLElement>('#sc-map-hint')
     const defaultMapHint = gpsReview
-      ? 'GPS現在地（位置は変更できません）'
+      ? mapTiles === 'detail'
+        ? 'GPS現在地（位置は変更できません・詳細タイル・拡大可）'
+        : 'GPS現在地（位置は変更できません）'
       : mapReg
         ? mapTiles === 'detail'
           ? 'タップで緯度・経度・高度・住所をセット（詳細タイル・拡大可）'
@@ -2854,6 +2858,8 @@ async function runPlaceHereSearchNew(): Promise<void> {
         gpsReview: true,
         mapCenter: { lat, lng },
         extraPrefill: { adrs, posac, altac },
+        // ～2 相当: 詳細タイル縮小・ピンチ拡大・バウンス抑制・デジタルズーム
+        mapTiles: 'detail',
       },
     )
     if (!reviewed) {

@@ -1417,7 +1417,7 @@ function askMissingGeo(
 
 /**
  * 地理院 標準／写真レイヤを載せる。
- * detail は引いたズームで詳細タイル、JP_DETAIL_HANDOFF_ZOOM 以上で classic と同じネイティブタイルに切替。
+ * detail: 詳細＋classic を常駐し opacity で切替（zoom 中も）。clearLayers によるフラッシュを防ぐ。
  */
 function mountGsiLayers(map: L.Map, mode: GsiTileMode): void {
   const classicOpts = jpGsiTileOpts('classic')
@@ -1436,23 +1436,41 @@ function mountGsiLayers(map: L.Map, mode: GsiTileMode): void {
   }
 
   const detailOpts = jpGsiTileOpts('detail')
-  const stdDetail = L.tileLayer(JP_BASE_TILE_URL, { ...detailOpts })
-  const stdClassic = L.tileLayer(JP_BASE_TILE_URL, { ...classicOpts })
-  const photoDetail = L.tileLayer(JP_PHOTO_TILE_URL, { ...detailOpts })
-  const photoClassic = L.tileLayer(JP_PHOTO_TILE_URL, { ...classicOpts })
-  const stdGroup = L.layerGroup()
-  const photoGroup = L.layerGroup()
+  // 両方常駐。下=classic / 上=detail。切替は opacity のみ（ズームアウト時の粗いフラッシュ防止）
+  const stdClassic = L.tileLayer(JP_BASE_TILE_URL, { ...classicOpts, opacity: 0 })
+  const stdDetail = L.tileLayer(JP_BASE_TILE_URL, { ...detailOpts, opacity: 1 })
+  const photoClassic = L.tileLayer(JP_PHOTO_TILE_URL, { ...classicOpts, opacity: 0 })
+  const photoDetail = L.tileLayer(JP_PHOTO_TILE_URL, { ...detailOpts, opacity: 1 })
+  const stdGroup = L.layerGroup([stdClassic, stdDetail])
+  const photoGroup = L.layerGroup([photoClassic, photoDetail])
 
-  const fillForZoom = () => {
+  let showingPhoto = false
+  const applyOpacity = () => {
     const useDetail = map.getZoom() < JP_DETAIL_HANDOFF_ZOOM
-    stdGroup.clearLayers()
-    photoGroup.clearLayers()
-    stdGroup.addLayer(useDetail ? stdDetail : stdClassic)
-    photoGroup.addLayer(useDetail ? photoDetail : photoClassic)
+    const d = useDetail ? 1 : 0
+    const c = useDetail ? 0 : 1
+    if (showingPhoto) {
+      photoDetail.setOpacity(d)
+      photoClassic.setOpacity(c)
+      stdDetail.setOpacity(0)
+      stdClassic.setOpacity(0)
+    } else {
+      stdDetail.setOpacity(d)
+      stdClassic.setOpacity(c)
+      photoDetail.setOpacity(0)
+      photoClassic.setOpacity(0)
+    }
   }
-  fillForZoom()
+
+  applyOpacity()
   stdGroup.addTo(map)
-  map.on('zoomend', fillForZoom)
+  // zoom: アニメーション途中でも切替（zoomend だけだとズームアウトで classic 縮小＝粗く見える）
+  map.on('zoom', applyOpacity)
+  map.on('zoomend', applyOpacity)
+  map.on('baselayerchange', (e: L.LayersControlEvent) => {
+    showingPhoto = e.name === '写真'
+    applyOpacity()
+  })
   L.control
     .layers(
       { 標準地図: stdGroup, 写真: photoGroup },

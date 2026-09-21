@@ -737,7 +737,8 @@ export const JP_TILE_DETAIL_BIAS = 2
 
 /**
  * detail モードで、このズーム以上は classic と同じネイティブタイルに切替。
- * 17 で切ると classic の z17（一段粗い）が見えて段差になるため、最大の 18 のみ切替。
+ * 17 で切ると classic の z17（一段粗い）が見えて段差になるため、最大の 18 のみ。
+ * 切替は opacity（両レイヤ常駐）。zoom イベントで途中からも切替え、ズームアウト時の粗フラッシュを防ぐ。
  */
 export const JP_DETAIL_HANDOFF_ZOOM = 18
 

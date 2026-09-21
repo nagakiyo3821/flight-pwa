@@ -923,15 +923,24 @@ function geoFieldHtml(
   id: string,
   label: string,
   initial: string,
-  opts?: { fill?: boolean; text?: boolean },
+  opts?: { fill?: boolean; text?: boolean; labelHtml?: string },
 ): string {
   const inputClass = opts?.fill ? 'sc-input sc-input--fill' : 'sc-input'
+  const labelInner = opts?.labelHtml ?? escapeHtml(label)
   if (opts?.text) {
-    return `<label class="sc-geo-field sc-geo-field--adrs"><span>${escapeHtml(label)}</span>
+    return `<label class="sc-geo-field sc-geo-field--adrs"><span>${labelInner}</span>
     ${clearableInputHtml(id, `class="${inputClass}" type="text" inputmode="text" autocomplete="street-address"`, initial)}</label>`
   }
-  return `<label class="sc-geo-field"><span>${escapeHtml(label)}</span>
+  return `<label class="sc-geo-field"><span class="sc-geo-field-label">${labelInner}</span>
     ${clearableInputHtml(id, `class="${inputClass}" type="text" inputmode="decimal" autocomplete="off"`, sanitizeNumberDraft(initial))}</label>`
+}
+
+function dualGeoLabelHtml(kind: 'gps' | 'tap', text: string): string {
+  const ico =
+    kind === 'gps'
+      ? '<span class="sc-map-ico sc-map-ico--gps sc-map-ico--inline" aria-hidden="true"></span>'
+      : '<span class="sc-map-ico sc-map-ico--tap sc-map-ico--inline" aria-hidden="true"></span>'
+  return `${ico}<span class="sc-geo-field-label-text">${escapeHtml(text)}</span>`
 }
 
 /** テキスト／数値／日付／時刻入力＋消去（×） */
@@ -1054,10 +1063,12 @@ function askMissingGeo(
         : 'タップで緯度・経度・高度・住所をセット'
       root.innerHTML = `
         <div class="sc-geopick-stack">
-          <h1 class="prompt sc-geopick-title">${promptHtml}</h1>
-          ${fieldsHtml}
-          <div id="sc-map-pick" class="sc-map-pick sc-map-pick--geopick" role="application" aria-label="位置選択マップ"></div>
-          <p class="sc-map-hint" id="sc-map-hint">${hint}</p>
+          <div class="sc-geopick-scroll">
+            <h1 class="prompt sc-geopick-title">${promptHtml}</h1>
+            ${fieldsHtml}
+            <div id="sc-map-pick" class="sc-map-pick sc-map-pick--geopick" role="application" aria-label="位置選択マップ"></div>
+            <p class="sc-map-hint" id="sc-map-hint">${hint}</p>
+          </div>
           <div class="sc-actions sc-geopick-actions">
             <button type="button" class="sc-btn sc-btn-ok" id="sc-ok">${escapeHtml(ITEM_OK)}</button>
             <button type="button" class="sc-btn sc-btn-back" id="sc-back">${escapeHtml(ITEM_BACK)}</button>
@@ -1288,18 +1299,18 @@ function askMissingGeo(
         mapEl.style.boxSizing = 'border-box'
         mapEl.style.overflow = 'hidden'
         if (geopick) {
-          mapEl.style.height = '300px'
+          mapEl.style.height = '240px'
         }
         const c = map.getContainer()
         c.style.width = '100%'
         c.style.maxWidth = '100%'
         c.style.boxSizing = 'border-box'
-        if (geopick) c.style.height = '300px'
+        if (geopick) c.style.height = '240px'
         map.invalidateSize({ animate: false })
       }
       if (geopick) {
         mapEl.style.cssText =
-          'height:300px;min-height:300px;max-height:300px;width:100%;max-width:100%;overflow:hidden;box-sizing:border-box;'
+          'height:240px;min-height:240px;max-height:240px;width:100%;max-width:100%;overflow:hidden;box-sizing:border-box;'
       }
       // classic=従来 / detail=引いた表示は詳細、寄ると classic と同じタイル
       map = L.map(mapEl, {
@@ -1465,27 +1476,39 @@ function askDualPlaceGeo(opts: {
       lng: Math.round(opts.gps.lng * 1e8) / 1e8,
       alt: opts.gps.alt,
     }
-    const titleHtml = `<span class="sc-geopick-title-line"><span class="sc-geopick-title-pair">現在地点<span class="sc-map-ico sc-map-ico--gps sc-map-ico--inline" aria-hidden="true"></span></span><span class="sc-geopick-title-pair">タップ地点<span class="sc-map-ico sc-map-ico--tap sc-map-ico--inline" aria-hidden="true"></span></span></span><br/>${escapeHtml(PLACE_NEW_CONFIRM_LINE)}`
+    const titleHtml = `<span class="sc-geopick-title-line"><span class="sc-geopick-title-pair"><span class="sc-map-ico sc-map-ico--gps sc-map-ico--inline" aria-hidden="true"></span>現在地（GPS）</span><span class="sc-geopick-title-sep">、</span><span class="sc-geopick-title-pair"><span class="sc-map-ico sc-map-ico--tap sc-map-ico--inline" aria-hidden="true"></span>タップ地点</span></span><br/>${escapeHtml(PLACE_NEW_CONFIRM_LINE)}`
 
     const gpsNums = [
-      geoFieldHtml('sc-gps-lat', GPS_LABEL_LAT, String(gps.lat), { fill: true }),
-      geoFieldHtml('sc-gps-lng', GPS_LABEL_LNG, String(gps.lng), { fill: true }),
-      geoFieldHtml('sc-gps-alt', GPS_LABEL_ALT, String(gps.alt), { fill: true }),
+      geoFieldHtml('sc-gps-lat', GPS_LABEL_LAT, String(gps.lat), {
+        fill: true,
+        labelHtml: dualGeoLabelHtml('gps', GPS_LABEL_LAT),
+      }),
+      geoFieldHtml('sc-gps-lng', GPS_LABEL_LNG, String(gps.lng), {
+        fill: true,
+        labelHtml: dualGeoLabelHtml('gps', GPS_LABEL_LNG),
+      }),
+      geoFieldHtml('sc-gps-alt', GPS_LABEL_ALT, String(gps.alt), {
+        fill: true,
+        labelHtml: dualGeoLabelHtml('gps', GPS_LABEL_ALT),
+      }),
     ].join('')
     const ptNums = [
-      geoFieldHtml('sc-lat', GPS_LABEL_LAT, String(gps.lat), { fill: true }),
-      geoFieldHtml('sc-lng', GPS_LABEL_LNG, String(gps.lng), { fill: true }),
-      geoFieldHtml('sc-alt', GPS_LABEL_ALT, String(gps.alt), { fill: true }),
+      geoFieldHtml('sc-lat', GPS_LABEL_LAT, String(gps.lat), {
+        fill: true,
+        labelHtml: dualGeoLabelHtml('tap', GPS_LABEL_LAT),
+      }),
+      geoFieldHtml('sc-lng', GPS_LABEL_LNG, String(gps.lng), {
+        fill: true,
+        labelHtml: dualGeoLabelHtml('tap', GPS_LABEL_LNG),
+      }),
+      geoFieldHtml('sc-alt', GPS_LABEL_ALT, String(gps.alt), {
+        fill: true,
+        labelHtml: dualGeoLabelHtml('tap', GPS_LABEL_ALT),
+      }),
     ].join('')
     const fieldsHtml = `<div class="sc-geo-fields--geopick">
-      <div class="sc-geo-dual-row sc-geo-dual-row--gps">
-        <div class="sc-geo-dual-label"><span class="sc-map-ico sc-map-ico--gps sc-map-ico--inline" aria-hidden="true"></span>現在地点（GPS）</div>
-        <div class="sc-geo-fields--geopick-nums">${gpsNums}</div>
-      </div>
-      <div class="sc-geo-dual-row sc-geo-dual-row--pt">
-        <div class="sc-geo-dual-label"><span class="sc-map-ico sc-map-ico--tap sc-map-ico--inline" aria-hidden="true"></span>タップ地点</div>
-        <div class="sc-geo-fields--geopick-nums">${ptNums}</div>
-      </div>
+      <div class="sc-geo-fields--geopick-nums">${gpsNums}</div>
+      <div class="sc-geo-fields--geopick-nums">${ptNums}</div>
       <button type="button" class="sc-btn-gps-copy" id="sc-gps-to-pt">${escapeHtml(PLACE_GPS_TO_POINT)}</button>
       <div class="sc-geo-fields--geopick-acc">
         ${geoFieldHtml('sc-posac', GPS_LABEL_POSAC, opts.posac ?? PLACE_DEFAULT_POSAC, { fill: true })}
@@ -1496,10 +1519,12 @@ function askDualPlaceGeo(opts: {
 
     root.innerHTML = `
       <div class="sc-geopick-stack">
-        <h1 class="prompt sc-geopick-title">${titleHtml}</h1>
-        ${fieldsHtml}
-        <div id="sc-map-pick" class="sc-map-pick sc-map-pick--geopick" role="application" aria-label="位置選択マップ"></div>
-        <p class="sc-map-hint" id="sc-map-hint">タップで地点を移動（青＝GPS固定／橙＝登録点）</p>
+        <div class="sc-geopick-scroll">
+          <h1 class="prompt sc-geopick-title">${titleHtml}</h1>
+          ${fieldsHtml}
+          <div id="sc-map-pick" class="sc-map-pick sc-map-pick--geopick" role="application" aria-label="位置選択マップ"></div>
+          <p class="sc-map-hint" id="sc-map-hint">タップで地点を移動（青＝GPS固定／橙＝登録点）</p>
+        </div>
         <div class="sc-actions sc-geopick-actions">
           <button type="button" class="sc-btn sc-btn-ok" id="sc-ok">${escapeHtml(ITEM_OK)}</button>
           <button type="button" class="sc-btn sc-btn-back" id="sc-back">${escapeHtml(ITEM_BACK)}</button>
@@ -1647,7 +1672,7 @@ function askDualPlaceGeo(opts: {
 
     const mapEl = root.querySelector<HTMLDivElement>('#sc-map-pick')!
     mapEl.style.cssText =
-      'height:300px;min-height:300px;max-height:300px;width:100%;max-width:100%;overflow:hidden;box-sizing:border-box;'
+      'height:240px;min-height:240px;max-height:240px;width:100%;max-width:100%;overflow:hidden;box-sizing:border-box;'
     map = L.map(mapEl, {
       zoomControl: true,
       maxZoom: jpMapMaxZoom(mapTiles),
@@ -1676,7 +1701,7 @@ function askDualPlaceGeo(opts: {
       const c = map.getContainer()
       c.style.width = '100%'
       c.style.maxWidth = '100%'
-      c.style.height = '300px'
+      c.style.height = '240px'
       map.invalidateSize({ animate: false })
     }
     requestAnimationFrame(() => fitMapWidth())

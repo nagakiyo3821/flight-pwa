@@ -327,7 +327,7 @@ export const PLACE_MENU_MAP_NEW_1 = '%マップ新規場所登録～1'
 export const PLACE_MENU_MAP_NEW_2 = '%マップ新規場所登録～2'
 
 /** %新規場所登録（GPS＋タップ）タイトル2行目 */
-export const PLACE_NEW_CONFIRM_LINE = '各項目を確認して確定'
+export const PLACE_NEW_CONFIRM_LINE = '緯度、経度、高度を確認して確定'
 /** GPS測定値をタップ地点フィールドへコピー */
 export const PLACE_GPS_TO_POINT = 'GPS値をポイントへ'
 

@@ -169,7 +169,16 @@ import {
 import { fetchWeatherSet } from './weather'
 import { APP_VERSION } from './version'
 import { isIosDevice } from './platform'
-import { fetchGroundElevation, osmEmbedUrl, osmOpenUrl, reverseGeocode, JP_BASE_TILE_OPTS, JP_BASE_TILE_URL, JP_PHOTO_TILE_OPTS, JP_PHOTO_TILE_URL } from './geo'
+import {
+  fetchGroundElevation,
+  osmOpenUrl,
+  reverseGeocode,
+  jpGsiTileOpts,
+  jpMapMaxZoom,
+  JP_BASE_TILE_URL,
+  JP_MAP_VIEW_ZOOM,
+  JP_PHOTO_TILE_URL,
+} from './geo'
 import {
   combineYmdAndHm,
   displayFlightHm,
@@ -1265,9 +1274,14 @@ function askMissingGeo(
         mapEl.style.cssText =
           'height:300px;min-height:300px;max-height:300px;width:100%;max-width:100%;overflow:hidden;box-sizing:border-box;'
       }
-      map = L.map(mapEl, { zoomControl: true }).setView([centerLat, centerLng], 16)
-      const base = L.tileLayer(JP_BASE_TILE_URL, { ...JP_BASE_TILE_OPTS })
-      const photo = L.tileLayer(JP_PHOTO_TILE_URL, { ...JP_PHOTO_TILE_OPTS })
+      // 表示範囲は VIEW_ZOOM。タイルは一段細かいものを縮小表示（住宅・文字の粗さ対策）
+      const tileOpts = jpGsiTileOpts()
+      map = L.map(mapEl, {
+        zoomControl: true,
+        maxZoom: jpMapMaxZoom(),
+      }).setView([centerLat, centerLng], JP_MAP_VIEW_ZOOM)
+      const base = L.tileLayer(JP_BASE_TILE_URL, { ...tileOpts })
+      const photo = L.tileLayer(JP_PHOTO_TILE_URL, { ...tileOpts })
       base.addTo(map)
       // 標準地図／写真の切替（住宅の有無確認用）
       L.control
@@ -1415,11 +1429,10 @@ function showMapDialog(lat: number, lng: number, alt?: number): Promise<void> {
         `${GPS_LABEL_ALT} ${altText}`,
       ].join('\n'),
     ).replace(/\n/g, '<br/>')
-    const embed = osmEmbedUrl(lat, lng)
     const open = osmOpenUrl(lat, lng)
     const body = `
       <div class="sc-map-wrap sc-map-wrap--fill">
-        <iframe class="sc-map sc-map--fill" src="${embed}" title="現在地マップ" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+        <div id="sc-map-view" class="sc-map sc-map--fill" role="application" aria-label="現在地マップ"></div>
         <p class="sc-map-link"><a href="${open}" target="_blank" rel="noopener noreferrer">地図を別タブで開く</a></p>
       </div>`
     const actions = `<div class="sc-actions"><button type="button" class="sc-btn sc-btn-ok" id="sc-ok">${escapeHtml(MAP_DONE)}</button></div>`
@@ -1433,9 +1446,41 @@ function showMapDialog(lat: number, lng: number, alt?: number): Promise<void> {
           ${actions}
         </section>
       </div>`
+
+    // 表示範囲はデフォルトズームのまま、一段細かい地理院タイルを縮小表示
+    const mapEl = root.querySelector<HTMLDivElement>('#sc-map-view')!
+    const tileOpts = jpGsiTileOpts()
+    const map = L.map(mapEl, {
+      zoomControl: true,
+      maxZoom: jpMapMaxZoom(),
+    }).setView([lat, lng], JP_MAP_VIEW_ZOOM)
+    const base = L.tileLayer(JP_BASE_TILE_URL, { ...tileOpts })
+    const photo = L.tileLayer(JP_PHOTO_TILE_URL, { ...tileOpts })
+    base.addTo(map)
+    L.control
+      .layers(
+        { 標準地図: base, 写真: photo },
+        {},
+        { position: 'topright', collapsed: true },
+      )
+      .addTo(map)
+    L.circleMarker([lat, lng], {
+      radius: 9,
+      color: '#1e5a78',
+      fillColor: '#3d8fb5',
+      fillOpacity: 0.9,
+      weight: 2,
+    }).addTo(map)
+
+    const fit = () => map.invalidateSize({ animate: false })
+    requestAnimationFrame(fit)
+    setTimeout(fit, 100)
+    setTimeout(fit, 300)
+
     root.querySelector('#sc-ok')!.addEventListener('click', (e) => {
       e.preventDefault()
       e.stopPropagation()
+      map.remove()
       closeDialogSafely(root, () => resolve())
     })
   })

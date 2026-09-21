@@ -710,8 +710,7 @@ function normalizeChome(s: string): string {
 }
 
 export function osmEmbedUrl(lat: number, lng: number, delta = 0.008): string {
-  // 確認用 iframe は地理院地図（日本の建物・道路が新しい）
-  // ※ Leaflet 本画面と同じ標準地図タイルを使うため、簡易に maps.gsi へ誘導するリンクも併用
+  // 旧簡易表示用（OSM iframe）。現行 UI は Leaflet＋地理院詳細タイル。
   const bbox = `${lng - delta},${lat - delta},${lng + delta},${lat + delta}`
   return (
     `https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(bbox)}` +
@@ -720,26 +719,62 @@ export function osmEmbedUrl(lat: number, lng: number, delta = 0.008): string {
 }
 
 export function osmOpenUrl(lat: number, lng: number): string {
-  // 別タブは国土地理院地図（標準）
-  return `https://maps.gsi.go.jp/#17/${lat}/${lng}/&base=std&ls=std&disp=1&vs=c1j0h0k0l0u0t0z0r0s0m0f1`
+  // 別タブは国土地理院地図（標準）。表示ズームはアプリの VIEW_ZOOM に合わせる
+  return `https://maps.gsi.go.jp/#${JP_MAP_VIEW_ZOOM}/${lat}/${lng}/&base=std&ls=std&disp=1&vs=c1j0h0k0l0u0t0z0r0s0m0f1`
 }
 
-/** 日本向け背景タイル（地理院 標準地図）。OSM より住宅・道路が新しいことが多い */
+/**
+ * 地図の「見える範囲」ズーム。
+ * 指ズームで一段寄ったあとの詳細タイルを、この範囲に縮小して載せる（JP_TILE_DETAIL_BIAS）。
+ */
+export const JP_MAP_VIEW_ZOOM = 16
+
+/**
+ * 詳細バイアス（2 = 指で二段寄った相当のタイルを VIEW_ZOOM で縮小表示）。
+ * 地理院の実タイル上限は 18。採用可否確認用（1 では差が小さい場合あり）。
+ */
+export const JP_TILE_DETAIL_BIAS = 2
+
+const GSI_ATTR =
+  '<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">地理院タイル</a>'
+
+/** Leaflet 地図の maxZoom（詳細バイアス込みで URL z が 18 を超えない） */
+export function jpMapMaxZoom(): number {
+  return 18 - JP_TILE_DETAIL_BIAS
+}
+
+/**
+ * 地理院タイル用 Leaflet オプション。
+ * tileSize を小さく・zoomOffset を上げ、同じ表示ズームで一段細かいタイルを縮小表示する。
+ */
+export function jpGsiTileOpts(): {
+  maxZoom: number
+  maxNativeZoom: number
+  tileSize: number
+  zoomOffset: number
+  attribution: string
+} {
+  const bias = JP_TILE_DETAIL_BIAS
+  const maxZ = 18 - bias
+  return {
+    maxZoom: maxZ,
+    maxNativeZoom: maxZ,
+    tileSize: 256 / 2 ** bias,
+    zoomOffset: bias,
+    attribution: GSI_ATTR,
+  }
+}
+
+/** 日本向け背景タイル（地理院 標準地図） */
 export const JP_BASE_TILE_URL =
   'https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png'
 
-export const JP_BASE_TILE_OPTS = {
-  maxZoom: 18,
-  attribution:
-    '<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">地理院タイル</a>',
-} as const
+/** @deprecated jpGsiTileOpts() を使う（詳細タイル縮小表示） */
+export const JP_BASE_TILE_OPTS = jpGsiTileOpts()
 
 /** 空中写真（建物の有無確認用・任意） */
 export const JP_PHOTO_TILE_URL =
   'https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg'
 
-export const JP_PHOTO_TILE_OPTS = {
-  maxZoom: 18,
-  attribution:
-    '<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">地理院タイル</a>',
-} as const
+/** @deprecated jpGsiTileOpts() を使う */
+export const JP_PHOTO_TILE_OPTS = jpGsiTileOpts()

@@ -45,21 +45,33 @@ async function reverseGeocodeInner(lat: number, lng: number): Promise<string> {
       withTimeout(reverseNominatimParts(lat, lng), REVERSE_GEO_ONE_MS, emptyNom),
       withTimeout(reverseGsiChome(lat, lng), REVERSE_GEO_ONE_MS, ''),
     ])
+
+    // 1) 逆ジオで号／番が取れたら最優先（○丁目△-◇）
     const fromHits = addressFromJageHits(jageHits, lat, lng)
     if (fromHits) return fromHits
-    const merged = mergeJapanAddress(hr, nom, gsiChome)
-    if (merged) return merged
-    const prefix = chomePrefixFromHits(jageHits)
+
+    // 2) 丁目までは取れていることが多い → 番地補完を「丁目のみ合成」より先に試す
+    //    （以前は merge が丁目で成功して番探しに届かないことがあった）
+    const prefix =
+      chomePrefixFromHits(jageHits) || chomePrefixFromParts(hr, gsiChome, nom)
     if (prefix) {
-      // 短時間だけ番探し。間に合わなければ丁目まで返す（永遠に「取得中」にしない）
       const banFull = await withTimeout(
-        findClosestJyukyoBanByGeocode(prefix, lat, lng, 2000),
-        2500,
+        findClosestJyukyoBanByGeocode(prefix, lat, lng, 2200),
+        2800,
         null,
       )
       if (banFull) return formatJageocoderResidential(banFull)
-      return normalizeJpAddress(prefix)
+
+      const withNom = appendHouseNumber(normalizeJpAddress(prefix), nom.houseNumber)
+      if (nom.houseNumber && withNom !== normalizeJpAddress(prefix)) {
+        return normalizeJpAddress(withNom)
+      }
     }
+
+    // 3) 従来の HeartRails + GSI + Nominatim 合成
+    const merged = mergeJapanAddress(hr, nom, gsiChome)
+    if (merged) return merged
+    if (prefix) return normalizeJpAddress(prefix)
   }
   const nom = await withTimeout(
     reverseNominatimParts(lat, lng),
@@ -156,28 +168,48 @@ function addressFromJageHits(
   lng: number,
 ): string {
   if (!hits.length) return ''
-  const jyukyoHits = hits.filter((h) => isJyukyoBanNode(h.candidate))
-  if (jyukyoHits.length) {
-    const best = pickClosestJageHit(jyukyoHits, lat, lng)
-    if (best?.candidate?.fullname) {
-      return formatJageocoderResidential(best.candidate.fullname)
-    }
+
+  // 号（level 8）を優先 → ○丁目△-◇
+  const goHits = hits.filter((h) => isJyukyoGoNode(h.candidate))
+  const bestGo = pickClosestJageHit(goHits, lat, lng, JAGE_GO_MAX_M)
+  if (bestGo?.candidate?.fullname) {
+    return formatJageocoderResidential(bestGo.candidate.fullname)
+  }
+
+  // 街区（level 7）→ ○丁目△
+  const banHits = hits.filter((h) => isJyukyoBanNode(h.candidate))
+  const bestBan = pickClosestJageHit(banHits, lat, lng, JAGE_BAN_MAX_M)
+  if (bestBan?.candidate?.fullname) {
+    return formatJageocoderResidential(bestBan.candidate.fullname)
   }
   return ''
 }
 
+/** 街区代表点はクリック位置から離れやすいので緩め。号は建物寄りなので狭め。 */
+const JAGE_BAN_MAX_M = 280
+const JAGE_GO_MAX_M = 120
+
 async function fetchJageReverseHits(lat: number, lng: number): Promise<JageReverseHit[]> {
-  const out: JageReverseHit[] = []
-  for (const level of [8, 7] as const) {
-    const url =
-      `https://jageocoder.info-proto.com/rgeocode` +
-      `?lat=${encodeURIComponent(String(lat))}` +
-      `&lon=${encodeURIComponent(String(lng))}` +
-      `&level=${level}&opts=all`
-    const data = await fetchJson(url, REVERSE_GEO_ONE_MS)
-    if (Array.isArray(data)) out.push(...(data as JageReverseHit[]))
-  }
-  return out
+  // level 8（号）と 7（番）を並列取得（直列だと後段がタイムアウトしやすい）
+  const levels = [8, 7] as const
+  const batches = await Promise.all(
+    levels.map(async (level) => {
+      const url =
+        `https://jageocoder.info-proto.com/rgeocode` +
+        `?lat=${encodeURIComponent(String(lat))}` +
+        `&lon=${encodeURIComponent(String(lng))}` +
+        `&level=${level}&opts=all`
+      const data = await fetchJson(url, REVERSE_GEO_ONE_MS)
+      return Array.isArray(data) ? (data as JageReverseHit[]) : []
+    }),
+  )
+  return batches.flat()
+}
+
+function fullnameHasBanchi(c?: JageNode | null): boolean {
+  if (!c) return true
+  if (/番地/.test(String(c.name ?? ''))) return true
+  return /番地/.test((c.fullname ?? []).join(''))
 }
 
 /** 住居表示の街区「12番」（地番の「12番地」は除外） */
@@ -185,17 +217,27 @@ function isJyukyoBanNode(c?: JageNode | null): boolean {
   if (!c) return false
   const name = String(c.name ?? '')
   if (!/^\d+番$/.test(name)) return false
-  if (/番地/.test(name)) return false
-  const full = (c.fullname ?? []).join('')
-  if (/番地/.test(full)) return false
-  // priority 3 付近が住居表示街区。緩く 7 未満も許容
-  return (c.priority ?? 9) < 8
+  if (fullnameHasBanchi(c)) return false
+  // priority 3 付近が住居表示街区。緩く 9 未満も許容
+  return (c.priority ?? 9) < 9
+}
+
+/** 住居表示の号「12号」（fullname に親の「n番」を含むもの） */
+function isJyukyoGoNode(c?: JageNode | null): boolean {
+  if (!c) return false
+  const name = String(c.name ?? '')
+  if (!/^\d+号$/.test(name)) return false
+  if (fullnameHasBanchi(c)) return false
+  const full = c.fullname ?? []
+  if (!full.some((p) => /^\d+番$/.test(String(p)))) return false
+  return (c.priority ?? 9) < 9 || c.level === 8
 }
 
 function pickClosestJageHit(
   hits: JageReverseHit[],
   lat: number,
   lng: number,
+  maxMeters: number,
 ): JageReverseHit | null {
   let best: JageReverseHit | null = null
   let bestD = Infinity
@@ -211,7 +253,27 @@ function pickClosestJageHit(
       best = h
     }
   }
-  return bestD <= 150 ? best : null
+  return bestD <= maxMeters ? best : null
+}
+
+/** HeartRails / GSI / Nominatim から丁目付きプレフィックスを組み立て */
+function chomePrefixFromParts(
+  hr: HeartRailsParts,
+  gsiChome: string,
+  nom: NominatimParts,
+): string {
+  const pref = hr.prefecture.trim()
+  const city = hr.city.trim()
+  const chome = normalizeChome((gsiChome || nom.chome || '').trim())
+  if (pref || city || chome) {
+    const town = chome || hr.town.trim()
+    const built = [pref, city, town].filter(Boolean).join('')
+    if (built && /丁目/.test(built)) return normalizeJpAddress(built)
+  }
+  if (hr.address && /丁目/.test(hr.address)) {
+    return normalizeJpAddress(applyChomeToBase(hr.address, chome))
+  }
+  return ''
 }
 
 /** 逆ジオ候補から「県+市+町+丁目」を組み立て（地番番号は含めない） */
@@ -257,7 +319,7 @@ async function findClosestJyukyoBanByGeocode(
   deadlineMs = 2000,
 ): Promise<string[] | null> {
   let best: { fullname: string[]; dist: number } | null = null
-  const maxBan = 20
+  const maxBan = 30
   const batch = 5
   let consecutiveMiss = 0
   const started = Date.now()
@@ -284,7 +346,7 @@ async function findClosestJyukyoBanByGeocode(
     }
   }
 
-  if (best && best.dist <= 120) return best.fullname
+  if (best && best.dist <= JAGE_BAN_MAX_M) return best.fullname
   return null
 }
 

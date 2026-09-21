@@ -737,9 +737,9 @@ export const JP_TILE_DETAIL_BIAS = 2
 
 /**
  * detail モードで、このズーム以上は classic と同じネイティブタイルに切替。
- * （最大ズーム付近の見た目を ～1 と揃える。既定 VIEW_ZOOM+1）
+ * 17 で切ると classic の z17（一段粗い）が見えて段差になるため、最大の 18 のみ切替。
  */
-export const JP_DETAIL_HANDOFF_ZOOM = JP_MAP_VIEW_ZOOM + 1
+export const JP_DETAIL_HANDOFF_ZOOM = 18
 
 /** classic = 従来（標準タイル・ピンチ〜18） / detail = 引いた表示は詳細縮小、寄ると classic と同じ */
 export type GsiTileMode = 'classic' | 'detail'

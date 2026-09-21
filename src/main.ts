@@ -177,6 +177,7 @@ import {
   jpGsiTileOpts,
   jpMapMaxZoom,
   JP_BASE_TILE_URL,
+  JP_DETAIL_HANDOFF_ZOOM,
   JP_MAP_VIEW_ZOOM,
   JP_PHOTO_TILE_URL,
   type GsiTileMode,
@@ -1283,23 +1284,12 @@ function askMissingGeo(
         mapEl.style.cssText =
           'height:300px;min-height:300px;max-height:300px;width:100%;max-width:100%;overflow:hidden;box-sizing:border-box;'
       }
-      // classic=従来タイル / detail=細かいタイルを縮小（ピンチは両モードとも〜18）
-      const tileOpts = jpGsiTileOpts(mapTiles)
+      // classic=従来 / detail=引いた表示は詳細、寄ると classic と同じタイル
       map = L.map(mapEl, {
         zoomControl: true,
         maxZoom: jpMapMaxZoom(mapTiles),
       }).setView([centerLat, centerLng], JP_MAP_VIEW_ZOOM)
-      const base = L.tileLayer(JP_BASE_TILE_URL, { ...tileOpts })
-      const photo = L.tileLayer(JP_PHOTO_TILE_URL, { ...tileOpts })
-      base.addTo(map)
-      // 標準地図／写真の切替（住宅の有無確認用）
-      L.control
-        .layers(
-          { 標準地図: base, 写真: photo },
-          {},
-          { position: 'topright', collapsed: true },
-        )
-        .addTo(map)
+      mountGsiLayers(map, mapTiles)
 
       // 初期フィールドに座標があるときだけピン表示（mapRegister は空なのでタップ待ち）
       if (parseField(latEl) != null && parseField(lngEl) != null) {
@@ -1425,6 +1415,53 @@ function askMissingGeo(
   })
 }
 
+/**
+ * 地理院 標準／写真レイヤを載せる。
+ * detail は引いたズームで詳細タイル、JP_DETAIL_HANDOFF_ZOOM 以上で classic と同じネイティブタイルに切替。
+ */
+function mountGsiLayers(map: L.Map, mode: GsiTileMode): void {
+  const classicOpts = jpGsiTileOpts('classic')
+  if (mode === 'classic') {
+    const base = L.tileLayer(JP_BASE_TILE_URL, { ...classicOpts })
+    const photo = L.tileLayer(JP_PHOTO_TILE_URL, { ...classicOpts })
+    base.addTo(map)
+    L.control
+      .layers(
+        { 標準地図: base, 写真: photo },
+        {},
+        { position: 'topright', collapsed: true },
+      )
+      .addTo(map)
+    return
+  }
+
+  const detailOpts = jpGsiTileOpts('detail')
+  const stdDetail = L.tileLayer(JP_BASE_TILE_URL, { ...detailOpts })
+  const stdClassic = L.tileLayer(JP_BASE_TILE_URL, { ...classicOpts })
+  const photoDetail = L.tileLayer(JP_PHOTO_TILE_URL, { ...detailOpts })
+  const photoClassic = L.tileLayer(JP_PHOTO_TILE_URL, { ...classicOpts })
+  const stdGroup = L.layerGroup()
+  const photoGroup = L.layerGroup()
+
+  const fillForZoom = () => {
+    const useDetail = map.getZoom() < JP_DETAIL_HANDOFF_ZOOM
+    stdGroup.clearLayers()
+    photoGroup.clearLayers()
+    stdGroup.addLayer(useDetail ? stdDetail : stdClassic)
+    photoGroup.addLayer(useDetail ? photoDetail : photoClassic)
+  }
+  fillForZoom()
+  stdGroup.addTo(map)
+  map.on('zoomend', fillForZoom)
+  L.control
+    .layers(
+      { 標準地図: stdGroup, 写真: photoGroup },
+      {},
+      { position: 'topright', collapsed: true },
+    )
+    .addTo(map)
+}
+
 /** 簡易マップ表示。完了で閉じる（ショートカット「マップ」→完了） */
 function showMapDialog(lat: number, lng: number, alt?: number): Promise<void> {
   return new Promise((resolve) => {
@@ -1456,23 +1493,13 @@ function showMapDialog(lat: number, lng: number, alt?: number): Promise<void> {
         </section>
       </div>`
 
-    // #マップ表示: 詳細タイル縮小＋ピンチ〜18
+    // #マップ表示: 詳細タイル（寄ると classic と同じ）
     const mapEl = root.querySelector<HTMLDivElement>('#sc-map-view')!
-    const tileOpts = jpGsiTileOpts('detail')
     const map = L.map(mapEl, {
       zoomControl: true,
       maxZoom: jpMapMaxZoom('detail'),
     }).setView([lat, lng], JP_MAP_VIEW_ZOOM)
-    const base = L.tileLayer(JP_BASE_TILE_URL, { ...tileOpts })
-    const photo = L.tileLayer(JP_PHOTO_TILE_URL, { ...tileOpts })
-    base.addTo(map)
-    L.control
-      .layers(
-        { 標準地図: base, 写真: photo },
-        {},
-        { position: 'topright', collapsed: true },
-      )
-      .addTo(map)
+    mountGsiLayers(map, 'detail')
     L.circleMarker([lat, lng], {
       radius: 9,
       color: '#1e5a78',

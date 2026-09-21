@@ -735,7 +735,13 @@ export const JP_MAP_VIEW_ZOOM = 16
  */
 export const JP_TILE_DETAIL_BIAS = 2
 
-/** classic = 従来（標準タイル・ピンチ〜18） / detail = 詳細タイル縮小＋ピンチ〜18 */
+/**
+ * detail モードで、このズーム以上は classic と同じネイティブタイルに切替。
+ * （最大ズーム付近の見た目を ～1 と揃える。既定 VIEW_ZOOM+1）
+ */
+export const JP_DETAIL_HANDOFF_ZOOM = JP_MAP_VIEW_ZOOM + 1
+
+/** classic = 従来（標準タイル・ピンチ〜18） / detail = 引いた表示は詳細縮小、寄ると classic と同じ */
 export type GsiTileMode = 'classic' | 'detail'
 
 const GSI_ATTR =
@@ -748,8 +754,8 @@ export function jpMapMaxZoom(_mode?: GsiTileMode): number {
 
 /**
  * 地理院タイル用 Leaflet オプション。
- * - classic: 従来どおり（表示ズーム＝タイルズーム）
- * - detail: 細かいタイルを縮小表示。ピンチは maxZoom 18 まで（超過分は最細タイルを拡大）
+ * - classic: 表示ズーム＝タイルズーム
+ * - detail: 引いたズームでは細かいタイルを縮小。寄ったズームは main 側で classic に切替
  */
 export function jpGsiTileOpts(mode: GsiTileMode = 'classic'): {
   maxZoom: number
@@ -768,7 +774,7 @@ export function jpGsiTileOpts(mode: GsiTileMode = 'classic'): {
     }
   }
   const bias = JP_TILE_DETAIL_BIAS
-  // 表示ズーム + bias が 18 を超える分は maxNativeZoom で抑え、最細タイルをピンチ拡大
+  // handoff 未満でのみ使う想定。URL z が 18 を超えないよう maxNativeZoom を制限
   return {
     maxZoom: 18,
     maxNativeZoom: 18 - bias,

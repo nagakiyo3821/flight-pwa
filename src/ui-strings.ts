@@ -315,12 +315,21 @@ export function placeDecisionPrompt(parts: Parameters<typeof placeDecisionCopy>[
 /** 8.場所データ管理（直接起動） */
 export const PLACE_MENU_BACK = '%戻る'
 export const PLACE_MENU_HERE = '%現在地検索'
+/** GPS＋マップタップ統合の新規場所登録 */
+export const PLACE_MENU_NEW = '%新規場所登録'
+/** @deprecated メニューから削除。PLACE_MENU_NEW に統合 */
 export const PLACE_MENU_HERE_NEW = '%現在地検索NEW'
+/** @deprecated PLACE_MENU_NEW に統合 */
 export const PLACE_MENU_MAP_NEW = '%マップ新規場所登録'
-/** 比較用: 従来タイル（ピンチ〜ズーム18） */
+/** @deprecated */
 export const PLACE_MENU_MAP_NEW_1 = '%マップ新規場所登録～1'
-/** 比較用: 詳細タイル縮小＋ピンチ拡大拡張 */
+/** @deprecated */
 export const PLACE_MENU_MAP_NEW_2 = '%マップ新規場所登録～2'
+
+/** %新規場所登録（GPS＋タップ）タイトル2行目 */
+export const PLACE_NEW_CONFIRM_LINE = '各項目を確認して確定'
+/** GPS測定値をタップ地点フィールドへコピー */
+export const PLACE_GPS_TO_POINT = 'GPS値をポイントへ'
 
 /** 場所マスタの位置／高度精度デフォルト（m） */
 export const PLACE_DEFAULT_POSAC = '15'

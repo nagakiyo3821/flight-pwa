@@ -118,9 +118,9 @@ import {
   PLACE_HERE_SKIP,
   PLACE_MENU_BACK,
   PLACE_MENU_HERE,
-  PLACE_MENU_HERE_NEW,
-  PLACE_MENU_MAP_NEW_1,
-  PLACE_MENU_MAP_NEW_2,
+  PLACE_MENU_NEW,
+  PLACE_NEW_CONFIRM_LINE,
+  PLACE_GPS_TO_POINT,
   PLACE_DEFAULT_POSAC,
   PLACE_DEFAULT_ALTAC,
   PLACE_UPDATE_BACK,
@@ -166,7 +166,6 @@ import {
   placeDecisionCopy,
   placeEditCopyCmd,
   placeHereCopy,
-  placeHereCopyNew,
   targetDataLine,
 } from './ui-strings'
 import { fetchWeatherSet } from './weather'
@@ -1435,6 +1434,336 @@ function askMissingGeo(
   })
 }
 
+function leafletDivIcon(kind: 'gps' | 'tap'): L.DivIcon {
+  const cls = kind === 'gps' ? 'sc-map-ico sc-map-ico--gps' : 'sc-map-ico sc-map-ico--tap'
+  const size = kind === 'gps' ? 22 : 18
+  const anchor: [number, number] = kind === 'gps' ? [11, 11] : [9, 16]
+  return L.divIcon({
+    className: 'sc-leaflet-ico',
+    html: `<div class="${cls}" aria-hidden="true"></div>`,
+    iconSize: [size, size],
+    iconAnchor: anchor,
+  })
+}
+
+/**
+ * %新規場所登録用: GPS（固定）＋タップ地点（移動可）の二重ポイント UI。
+ * 確定値はタップ地点の緯度・経度・高度＋住所・精度。
+ */
+function askDualPlaceGeo(opts: {
+  gps: { lat: number; lng: number; alt: number }
+  adrs?: string
+  posac?: string
+  altac?: string
+}): Promise<LatLngAlt | null> {
+  return new Promise((resolve) => {
+    const root = openDialogRoot()
+    root.classList.add('sc-dialog--geopick')
+    const mapTiles: GsiTileMode = 'detail'
+    const gps = {
+      lat: Math.round(opts.gps.lat * 1e8) / 1e8,
+      lng: Math.round(opts.gps.lng * 1e8) / 1e8,
+      alt: opts.gps.alt,
+    }
+    const titleHtml = `<span class="sc-geopick-title-line"><span class="sc-geopick-title-pair">現在地点<span class="sc-map-ico sc-map-ico--gps sc-map-ico--inline" aria-hidden="true"></span></span><span class="sc-geopick-title-pair">タップ地点<span class="sc-map-ico sc-map-ico--tap sc-map-ico--inline" aria-hidden="true"></span></span></span><br/>${escapeHtml(PLACE_NEW_CONFIRM_LINE)}`
+
+    const gpsNums = [
+      geoFieldHtml('sc-gps-lat', GPS_LABEL_LAT, String(gps.lat), { fill: true }),
+      geoFieldHtml('sc-gps-lng', GPS_LABEL_LNG, String(gps.lng), { fill: true }),
+      geoFieldHtml('sc-gps-alt', GPS_LABEL_ALT, String(gps.alt), { fill: true }),
+    ].join('')
+    const ptNums = [
+      geoFieldHtml('sc-lat', GPS_LABEL_LAT, String(gps.lat), { fill: true }),
+      geoFieldHtml('sc-lng', GPS_LABEL_LNG, String(gps.lng), { fill: true }),
+      geoFieldHtml('sc-alt', GPS_LABEL_ALT, String(gps.alt), { fill: true }),
+    ].join('')
+    const fieldsHtml = `<div class="sc-geo-fields--geopick">
+      <div class="sc-geo-dual-row sc-geo-dual-row--gps">
+        <div class="sc-geo-dual-label"><span class="sc-map-ico sc-map-ico--gps sc-map-ico--inline" aria-hidden="true"></span>現在地点（GPS）</div>
+        <div class="sc-geo-fields--geopick-nums">${gpsNums}</div>
+      </div>
+      <div class="sc-geo-dual-row sc-geo-dual-row--pt">
+        <div class="sc-geo-dual-label"><span class="sc-map-ico sc-map-ico--tap sc-map-ico--inline" aria-hidden="true"></span>タップ地点</div>
+        <div class="sc-geo-fields--geopick-nums">${ptNums}</div>
+      </div>
+      <button type="button" class="sc-btn-gps-copy" id="sc-gps-to-pt">${escapeHtml(PLACE_GPS_TO_POINT)}</button>
+      <div class="sc-geo-fields--geopick-acc">
+        ${geoFieldHtml('sc-posac', GPS_LABEL_POSAC, opts.posac ?? PLACE_DEFAULT_POSAC, { fill: true })}
+        ${geoFieldHtml('sc-altac', GPS_LABEL_ALTAC, opts.altac ?? PLACE_DEFAULT_ALTAC, { fill: true })}
+      </div>
+      ${geoFieldHtml('sc-adrs', GPS_LABEL_ADRS, opts.adrs ?? '', { fill: true, text: true })}
+    </div>`
+
+    root.innerHTML = `
+      <div class="sc-geopick-stack">
+        <h1 class="prompt sc-geopick-title">${titleHtml}</h1>
+        ${fieldsHtml}
+        <div id="sc-map-pick" class="sc-map-pick sc-map-pick--geopick" role="application" aria-label="位置選択マップ"></div>
+        <p class="sc-map-hint" id="sc-map-hint">タップで地点を移動（青＝GPS固定／橙＝登録点）</p>
+        <div class="sc-actions sc-geopick-actions">
+          <button type="button" class="sc-btn sc-btn-ok" id="sc-ok">${escapeHtml(ITEM_OK)}</button>
+          <button type="button" class="sc-btn sc-btn-back" id="sc-back">${escapeHtml(ITEM_BACK)}</button>
+        </div>
+      </div>`
+
+    const refreshClearable = wireClearableInputs(root)
+    const gpsLatEl = root.querySelector<HTMLInputElement>('#sc-gps-lat')!
+    const gpsLngEl = root.querySelector<HTMLInputElement>('#sc-gps-lng')!
+    const gpsAltEl = root.querySelector<HTMLInputElement>('#sc-gps-alt')!
+    const latEl = root.querySelector<HTMLInputElement>('#sc-lat')!
+    const lngEl = root.querySelector<HTMLInputElement>('#sc-lng')!
+    const altEl = root.querySelector<HTMLInputElement>('#sc-alt')!
+    const posacEl = root.querySelector<HTMLInputElement>('#sc-posac')!
+    const altacEl = root.querySelector<HTMLInputElement>('#sc-altac')!
+    const adrsEl = root.querySelector<HTMLInputElement>('#sc-adrs')!
+    const mapHint = root.querySelector<HTMLElement>('#sc-map-hint')
+
+    for (const el of [gpsLatEl, gpsLngEl, gpsAltEl]) {
+      el.readOnly = true
+      el.classList.add('sc-input--locked')
+      const clr = el.closest('.sc-input-wrap')?.querySelector<HTMLButtonElement>('.sc-input-clear')
+      if (clr) {
+        clr.hidden = true
+        clr.disabled = true
+      }
+    }
+
+    let map: L.Map | undefined
+    let ptMarker: L.Marker | undefined
+    let syncing = false
+    let elevReq = 0
+    let adrsReq = 0
+    const defaultMapHint = 'タップで地点を移動（青＝GPS固定／橙＝登録点）'
+
+    const parseField = (el: HTMLInputElement | null): number | undefined => {
+      if (!el) return undefined
+      const v = normalizeNumberInput(el.value)
+      return isRequiredNumber(v) ? Number(v) : undefined
+    }
+
+    const setPtMarker = (lat: number, lng: number, pan: boolean) => {
+      if (!map) return
+      if (!ptMarker) {
+        ptMarker = L.marker([lat, lng], { icon: leafletDivIcon('tap'), zIndexOffset: 600 }).addTo(map)
+      } else {
+        ptMarker.setLatLng([lat, lng])
+      }
+      if (pan) map.panTo([lat, lng])
+    }
+
+    const applyPtLatLng = (lat: number, lng: number) => {
+      syncing = true
+      latEl.value = String(lat)
+      lngEl.value = String(lng)
+      latEl.setCustomValidity('')
+      lngEl.setCustomValidity('')
+      syncing = false
+      refreshClearable()
+    }
+
+    const fetchElevation = async (lat: number, lng: number, mode: 'mapClick' | 'soft') => {
+      const req = ++elevReq
+      const prev = altEl.value
+      if (mode === 'mapClick') {
+        altEl.value = ''
+        altEl.placeholder = '標高取得中…'
+      } else {
+        altEl.placeholder = '標高取得中…'
+      }
+      if (mapHint) mapHint.textContent = '標高を取得中…'
+      refreshClearable()
+      const elev = await fetchGroundElevation(lat, lng)
+      if (req !== elevReq) return
+      altEl.placeholder = ''
+      if (elev == null) {
+        if (mapHint) {
+          mapHint.textContent = NET_FAIL_ELEVATION
+          mapHint.classList.add('net-fail')
+        }
+        refreshClearable()
+        return
+      }
+      if (mapHint) {
+        mapHint.textContent = defaultMapHint
+        mapHint.classList.remove('net-fail')
+      }
+      if (mode === 'mapClick' || altEl.value === prev || altEl.value === '') {
+        altEl.value = String(elev)
+        altEl.setCustomValidity('')
+      }
+      refreshClearable()
+    }
+
+    const fetchAddress = async (lat: number, lng: number) => {
+      const req = ++adrsReq
+      adrsEl.placeholder = '住所取得中…'
+      if (mapHint) {
+        mapHint.textContent = '住所を取得中…'
+        mapHint.classList.remove('net-fail')
+      }
+      const slowHint = window.setTimeout(() => {
+        if (req !== adrsReq) return
+        if (mapHint) {
+          mapHint.textContent =
+            '住所の取得に時間がかかっています…（確定後に手修正も可）'
+        }
+      }, 3000)
+      try {
+        const geo = await reverseGeocode(lat, lng)
+        if (req !== adrsReq) return
+        adrsEl.placeholder = ''
+        adrsEl.value = String(geo.address ?? '').trim()
+        refreshClearable()
+        if (!adrsEl.value) {
+          if (mapHint) {
+            mapHint.textContent = addressFailMessage(geo.status)
+            mapHint.classList.add('net-fail')
+          }
+          return
+        }
+        if (mapHint) {
+          mapHint.textContent = defaultMapHint
+          mapHint.classList.remove('net-fail')
+        }
+      } finally {
+        window.clearTimeout(slowHint)
+      }
+    }
+
+    const onPointMoved = (lat: number, lng: number, elevMode: 'mapClick' | 'soft') => {
+      void fetchElevation(lat, lng, elevMode)
+      void fetchAddress(lat, lng)
+    }
+
+    const copyGpsToPoint = (refetch: boolean) => {
+      applyPtLatLng(gps.lat, gps.lng)
+      altEl.value = String(gps.alt)
+      altEl.setCustomValidity('')
+      setPtMarker(gps.lat, gps.lng, true)
+      refreshClearable()
+      if (refetch) onPointMoved(gps.lat, gps.lng, 'soft')
+      else void fetchAddress(gps.lat, gps.lng)
+    }
+
+    const mapEl = root.querySelector<HTMLDivElement>('#sc-map-pick')!
+    mapEl.style.cssText =
+      'height:300px;min-height:300px;max-height:300px;width:100%;max-width:100%;overflow:hidden;box-sizing:border-box;'
+    map = L.map(mapEl, {
+      zoomControl: true,
+      maxZoom: jpMapMaxZoom(mapTiles),
+      bounceAtZoomLimits: false,
+    }).setView([gps.lat, gps.lng], JP_MAP_VIEW_ZOOM)
+    mountGsiLayers(map, mapTiles)
+    L.marker([gps.lat, gps.lng], {
+      icon: leafletDivIcon('gps'),
+      interactive: false,
+      zIndexOffset: 400,
+    }).addTo(map)
+    setPtMarker(gps.lat, gps.lng, false)
+
+    map.on('click', (e: L.LeafletMouseEvent) => {
+      const latR = Math.round(e.latlng.lat * 1e8) / 1e8
+      const lngR = Math.round(e.latlng.lng * 1e8) / 1e8
+      applyPtLatLng(latR, lngR)
+      setPtMarker(latR, lngR, false)
+      onPointMoved(latR, lngR, 'mapClick')
+    })
+
+    const fitMapWidth = () => {
+      if (!map) return
+      mapEl.style.width = '100%'
+      mapEl.style.maxWidth = '100%'
+      const c = map.getContainer()
+      c.style.width = '100%'
+      c.style.maxWidth = '100%'
+      c.style.height = '300px'
+      map.invalidateSize({ animate: false })
+    }
+    requestAnimationFrame(() => fitMapWidth())
+    setTimeout(() => fitMapWidth(), 100)
+    setTimeout(() => fitMapWidth(), 300)
+
+    root.querySelector('#sc-gps-to-pt')!.addEventListener('click', () => {
+      copyGpsToPoint(false)
+    })
+
+    for (const el of [latEl, lngEl, altEl, posacEl, altacEl]) {
+      el.addEventListener('input', () => {
+        const cleaned = sanitizeNumberDraft(el.value)
+        if (cleaned !== el.value) el.value = cleaned
+        el.setCustomValidity('')
+        if (!syncing && (el === latEl || el === lngEl)) {
+          const lat = parseField(latEl)
+          const lng = parseField(lngEl)
+          if (lat != null && lng != null && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+            setPtMarker(lat, lng, true)
+          }
+        }
+      })
+      el.addEventListener('change', () => {
+        if (el !== latEl && el !== lngEl) return
+        const lat = parseField(latEl)
+        const lng = parseField(lngEl)
+        if (lat == null || lng == null) return
+        onPointMoved(lat, lng, 'soft')
+      })
+      el.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') confirm()
+        if (e.key === 'Escape') finish(null)
+      })
+    }
+    adrsEl.addEventListener('input', () => adrsEl.setCustomValidity(''))
+    adrsEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') confirm()
+      if (e.key === 'Escape') finish(null)
+    })
+
+    let done = false
+    const finish = (value: LatLngAlt | null) => {
+      if (done) return
+      done = true
+      map?.remove()
+      closeDialogSafely(root, () => resolve(value))
+    }
+
+    const readRequired = (el: HTMLInputElement): number | null => {
+      const v = normalizeNumberInput(el.value)
+      el.value = v
+      if (!isRequiredNumber(v)) {
+        el.setCustomValidity('数値を入力してください')
+        el.reportValidity()
+        return null
+      }
+      el.setCustomValidity('')
+      return Number(v)
+    }
+
+    const confirm = () => {
+      const lat = readRequired(latEl)
+      if (lat === null) return
+      const lng = readRequired(lngEl)
+      if (lng === null) return
+      const alt = readRequired(altEl)
+      if (alt === null) return
+      const posac = readRequired(posacEl)
+      if (posac === null) return
+      const altac = readRequired(altacEl)
+      if (altac === null) return
+      finish({
+        lat,
+        lng,
+        alt,
+        adrs: String(adrsEl.value ?? '').trim(),
+        posac: String(posac),
+        altac: String(altac),
+      })
+    }
+
+    root.querySelector('#sc-ok')!.addEventListener('click', confirm)
+    root.querySelector('#sc-back')!.addEventListener('click', () => finish(null))
+  })
+}
+
 /**
  * 地理院 標準／写真レイヤを載せる。
  * detail: 詳細＋classic を常駐し opacity で切替（zoom 中も）。clearLayers によるフラッシュを防ぐ。
@@ -2658,9 +2987,7 @@ async function renderPlaces(): Promise<void> {
   const rows = [
     { id: 'back', text: PLACE_MENU_BACK },
     { id: 'here', text: PLACE_MENU_HERE },
-    { id: 'herenew', text: PLACE_MENU_HERE_NEW },
-    { id: 'mapnew1', text: PLACE_MENU_MAP_NEW_1 },
-    { id: 'mapnew2', text: PLACE_MENU_MAP_NEW_2 },
+    { id: 'newplace', text: PLACE_MENU_NEW },
     ...names.map((n) => ({ id: `p:${n}`, text: n })),
   ]
   const list = rows
@@ -2704,18 +3031,8 @@ async function onPlaceMenu(id: string): Promise<void> {
     await render()
     return
   }
-  if (id === 'herenew') {
-    await runPlaceHereSearchNew()
-    await render()
-    return
-  }
-  if (id === 'mapnew1') {
-    await runPlaceMapRegister('classic')
-    await render()
-    return
-  }
-  if (id === 'mapnew2') {
-    await runPlaceMapRegister('detail')
+  if (id === 'newplace') {
+    await runPlaceNewRegister()
     await render()
     return
   }
@@ -2794,156 +3111,83 @@ async function runPlaceHereSearch(): Promise<void> {
 }
 
 /**
- * %現在地検索NEW（デバッグ）
- * GPS → 6値レビュー（位置固定）→ GPSデータ／検索結果 → 登録選択
+ * %新規場所登録
+ * 1) GPS 取得 → 二重ポイント UI（GPS固定＋タップ移動）
+ * 2) GPS 不可 → 従来のマップタップのみ（detail タイル）
+ * 確定後は名称入力→登録
  */
-async function runPlaceHereSearchNew(): Promise<void> {
+async function runPlaceNewRegister(): Promise<void> {
   const msg = () => app.querySelector('#msg')
   try {
     msg()!.textContent = 'GPS現在地を取得中…'
-    let lat: number | undefined
-    let lng: number | undefined
-    let alt: number | undefined
-    // 照合用の許容値（固定デフォルト）
-    let posac = PLACE_DEFAULT_POSAC
-    let altac = PLACE_DEFAULT_ALTAC
+    let gpsLat: number | undefined
+    let gpsLng: number | undefined
+    let gpsAlt: number | undefined
 
     try {
       const pos = await getCurrentPosition()
       const c = pos.coords
-      if (isFiniteNum(c.latitude)) lat = c.latitude
-      if (isFiniteNum(c.longitude)) lng = c.longitude
-      if (c.altitude != null && isFiniteNum(c.altitude)) alt = roundAltMeters(c.altitude)
+      if (isFiniteNum(c.latitude)) gpsLat = c.latitude
+      if (isFiniteNum(c.longitude)) gpsLng = c.longitude
+      if (c.altitude != null && isFiniteNum(c.altitude)) gpsAlt = roundAltMeters(c.altitude)
     } catch {
-      // GPS 失敗 → 後続で補完
+      // GPS 失敗 → マップのみ
     }
 
-    if (lat == null || lng == null || alt == null) {
-      msg()!.textContent = '位置の不足分を入力…'
-      const filled = await resolveLatLngAlt({
-        lat: lat != null ? String(lat) : undefined,
-        lng: lng != null ? String(lng) : undefined,
-        alt: alt != null ? String(alt) : undefined,
-      })
-      if (!filled) {
-        flashMsg = '位置入力をキャンセルしました'
-        return
+    let coords: LatLngAlt | null = null
+
+    if (gpsLat != null && gpsLng != null) {
+      const round8 = (n: number) => Math.round(n * 1e8) / 1e8
+      gpsLat = round8(gpsLat)
+      gpsLng = round8(gpsLng)
+      if (gpsAlt == null || !Number.isFinite(gpsAlt)) {
+        msg()!.textContent = '標高を取得中…'
+        const elev = await fetchGroundElevation(gpsLat, gpsLng)
+        if (elev != null) gpsAlt = elev
       }
-      lat = filled.lat
-      lng = filled.lng
-      alt = filled.alt
+      if (gpsAlt == null || !Number.isFinite(gpsAlt)) {
+        msg()!.textContent = '高度の不足分を入力…'
+        const filled = await resolveLatLngAlt({
+          lat: String(gpsLat),
+          lng: String(gpsLng),
+        })
+        if (!filled) {
+          flashMsg = '場所登録をキャンセルしました'
+          return
+        }
+        gpsLat = filled.lat
+        gpsLng = filled.lng
+        gpsAlt = filled.alt
+      }
+
+      msg()!.textContent = '住所を取得中…'
+      const geo = await reverseGeocode(gpsLat, gpsLng)
+      const adrs = String(geo.address ?? '').trim()
+
+      msg()!.textContent = '位置を確認…'
+      coords = await askDualPlaceGeo({
+        gps: { lat: gpsLat, lng: gpsLng, alt: gpsAlt },
+        adrs,
+        posac: PLACE_DEFAULT_POSAC,
+        altac: PLACE_DEFAULT_ALTAC,
+      })
+    } else {
+      let mapCenter: { lat: number; lng: number } | undefined
+      const home = await getPlace('自宅')
+      if (home) {
+        const lat = Number(home.DATA1)
+        const lng = Number(home.DATA2)
+        if (Number.isFinite(lat) && Number.isFinite(lng)) mapCenter = { lat, lng }
+      }
+      msg()!.textContent = 'マップで登録点を選択…（GPSなし）'
+      coords = await askMissingGeo(
+        {},
+        { lat: true, lng: true, alt: true },
+        undefined,
+        { mapRegister: true, mapCenter, mapTiles: 'detail' },
+      )
     }
 
-    msg()!.textContent = '住所を取得中…'
-    const geo = await reverseGeocode(lat, lng)
-    let adrs = String(geo.address ?? '').trim()
-    if (alt == null || !Number.isFinite(alt)) {
-      const elev = await fetchGroundElevation(lat, lng)
-      if (elev != null) alt = elev
-    }
-    if (alt == null || !Number.isFinite(alt)) {
-      flashMsg = '高度を取得できませんでした'
-      return
-    }
-
-    const round8 = (n: number) => Math.round(n * 1e8) / 1e8
-    lat = round8(lat)
-    lng = round8(lng)
-
-    const reviewed = await askMissingGeo(
-      { lat, lng, alt },
-      { lat: true, lng: true, alt: true },
-      { lat: String(lat), lng: String(lng), alt: String(alt) },
-      {
-        gpsReview: true,
-        mapCenter: { lat, lng },
-        extraPrefill: { adrs, posac, altac },
-        // ～2 相当: 詳細タイル縮小・ピンチ拡大・バウンス抑制・デジタルズーム
-        mapTiles: 'detail',
-      },
-    )
-    if (!reviewed) {
-      flashMsg = '場所登録をキャンセルしました'
-      return
-    }
-    lat = reviewed.lat
-    lng = reviewed.lng
-    alt = reviewed.alt
-    adrs = String(reviewed.adrs ?? '').trim()
-    posac = String(reviewed.posac ?? posac).trim() || PLACE_DEFAULT_POSAC
-    altac = String(reviewed.altac ?? altac).trim() || PLACE_DEFAULT_ALTAC
-    const addrFetchFailed = !adrs
-    const addrFailStatus = adrs ? 'ok' : geo.status
-
-    msg()!.textContent = '場所を照合中…'
-    const hit = await findNearestPlace(lat, lng, alt)
-    // GPSデータの場所: ヒット無→住所、ヒット有→検索結果名_xx
-    const gpsPlaceName = hit
-      ? await nextDerivedPlaceName(hit.name)
-      : adrs.trim() || '新規'
-
-    const copy = placeHereCopyNew({
-      lat,
-      lng,
-      alt,
-      curAdrs: adrs,
-      hitName: hit?.name ?? '',
-      hitAdrs: hit?.place.ADRS ?? '',
-      hitLat: hit?.place.DATA1 ?? '',
-      hitLng: hit?.place.DATA2 ?? '',
-      hitAlt: hit?.place.DATA3 ?? '',
-      posDif: hit ? hit.dist.toFixed(1) : '',
-      altDif: hit ? hit.altDiff.toFixed(1) : '',
-      gpsPlaceName,
-    })
-    const detail = addrFetchFailed
-      ? `${copy.detail}\n\n${addressFailMessage(addrFailStatus)}`
-      : copy.detail
-    const selected = await chooseFromList(copy.title, [PLACE_HERE_SKIP, PLACE_HERE_NEW], {
-      withBackButton: false,
-      detail,
-    })
-    if (!selected || selected === PLACE_HERE_SKIP) {
-      flashMsg = '場所登録をキャンセルしました'
-      return
-    }
-    const entered = await askNewPlaceName(gpsPlaceName)
-    if (!entered) {
-      flashMsg = '場所登録をキャンセルしました'
-      return
-    }
-    await upsertPlace(entered, { lat, lng, alt, adrs, posac, altac })
-    placeEditName = entered
-    view = 'place-edit'
-    flashMsg = addrFetchFailed
-      ? `場所を登録しました（${entered}）。住所は後から編集できます`
-      : `場所を登録しました（${entered}）`
-  } catch (e) {
-    flashMsg = `失敗: ${(e as Error).message}`
-  }
-}
-
-/** 場所管理の %マップ新規場所登録（マップ点選択 → 6値確認 → 名称。住所・精度は画面上の確定値） */
-async function runPlaceMapRegister(mapTiles: GsiTileMode = 'classic'): Promise<void> {
-  const msg = () => app.querySelector('#msg')
-  try {
-    let mapCenter: { lat: number; lng: number } | undefined
-    const home = await getPlace('自宅')
-    if (home) {
-      const lat = Number(home.DATA1)
-      const lng = Number(home.DATA2)
-      if (Number.isFinite(lat) && Number.isFinite(lng)) mapCenter = { lat, lng }
-    }
-    msg()!.textContent =
-      mapTiles === 'detail'
-        ? 'マップで登録点を選択…（詳細タイル）'
-        : 'マップで登録点を選択…'
-    const coords = await askMissingGeo(
-      {},
-      { lat: true, lng: true, alt: true },
-      undefined,
-      { mapRegister: true, mapCenter, mapTiles },
-    )
     if (!coords) {
       flashMsg = '場所登録をキャンセルしました'
       return

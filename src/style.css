@@ -782,6 +782,117 @@ code { font-size: 0.85em; }
   font-size: 0.72rem;
   color: var(--muted);
 }
+
+/* %新規場所登録: GPS行＋ポイント行 */
+.sc-geo-dual-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  width: 100%;
+  min-width: 0;
+}
+.sc-geo-dual-label {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+.sc-geo-dual-row--gps .sc-geo-dual-label {
+  color: #0b6bcb;
+}
+.sc-geo-dual-row--pt .sc-geo-dual-label {
+  color: #c45c26;
+}
+.sc-geopick-title-line {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.15rem 0.35rem;
+}
+.sc-geopick-title-pair {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  white-space: nowrap;
+}
+.sc-btn-gps-copy {
+  width: 100%;
+  margin: 0.15rem 0 0.1rem;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #0b6bcb;
+  background: #e8f2fb;
+  border: 1px solid #b7d4ef;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.sc-btn-gps-copy:active {
+  background: #d5e8f7;
+}
+
+/* 地図上・タイトル用アイコン */
+.sc-map-ico {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  pointer-events: none;
+}
+.sc-map-ico--gps {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 3px solid #0b6bcb;
+  background: #fff;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.9), 0 1px 4px rgba(0, 0, 0, 0.35);
+  position: relative;
+}
+.sc-map-ico--gps::after {
+  content: '';
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #0b6bcb;
+}
+.sc-map-ico--tap {
+  width: 18px;
+  height: 18px;
+  margin-top: -4px;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  background: #c45c26;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+.sc-map-ico--inline {
+  display: inline-flex;
+  width: 14px;
+  height: 14px;
+  vertical-align: -2px;
+  box-shadow: none;
+}
+.sc-map-ico--inline.sc-map-ico--gps {
+  border-width: 2px;
+}
+.sc-map-ico--inline.sc-map-ico--gps::after {
+  width: 5px;
+  height: 5px;
+}
+.sc-map-ico--inline.sc-map-ico--tap {
+  width: 11px;
+  height: 11px;
+  margin-top: 0;
+  border-width: 1px;
+}
+.sc-leaflet-ico {
+  background: transparent !important;
+  border: none !important;
+}
+
 .sc-map-link {
   margin: 0.4rem 0 0;
   font-size: 0.9rem;

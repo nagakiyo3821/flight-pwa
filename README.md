@@ -25,7 +25,7 @@ status: wip
 | 離陸前／着陸後などの項目編集（1〜63） | クリップボード地図 URL 取込 |
 | 離着陸の GPS／手動＋場所照合・マップ・登録選択 | `#データ同期`（DJI/AIRDATA） |
 | 飛行時間↔離着陸日時の 3 値同期、日付・時刻ピッカー | 旧ショートカットの廃止 |
-| 8.場所データ管理（一覧・現在地検索・マップ新規登録・1〜7編集） | |
+| 8.場所データ管理（一覧・現在地検索・新規場所登録・1〜7編集） | |
 | 7.登録データ管理（レコード一覧→FREE 編集） | |
 | **9.システムデータ管理**（settings／JSON 入出力／Drive 同期） | **GitHub Pages 固定 URL（Phase 2c）** |
 | Google Drive pull/push（端末優先マージ・要 OAuth） | |
@@ -123,7 +123,8 @@ Vault 資料用: `MainVault/DroneLog/` にも同名ファイルを同期済み�
 | 永続化 | Dexie（`flights` / `places` / `meta` ※meta に masters） |
 | 項目・マスタ | `fields.ts`（optionsKey）/ `catalog.ts` / `public/data/masters.default.json` |
 | FLAG | `flag.ts` |
-| 住所・標高 | `geo.ts`（HeartRails / Nominatim / 国土地理院） |
+| 住所・標高 | `geo.ts`（HeartRails / Nominatim / 国土地理院 / Jageocoder） |
+| 地図 | Leaflet ＋ 地理院タイル（classic／detail）→ [[飛行記録_PWA地図と住所]] |
 | 飛行時間同期 | `flight-time.ts` |
 | 気象セット | `weather.ts`（Open-Meteo） |
 | セット／リセット期限 | `session-timers.ts`（2h／24h） |
@@ -134,5 +135,5 @@ Vault 資料用: `MainVault/DroneLog/` にも同名ファイルを同期済み�
 初回用の完成サンプル: `public/data/masters.sample.json`（機種 Mavic2Pro/Tello/Other＋選択肢群＋Tello hiddenKeys）。項目差の正本は [[飛行記録_PWA選択肢マトリクス#6. Mavic2Pro と Tello の項目差（ショートカット実運用）]]。
 JSON 種と例: [[飛行記録_PWAデータJSON]]
 
-仕様の正本: [[飛行記録_仕様書]] ／ 実装解説: [[飛行記録_詳細説明書]] ／ 移行トピック: [[ドローン飛行記録]] ／ **構造説明: [[飛行記録_PWA構造説明]]**
+仕様の正本: [[飛行記録_仕様書]] ／ 実装解説: [[飛行記録_詳細説明書]] ／ 移行トピック: [[ドローン飛行記録]] ／ **構造説明: [[飛行記録_PWA構造説明]]** ／ **地図・住所: [[飛行記録_PWA地図と住所]]**
 ---

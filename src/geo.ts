@@ -725,40 +725,53 @@ export function osmOpenUrl(lat: number, lng: number): string {
 
 /**
  * 地図の「見える範囲」ズーム。
- * 指ズームで一段寄ったあとの詳細タイルを、この範囲に縮小して載せる（JP_TILE_DETAIL_BIAS）。
+ * detail モードでは細かいタイルをこの範囲に縮小して載せる（JP_TILE_DETAIL_BIAS）。
  */
 export const JP_MAP_VIEW_ZOOM = 16
 
 /**
- * 詳細バイアス（2 = 指で二段寄った相当のタイルを VIEW_ZOOM で縮小表示）。
- * 地理院の実タイル上限は 18。採用可否確認用（1 では差が小さい場合あり）。
+ * 詳細バイアス（2 = 二段細かいタイルを VIEW_ZOOM で縮小表示）。
+ * 地理院の実タイル上限は 18。
  */
 export const JP_TILE_DETAIL_BIAS = 2
+
+/** classic = 従来（標準タイル・ピンチ〜18） / detail = 詳細タイル縮小＋ピンチ〜18 */
+export type GsiTileMode = 'classic' | 'detail'
 
 const GSI_ATTR =
   '<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">地理院タイル</a>'
 
-/** Leaflet 地図の maxZoom（詳細バイアス込みで URL z が 18 を超えない） */
-export function jpMapMaxZoom(): number {
-  return 18 - JP_TILE_DETAIL_BIAS
+/** Leaflet 地図の maxZoom（両モードとも地理院上限 18 までピンチ可） */
+export function jpMapMaxZoom(_mode?: GsiTileMode): number {
+  return 18
 }
 
 /**
  * 地理院タイル用 Leaflet オプション。
- * tileSize を小さく・zoomOffset を上げ、同じ表示ズームで一段細かいタイルを縮小表示する。
+ * - classic: 従来どおり（表示ズーム＝タイルズーム）
+ * - detail: 細かいタイルを縮小表示。ピンチは maxZoom 18 まで（超過分は最細タイルを拡大）
  */
-export function jpGsiTileOpts(): {
+export function jpGsiTileOpts(mode: GsiTileMode = 'classic'): {
   maxZoom: number
   maxNativeZoom: number
   tileSize: number
   zoomOffset: number
   attribution: string
 } {
+  if (mode === 'classic') {
+    return {
+      maxZoom: 18,
+      maxNativeZoom: 18,
+      tileSize: 256,
+      zoomOffset: 0,
+      attribution: GSI_ATTR,
+    }
+  }
   const bias = JP_TILE_DETAIL_BIAS
-  const maxZ = 18 - bias
+  // 表示ズーム + bias が 18 を超える分は maxNativeZoom で抑え、最細タイルをピンチ拡大
   return {
-    maxZoom: maxZ,
-    maxNativeZoom: maxZ,
+    maxZoom: 18,
+    maxNativeZoom: 18 - bias,
     tileSize: 256 / 2 ** bias,
     zoomOffset: bias,
     attribution: GSI_ATTR,
@@ -769,12 +782,12 @@ export function jpGsiTileOpts(): {
 export const JP_BASE_TILE_URL =
   'https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png'
 
-/** @deprecated jpGsiTileOpts() を使う（詳細タイル縮小表示） */
-export const JP_BASE_TILE_OPTS = jpGsiTileOpts()
+/** @deprecated jpGsiTileOpts('classic'|'detail') を使う */
+export const JP_BASE_TILE_OPTS = jpGsiTileOpts('classic')
 
 /** 空中写真（建物の有無確認用・任意） */
 export const JP_PHOTO_TILE_URL =
   'https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg'
 
-/** @deprecated jpGsiTileOpts() を使う */
-export const JP_PHOTO_TILE_OPTS = jpGsiTileOpts()
+/** @deprecated jpGsiTileOpts('classic'|'detail') を使う */
+export const JP_PHOTO_TILE_OPTS = jpGsiTileOpts('classic')

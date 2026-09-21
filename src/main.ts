@@ -117,7 +117,8 @@ import {
   PLACE_MENU_BACK,
   PLACE_MENU_HERE,
   PLACE_MENU_HERE_NEW,
-  PLACE_MENU_MAP_NEW,
+  PLACE_MENU_MAP_NEW_1,
+  PLACE_MENU_MAP_NEW_2,
   PLACE_DEFAULT_POSAC,
   PLACE_DEFAULT_ALTAC,
   PLACE_UPDATE_BACK,
@@ -178,6 +179,7 @@ import {
   JP_BASE_TILE_URL,
   JP_MAP_VIEW_ZOOM,
   JP_PHOTO_TILE_URL,
+  type GsiTileMode,
 } from './geo'
 import {
   combineYmdAndHm,
@@ -990,6 +992,8 @@ function askMissingGeo(
     mapCenter?: { lat: number; lng: number }
     /** gpsReview / mapRegister の住所・精度初期値 */
     extraPrefill?: { adrs?: string; posac?: string; altac?: string }
+    /** 地図タイル: classic=従来 / detail=詳細縮小（既定 classic） */
+    mapTiles?: GsiTileMode
   },
 ): Promise<LatLngAlt | null> {
   return new Promise((resolve) => {
@@ -997,6 +1001,7 @@ function askMissingGeo(
     const mapReg = !!opts?.mapRegister
     const gpsReview = !!opts?.gpsReview
     const geopick = mapReg || gpsReview
+    const mapTiles: GsiTileMode = opts?.mapTiles ?? 'classic'
     const promptHtml = escapeHtml(gpsMissingPrompt(need, opts)).replace(/\n/g, '<br/>')
     const showMap = need.lat && need.lng
     const fieldPrefill = mapReg ? {} : prefill
@@ -1021,7 +1026,9 @@ function askMissingGeo(
             gpsReview
               ? 'GPS現在地（位置は変更できません）'
               : mapReg
-                ? 'タップで緯度・経度・高度・住所をセット'
+                ? mapTiles === 'detail'
+                  ? 'タップで緯度・経度・高度・住所をセット（詳細タイル・拡大可）'
+                  : 'タップで緯度・経度・高度・住所をセット'
                 : 'マップをタップすると緯度・経度と地表標高をセット'
           }</p>
         </div>`
@@ -1159,7 +1166,9 @@ function askMissingGeo(
     const defaultMapHint = gpsReview
       ? 'GPS現在地（位置は変更できません）'
       : mapReg
-        ? 'タップで緯度・経度・高度・住所をセット'
+        ? mapTiles === 'detail'
+          ? 'タップで緯度・経度・高度・住所をセット（詳細タイル・拡大可）'
+          : 'タップで緯度・経度・高度・住所をセット'
         : 'マップをタップすると緯度・経度と地表標高をセット'
 
     const fetchElevation = async (
@@ -1274,11 +1283,11 @@ function askMissingGeo(
         mapEl.style.cssText =
           'height:300px;min-height:300px;max-height:300px;width:100%;max-width:100%;overflow:hidden;box-sizing:border-box;'
       }
-      // 表示範囲は VIEW_ZOOM。タイルは一段細かいものを縮小表示（住宅・文字の粗さ対策）
-      const tileOpts = jpGsiTileOpts()
+      // classic=従来タイル / detail=細かいタイルを縮小（ピンチは両モードとも〜18）
+      const tileOpts = jpGsiTileOpts(mapTiles)
       map = L.map(mapEl, {
         zoomControl: true,
-        maxZoom: jpMapMaxZoom(),
+        maxZoom: jpMapMaxZoom(mapTiles),
       }).setView([centerLat, centerLng], JP_MAP_VIEW_ZOOM)
       const base = L.tileLayer(JP_BASE_TILE_URL, { ...tileOpts })
       const photo = L.tileLayer(JP_PHOTO_TILE_URL, { ...tileOpts })
@@ -1447,12 +1456,12 @@ function showMapDialog(lat: number, lng: number, alt?: number): Promise<void> {
         </section>
       </div>`
 
-    // 表示範囲はデフォルトズームのまま、一段細かい地理院タイルを縮小表示
+    // #マップ表示: 詳細タイル縮小＋ピンチ〜18
     const mapEl = root.querySelector<HTMLDivElement>('#sc-map-view')!
-    const tileOpts = jpGsiTileOpts()
+    const tileOpts = jpGsiTileOpts('detail')
     const map = L.map(mapEl, {
       zoomControl: true,
-      maxZoom: jpMapMaxZoom(),
+      maxZoom: jpMapMaxZoom('detail'),
     }).setView([lat, lng], JP_MAP_VIEW_ZOOM)
     const base = L.tileLayer(JP_BASE_TILE_URL, { ...tileOpts })
     const photo = L.tileLayer(JP_PHOTO_TILE_URL, { ...tileOpts })
@@ -2574,7 +2583,8 @@ async function renderPlaces(): Promise<void> {
     { id: 'back', text: PLACE_MENU_BACK },
     { id: 'here', text: PLACE_MENU_HERE },
     { id: 'herenew', text: PLACE_MENU_HERE_NEW },
-    { id: 'mapnew', text: PLACE_MENU_MAP_NEW },
+    { id: 'mapnew1', text: PLACE_MENU_MAP_NEW_1 },
+    { id: 'mapnew2', text: PLACE_MENU_MAP_NEW_2 },
     ...names.map((n) => ({ id: `p:${n}`, text: n })),
   ]
   const list = rows
@@ -2623,8 +2633,13 @@ async function onPlaceMenu(id: string): Promise<void> {
     await render()
     return
   }
-  if (id === 'mapnew') {
-    await runPlaceMapRegister()
+  if (id === 'mapnew1') {
+    await runPlaceMapRegister('classic')
+    await render()
+    return
+  }
+  if (id === 'mapnew2') {
+    await runPlaceMapRegister('detail')
     await render()
     return
   }
@@ -2829,7 +2844,7 @@ async function runPlaceHereSearchNew(): Promise<void> {
 }
 
 /** 場所管理の %マップ新規場所登録（マップ点選択 → 6値確認 → 名称。住所・精度は画面上の確定値） */
-async function runPlaceMapRegister(): Promise<void> {
+async function runPlaceMapRegister(mapTiles: GsiTileMode = 'classic'): Promise<void> {
   const msg = () => app.querySelector('#msg')
   try {
     let mapCenter: { lat: number; lng: number } | undefined
@@ -2839,12 +2854,15 @@ async function runPlaceMapRegister(): Promise<void> {
       const lng = Number(home.DATA2)
       if (Number.isFinite(lat) && Number.isFinite(lng)) mapCenter = { lat, lng }
     }
-    msg()!.textContent = 'マップで登録点を選択…'
+    msg()!.textContent =
+      mapTiles === 'detail'
+        ? 'マップで登録点を選択…（詳細タイル）'
+        : 'マップで登録点を選択…'
     const coords = await askMissingGeo(
       {},
       { lat: true, lng: true, alt: true },
       undefined,
-      { mapRegister: true, mapCenter },
+      { mapRegister: true, mapCenter, mapTiles },
     )
     if (!coords) {
       flashMsg = '場所登録をキャンセルしました'

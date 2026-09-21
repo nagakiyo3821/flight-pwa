@@ -737,26 +737,34 @@ export const JP_TILE_DETAIL_BIAS = 2
 
 /**
  * detail モードで、このズーム以上は classic と同じネイティブタイルに切替。
- * 17 で切ると classic の z17（一段粗い）が見えて段差になるため、最大の 18 のみ。
+ * 17 で切ると classic の z17（一段粗い）が見えて段差になるため、ネイティブ上限の 18 のみ。
  * 切替は opacity（両レイヤ常駐）。zoom イベントで途中からも切替え、ズームアウト時の粗フラッシュを防ぐ。
  */
 export const JP_DETAIL_HANDOFF_ZOOM = 18
 
-/** classic = 従来（標準タイル・ピンチ〜18） / detail = 引いた表示は詳細縮小、寄ると classic と同じ */
+/** 地理院タイルの実データ上限（これ以上の z は存在しない） */
+export const JP_NATIVE_MAX_ZOOM = 18
+
+/**
+ * 画面上のピンチ上限。NATIVE を超えた分は z18 タイルの拡大表示（デジタルズーム）。
+ * ぼやけは増えるが、ピン位置の確認には使える。
+ */
+export const JP_VISUAL_MAX_ZOOM = 20
+
+/** classic = 従来 / detail = 引いた表示は詳細縮小、寄ると classic と同じ */
 export type GsiTileMode = 'classic' | 'detail'
 
 const GSI_ATTR =
   '<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">地理院タイル</a>'
 
-/** Leaflet 地図の maxZoom（両モードとも地理院上限 18 までピンチ可） */
+/** Leaflet 地図の maxZoom（表示上の上限。タイル実体は JP_NATIVE_MAX_ZOOM） */
 export function jpMapMaxZoom(_mode?: GsiTileMode): number {
-  return 18
+  return JP_VISUAL_MAX_ZOOM
 }
 
 /**
  * 地理院タイル用 Leaflet オプション。
- * - classic: 表示ズーム＝タイルズーム
- * - detail: 引いたズームでは細かいタイルを縮小。寄ったズームは main 側で classic に切替
+ * maxNativeZoom までが実タイル。それより先は同じタイルを拡大表示する。
  */
 export function jpGsiTileOpts(mode: GsiTileMode = 'classic'): {
   maxZoom: number
@@ -767,18 +775,18 @@ export function jpGsiTileOpts(mode: GsiTileMode = 'classic'): {
 } {
   if (mode === 'classic') {
     return {
-      maxZoom: 18,
-      maxNativeZoom: 18,
+      maxZoom: JP_VISUAL_MAX_ZOOM,
+      maxNativeZoom: JP_NATIVE_MAX_ZOOM,
       tileSize: 256,
       zoomOffset: 0,
       attribution: GSI_ATTR,
     }
   }
   const bias = JP_TILE_DETAIL_BIAS
-  // handoff 未満でのみ使う想定。URL z が 18 を超えないよう maxNativeZoom を制限
+  // handoff 未満でのみ使う想定。URL z が NATIVE を超えないよう maxNativeZoom を制限
   return {
-    maxZoom: 18,
-    maxNativeZoom: 18 - bias,
+    maxZoom: JP_VISUAL_MAX_ZOOM,
+    maxNativeZoom: JP_NATIVE_MAX_ZOOM - bias,
     tileSize: 256 / 2 ** bias,
     zoomOffset: bias,
     attribution: GSI_ATTR,

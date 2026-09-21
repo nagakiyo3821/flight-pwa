@@ -337,7 +337,7 @@ export const PLACE_DEL_BACK = '2.戻る'
 
 /** 通信失敗時（操作ごと。常時オンライン表示はしない） */
 export const NET_FAIL_ADDRESS =
-  '住所を取得できませんでした（通信を確認してください）'
+  '住所を取得できませんでした（時間切れ／通信）。手入力するか、ピンを動かして再試行してください'
 export const NET_FAIL_ELEVATION =
   '標高を取得できませんでした（通信を確認してください）'
 export const NET_FAIL_WEATHER =

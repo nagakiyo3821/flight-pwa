@@ -1,21 +1,95 @@
-/** 逆ジオコード（住所）。失敗時は空文字。 */
+/** 逆ジオコード（住所）。失敗・タイムアウト時は空文字。 */
+
+const REVERSE_GEO_OVERALL_MS = 9000
+const REVERSE_GEO_ONE_MS = 4000
 
 export async function reverseGeocode(lat: number, lng: number): Promise<string> {
+  return withTimeout(reverseGeocodeInner(lat, lng), REVERSE_GEO_OVERALL_MS, '')
+}
+
+async function reverseGeocodeInner(lat: number, lng: number): Promise<string> {
   // 日本域: 住居表示を優先（地番は使わない）。失敗時は従来合成へ。
   if (isLikelyJapan(lat, lng)) {
-    const [jage, hr, nom, gsiChome] = await Promise.all([
-      reverseJageocoder(lat, lng),
-      reverseHeartRailsParts(lat, lng),
-      reverseNominatimParts(lat, lng),
-      reverseGsiChome(lat, lng),
+    // 重い「番」総当りは後段。先に並列で取れるものだけ待つ
+    const emptyHr: HeartRailsParts = {
+      prefecture: '',
+      city: '',
+      town: '',
+      address: '',
+    }
+    const emptyNom: NominatimParts = { address: '', chome: '', houseNumber: '' }
+    const [jageHits, hr, nom, gsiChome] = await Promise.all([
+      withTimeout(fetchJageReverseHits(lat, lng), REVERSE_GEO_ONE_MS, [] as JageReverseHit[]),
+      withTimeout(reverseHeartRailsParts(lat, lng), REVERSE_GEO_ONE_MS, emptyHr),
+      withTimeout(reverseNominatimParts(lat, lng), REVERSE_GEO_ONE_MS, emptyNom),
+      withTimeout(reverseGsiChome(lat, lng), REVERSE_GEO_ONE_MS, ''),
     ])
-    if (jage) return jage
+    const fromHits = addressFromJageHits(jageHits, lat, lng)
+    if (fromHits) return fromHits
     const merged = mergeJapanAddress(hr, nom, gsiChome)
     if (merged) return merged
+    const prefix = chomePrefixFromHits(jageHits)
+    if (prefix) {
+      // 短時間だけ番探し。間に合わなければ丁目まで返す（永遠に「取得中」にしない）
+      const banFull = await withTimeout(
+        findClosestJyukyoBanByGeocode(prefix, lat, lng, 2000),
+        2500,
+        null,
+      )
+      if (banFull) return formatJageocoderResidential(banFull)
+      return normalizeJpAddress(prefix)
+    }
   }
-  const nom = await reverseNominatimParts(lat, lng)
+  const nom = await withTimeout(
+    reverseNominatimParts(lat, lng),
+    REVERSE_GEO_ONE_MS,
+    { address: '', chome: '', houseNumber: '' } as NominatimParts,
+  )
   if (nom.address) return nom.address
-  return reverseBigDataCloud(lat, lng)
+  return withTimeout(reverseBigDataCloud(lat, lng), REVERSE_GEO_ONE_MS, '')
+}
+
+function withTimeout<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
+  return new Promise((resolve) => {
+    let done = false
+    const t = window.setTimeout(() => {
+      if (done) return
+      done = true
+      resolve(fallback)
+    }, ms)
+    p.then(
+      (v) => {
+        if (done) return
+        done = true
+        window.clearTimeout(t)
+        resolve(v)
+      },
+      () => {
+        if (done) return
+        done = true
+        window.clearTimeout(t)
+        resolve(fallback)
+      },
+    )
+  })
+}
+
+async function fetchJson(
+  url: string,
+  ms = REVERSE_GEO_ONE_MS,
+  init?: RequestInit,
+): Promise<unknown | null> {
+  const ctrl = new AbortController()
+  const t = window.setTimeout(() => ctrl.abort(), ms)
+  try {
+    const res = await fetch(url, { ...init, signal: ctrl.signal })
+    if (!res.ok) return null
+    return await res.json()
+  } catch {
+    return null
+  } finally {
+    window.clearTimeout(t)
+  }
 }
 
 function isLikelyJapan(lat: number, lng: number): boolean {
@@ -53,31 +127,20 @@ type JageReverseHit = {
 /**
  * Jageocoder 公開デモ API。
  * 住居表示（○丁目○番／○-○）を優先。地番（○番地）は使わない。
- * 逆ジオが地番しか返さない地点では、同一丁目内の「○番」を前方ジオコードで探して最寄りを採用。
  * 出典: https://jageocoder.info-proto.com/webapi （デモ用途・無保証）
  */
-async function reverseJageocoder(lat: number, lng: number): Promise<string> {
-  try {
-    const hits = await fetchJageReverseHits(lat, lng)
-    // 1) 逆ジオ結果に住居表示の「○番」があればそれを使う
-    const jyukyoHits = hits.filter((h) => isJyukyoBanNode(h.candidate))
-    if (jyukyoHits.length) {
-      const best = pickClosestJageHit(jyukyoHits, lat, lng)
-      if (best?.candidate?.fullname) {
-        return formatJageocoderResidential(best.candidate.fullname)
-      }
+function addressFromJageHits(
+  hits: JageReverseHit[],
+  lat: number,
+  lng: number,
+): string {
+  if (!hits.length) return ''
+  const jyukyoHits = hits.filter((h) => isJyukyoBanNode(h.candidate))
+  if (jyukyoHits.length) {
+    const best = pickClosestJageHit(jyukyoHits, lat, lng)
+    if (best?.candidate?.fullname) {
+      return formatJageocoderResidential(best.candidate.fullname)
     }
-
-    // 2) 地番しか無い → 丁目まで取り、住居表示の番を探索
-    const prefix = chomePrefixFromHits(hits)
-    if (prefix) {
-      const banFull = await findClosestJyukyoBanByGeocode(prefix, lat, lng)
-      if (banFull) return formatJageocoderResidential(banFull)
-      // 番も取れなければ丁目まで（地番番号は出さない）
-      return normalizeJpAddress(prefix)
-    }
-  } catch {
-    // fall through
   }
   return ''
 }
@@ -90,10 +153,8 @@ async function fetchJageReverseHits(lat: number, lng: number): Promise<JageRever
       `?lat=${encodeURIComponent(String(lat))}` +
       `&lon=${encodeURIComponent(String(lng))}` +
       `&level=${level}&opts=all`
-    const res = await fetch(url)
-    if (!res.ok) continue
-    const data = (await res.json()) as JageReverseHit[]
-    if (Array.isArray(data)) out.push(...data)
+    const data = await fetchJson(url, REVERSE_GEO_ONE_MS)
+    if (Array.isArray(data)) out.push(...(data as JageReverseHit[]))
   }
   return out
 }
@@ -166,19 +227,22 @@ function chomePrefixFromHits(hits: JageReverseHit[]): string {
 
 /**
  * 同一丁目内の住居表示「n番」を前方ジオコードで探し、クリック地点に最も近いものを返す。
- * （逆ジオが地番ノードばかり返す地域向け）
+ * deadlineMs 以内に終わらなければ打ち切り（住所取得中のまま固まらないようにする）。
  */
 async function findClosestJyukyoBanByGeocode(
   chomePrefix: string,
   lat: number,
   lng: number,
+  deadlineMs = 2000,
 ): Promise<string[] | null> {
   let best: { fullname: string[]; dist: number } | null = null
-  const maxBan = 60
-  const batch = 10
+  const maxBan = 20
+  const batch = 5
   let consecutiveMiss = 0
+  const started = Date.now()
 
   for (let start = 1; start <= maxBan; start += batch) {
+    if (Date.now() - started > deadlineMs) break
     const bans = Array.from(
       { length: Math.min(batch, maxBan - start + 1) },
       (_, i) => start + i,
@@ -195,8 +259,7 @@ async function findClosestJyukyoBanByGeocode(
     if (batchHit) consecutiveMiss = 0
     else {
       consecutiveMiss++
-      // 序盤を過ぎて連続でヒット無しなら打ち切り
-      if (start > 15 && consecutiveMiss >= 2) break
+      if (start > 10 && consecutiveMiss >= 2) break
     }
   }
 
@@ -213,10 +276,9 @@ async function geocodeJyukyoBan(
     const url =
       `https://jageocoder.info-proto.com/geocode` +
       `?addr=${encodeURIComponent(addr)}&opts=all`
-    const res = await fetch(url)
-    if (!res.ok) return null
-    const data = (await res.json()) as Array<{ node?: JageNode; matched?: string }>
-    const node = data?.[0]?.node
+    const data = await fetchJson(url, 2000)
+    if (!Array.isArray(data)) return null
+    const node = (data as Array<{ node?: JageNode }>)?.[0]?.node
     if (!node) return null
     if (!isJyukyoBanNode(node)) return null
     if (String(node.name) !== `${ban}番`) return null
@@ -445,9 +507,7 @@ async function reverseHeartRailsParts(lat: number, lng: number): Promise<HeartRa
       `?method=searchByGeoLocation` +
       `&x=${encodeURIComponent(String(lng))}` +
       `&y=${encodeURIComponent(String(lat))}`
-    const res = await fetch(url)
-    if (!res.ok) return empty
-    const data = (await res.json()) as {
+    const data = (await fetchJson(url)) as {
       response?: {
         location?:
           | {
@@ -463,7 +523,8 @@ async function reverseHeartRailsParts(lat: number, lng: number): Promise<HeartRa
               distance?: number
             }[]
       }
-    }
+    } | null
+    if (!data) return empty
     const locRaw = data.response?.location
     const list = Array.isArray(locRaw) ? locRaw : locRaw ? [locRaw] : []
     if (!list.length) return empty
@@ -491,11 +552,10 @@ async function reverseGsiChome(lat: number, lng: number): Promise<string> {
       `https://mreversegeocoder.gsi.go.jp/reverse-geocoder/LonLatToAddress` +
       `?lat=${encodeURIComponent(String(lat))}` +
       `&lon=${encodeURIComponent(String(lng))}`
-    const res = await fetch(url)
-    if (!res.ok) return ''
-    const data = (await res.json()) as {
+    const data = (await fetchJson(url)) as {
       results?: { muniCd?: string; lv01Nm?: string } | null
-    }
+    } | null
+    if (!data) return ''
     const name = String(data.results?.lv01Nm ?? '').trim()
     // 「（該当なし）」等を除外
     if (!name || /該当なし|不明/.test(name)) return ''
@@ -562,15 +622,14 @@ async function reverseBigDataCloud(lat: number, lng: number): Promise<string> {
       `?latitude=${encodeURIComponent(String(lat))}` +
       `&longitude=${encodeURIComponent(String(lng))}` +
       `&localityLanguage=ja`
-    const res = await fetch(url)
-    if (!res.ok) return ''
-    const data = (await res.json()) as {
+    const data = (await fetchJson(url)) as {
       localityInfo?: { administrative?: { name: string; adminLevel?: number }[] }
       city?: string
       locality?: string
       principalSubdivision?: string
       countryCode?: string
-    }
+    } | null
+    if (!data) return ''
     // 国(2)・地方(3)は除外。都道府県(4)以上のみ
     const admin =
       data.localityInfo?.administrative
@@ -609,18 +668,17 @@ async function reverseNominatimParts(lat: number, lng: number): Promise<Nominati
       `&lat=${encodeURIComponent(String(lat))}` +
       `&lon=${encodeURIComponent(String(lng))}` +
       `&accept-language=ja&addressdetails=1&zoom=18`
-    const res = await fetch(url, {
+    const data = (await fetchJson(url, REVERSE_GEO_ONE_MS, {
       headers: {
         Accept: 'application/json',
         // Nominatim 利用ポリシー: アプリ識別
         'User-Agent': 'flight-pwa/1.0 (drone flight log)',
       },
-    })
-    if (!res.ok) return empty
-    const data = (await res.json()) as {
+    })) as {
       display_name?: string
       address?: Record<string, string>
-    }
+    } | null
+    if (!data) return empty
     const a = data.address
     if (a) {
       const chome = extractChome(a)

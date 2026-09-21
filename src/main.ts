@@ -1223,21 +1223,32 @@ function askMissingGeo(
         mapHint.textContent = '住所を取得中…'
         mapHint.classList.remove('net-fail')
       }
-      const adrs = await reverseGeocode(lat, lng)
-      if (req !== adrsReq) return
-      adrsEl.placeholder = ''
-      adrsEl.value = String(adrs ?? '').trim()
-      refreshClearable()
-      if (!adrsEl.value) {
+      const slowHint = window.setTimeout(() => {
+        if (req !== adrsReq) return
         if (mapHint) {
-          mapHint.textContent = NET_FAIL_ADDRESS
-          mapHint.classList.add('net-fail')
+          mapHint.textContent =
+            '住所の取得に時間がかかっています…（確定後に手修正も可）'
         }
-        return
-      }
-      if (mapHint) {
-        mapHint.textContent = defaultMapHint
-        mapHint.classList.remove('net-fail')
+      }, 3000)
+      try {
+        const adrs = await reverseGeocode(lat, lng)
+        if (req !== adrsReq) return
+        adrsEl.placeholder = ''
+        adrsEl.value = String(adrs ?? '').trim()
+        refreshClearable()
+        if (!adrsEl.value) {
+          if (mapHint) {
+            mapHint.textContent = NET_FAIL_ADDRESS
+            mapHint.classList.add('net-fail')
+          }
+          return
+        }
+        if (mapHint) {
+          mapHint.textContent = defaultMapHint
+          mapHint.classList.remove('net-fail')
+        }
+      } finally {
+        window.clearTimeout(slowHint)
       }
     }
 

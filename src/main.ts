@@ -1288,6 +1288,8 @@ function askMissingGeo(
       map = L.map(mapEl, {
         zoomControl: true,
         maxZoom: jpMapMaxZoom(mapTiles),
+        // 上限を超えるピンチのバウンスで画面が消える／フラッシュするのを防ぐ
+        bounceAtZoomLimits: false,
       }).setView([centerLat, centerLng], JP_MAP_VIEW_ZOOM)
       mountGsiLayers(map, mapTiles)
 
@@ -1445,8 +1447,12 @@ function mountGsiLayers(map: L.Map, mode: GsiTileMode): void {
   const photoGroup = L.layerGroup([photoClassic, photoDetail])
 
   let showingPhoto = false
-  const applyOpacity = () => {
+  let lastUseDetail: boolean | null = null
+  const applyOpacity = (force = false) => {
+    // 上限超過の一瞬（バウンス）でも classic 側を維持し、不要な opacity 切替をしない
     const useDetail = map.getZoom() < JP_DETAIL_HANDOFF_ZOOM
+    if (!force && lastUseDetail === useDetail) return
+    lastUseDetail = useDetail
     const d = useDetail ? 1 : 0
     const c = useDetail ? 0 : 1
     if (showingPhoto) {
@@ -1462,14 +1468,14 @@ function mountGsiLayers(map: L.Map, mode: GsiTileMode): void {
     }
   }
 
-  applyOpacity()
+  applyOpacity(true)
   stdGroup.addTo(map)
   // zoom: アニメーション途中でも切替（zoomend だけだとズームアウトで classic 縮小＝粗く見える）
-  map.on('zoom', applyOpacity)
-  map.on('zoomend', applyOpacity)
+  map.on('zoom', () => applyOpacity())
+  map.on('zoomend', () => applyOpacity())
   map.on('baselayerchange', (e: L.LayersControlEvent) => {
     showingPhoto = e.name === '写真'
-    applyOpacity()
+    applyOpacity(true)
   })
   L.control
     .layers(
@@ -1516,6 +1522,7 @@ function showMapDialog(lat: number, lng: number, alt?: number): Promise<void> {
     const map = L.map(mapEl, {
       zoomControl: true,
       maxZoom: jpMapMaxZoom('detail'),
+      bounceAtZoomLimits: false,
     }).setView([lat, lng], JP_MAP_VIEW_ZOOM)
     mountGsiLayers(map, 'detail')
     L.circleMarker([lat, lng], {

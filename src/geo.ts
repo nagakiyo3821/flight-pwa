@@ -867,8 +867,9 @@ export function osmOpenUrl(lat: number, lng: number): string {
 /**
  * 地図の「見える範囲」ズーム。
  * detail モードでは細かいタイルをこの範囲に縮小して載せる（JP_TILE_DETAIL_BIAS）。
+ * 各整数ズームで約2倍拡大するため、既定 17 は旧 16 より約2倍寄り。
  */
-export const JP_MAP_VIEW_ZOOM = 16
+export const JP_MAP_VIEW_ZOOM = 17
 
 /**
  * 詳細バイアス（2 = 二段細かいタイルを VIEW_ZOOM で縮小表示）。

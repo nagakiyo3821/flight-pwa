@@ -951,7 +951,7 @@ function clearableInputHtml(id: string, inputAttrs: string, value: string): stri
   </div>`
 }
 
-/** 入力が空でなければ × を表示。クリックで値を消して input/change を発火。戻り値で再同期可 */
+/** 入力が空でなければ × を表示。readOnly／locked は常に非表示。 */
 function wireClearableInputs(root: ParentNode): () => void {
   const syncAll: Array<() => void> = []
   root.querySelectorAll<HTMLElement>('.sc-input-wrap').forEach((wrap) => {
@@ -961,6 +961,10 @@ function wireClearableInputs(root: ParentNode): () => void {
     const btn = wrap.querySelector<HTMLButtonElement>('.sc-input-clear')
     if (!input || !btn) return
     const sync = () => {
+      if (input.readOnly || input.classList.contains('sc-input--locked') || btn.disabled) {
+        btn.hidden = true
+        return
+      }
       btn.hidden = String(input.value ?? '').length === 0
     }
     sync()
@@ -970,6 +974,7 @@ function wireClearableInputs(root: ParentNode): () => void {
     btn.addEventListener('click', (e) => {
       e.preventDefault()
       e.stopPropagation()
+      if (input.readOnly || input.classList.contains('sc-input--locked')) return
       input.value = ''
       input.setCustomValidity('')
       input.dispatchEvent(new Event('input', { bubbles: true }))
@@ -1509,7 +1514,7 @@ function askDualPlaceGeo(opts: {
     const fieldsHtml = `<div class="sc-geo-fields--geopick">
       <div class="sc-geo-fields--geopick-nums">${gpsNums}</div>
       <div class="sc-geo-fields--geopick-nums">${ptNums}</div>
-      <button type="button" class="sc-btn-gps-copy" id="sc-gps-to-pt">${escapeHtml(PLACE_GPS_TO_POINT)}</button>
+      <button type="button" class="sc-btn-gps-copy" id="sc-gps-to-pt" aria-label="${escapeHtml(PLACE_GPS_TO_POINT)}"><span class="sc-map-ico sc-map-ico--gps sc-map-ico--inline" aria-hidden="true"></span>現在地（GPS）を<span class="sc-map-ico sc-map-ico--tap sc-map-ico--inline" aria-hidden="true"></span>タップ地点へ</button>
       <div class="sc-geo-fields--geopick-acc">
         ${geoFieldHtml('sc-posac', GPS_LABEL_POSAC, opts.posac ?? PLACE_DEFAULT_POSAC, { fill: true })}
         ${geoFieldHtml('sc-altac', GPS_LABEL_ALTAC, opts.altac ?? PLACE_DEFAULT_ALTAC, { fill: true })}

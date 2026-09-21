@@ -843,6 +843,11 @@ code { font-size: 0.85em; }
   white-space: nowrap;
 }
 .sc-btn-gps-copy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.2rem 0.25rem;
   width: 100%;
   margin: 0.15rem 0 0.1rem;
   padding: 0.4rem 0.6rem;

@@ -1,10 +1,31 @@
-/** 逆ジオコード（住所）。失敗・タイムアウト時は空文字。 */
+/** 逆ジオコード（住所）。失敗・タイムアウト時は address 空＋ status で区別。 */
 
 const REVERSE_GEO_OVERALL_MS = 9000
 const REVERSE_GEO_ONE_MS = 4000
 
-export async function reverseGeocode(lat: number, lng: number): Promise<string> {
-  return withTimeout(reverseGeocodeInner(lat, lng), REVERSE_GEO_OVERALL_MS, '')
+export type ReverseGeocodeStatus = 'ok' | 'empty' | 'timeout'
+
+export type ReverseGeocodeResult = {
+  address: string
+  status: ReverseGeocodeStatus
+}
+
+export async function reverseGeocode(
+  lat: number,
+  lng: number,
+): Promise<ReverseGeocodeResult> {
+  const raced = await Promise.race([
+    reverseGeocodeInner(lat, lng).then((address) => ({
+      kind: 'done' as const,
+      address,
+    })),
+    new Promise<{ kind: 'timeout' }>((resolve) => {
+      window.setTimeout(() => resolve({ kind: 'timeout' }), REVERSE_GEO_OVERALL_MS)
+    }),
+  ])
+  if (raced.kind === 'timeout') return { address: '', status: 'timeout' }
+  const address = String(raced.address ?? '').trim()
+  return { address, status: address ? 'ok' : 'empty' }
 }
 
 async function reverseGeocodeInner(lat: number, lng: number): Promise<string> {

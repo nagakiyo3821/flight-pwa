@@ -98,6 +98,8 @@ import {
   MENU_PROMPT,
   NUMBER_RE,
   NET_FAIL_ADDRESS,
+  NET_FAIL_ADDRESS_EMPTY,
+  NET_FAIL_ADDRESS_TIMEOUT,
   NET_FAIL_ELEVATION,
   NET_FAIL_WEATHER,
   PLACE_CHOICE_HIT,
@@ -181,6 +183,7 @@ import {
   JP_MAP_VIEW_ZOOM,
   JP_PHOTO_TILE_URL,
   type GsiTileMode,
+  type ReverseGeocodeStatus,
 } from './geo'
 import {
   combineYmdAndHm,
@@ -1231,14 +1234,14 @@ function askMissingGeo(
         }
       }, 3000)
       try {
-        const adrs = await reverseGeocode(lat, lng)
+        const geo = await reverseGeocode(lat, lng)
         if (req !== adrsReq) return
         adrsEl.placeholder = ''
-        adrsEl.value = String(adrs ?? '').trim()
+        adrsEl.value = String(geo.address ?? '').trim()
         refreshClearable()
         if (!adrsEl.value) {
           if (mapHint) {
-            mapHint.textContent = NET_FAIL_ADDRESS
+            mapHint.textContent = addressFailMessage(geo.status)
             mapHint.classList.add('net-fail')
           }
           return
@@ -1495,6 +1498,12 @@ function mountGsiLayers(map: L.Map, mode: GsiTileMode): void {
       { position: 'topright', collapsed: true },
     )
     .addTo(map)
+}
+
+function addressFailMessage(status: ReverseGeocodeStatus): string {
+  if (status === 'timeout') return NET_FAIL_ADDRESS_TIMEOUT
+  if (status === 'empty') return NET_FAIL_ADDRESS_EMPTY
+  return NET_FAIL_ADDRESS
 }
 
 /** 簡易マップ表示。完了で閉じる（ショートカット「マップ」→完了） */
@@ -1884,12 +1893,12 @@ async function runTakeoffLanding(action: 'takeoff' | 'landing'): Promise<void> {
     const { lat, lng, alt } = coords
 
     msg()!.textContent = '住所・場所を照合中…'
-    const [adrsGeo, hit] = await Promise.all([
+    const [geo, hit] = await Promise.all([
       reverseGeocode(lat, lng),
       findNearestPlace(lat, lng, alt),
     ])
-    const addrFetchFailed = !String(adrsGeo ?? '').trim()
-    const curAdrs = adrsGeo || hit?.place.ADRS || ''
+    const addrFetchFailed = !geo.address
+    const curAdrs = geo.address || hit?.place.ADRS || ''
     const newName = hit
       ? await nextDerivedPlaceName(hit.name)
       : curAdrs.trim() || '新規'
@@ -1909,7 +1918,7 @@ async function runTakeoffLanding(action: 'takeoff' | 'landing'): Promise<void> {
       newName,
     })
     const detail = addrFetchFailed
-      ? `${copy.detail}\n\n${NET_FAIL_ADDRESS}`
+      ? `${copy.detail}\n\n${addressFailMessage(geo.status)}`
       : copy.detail
     const title = copy.title
     const choiceItems = hit
@@ -2725,12 +2734,12 @@ async function runPlaceHereSearch(): Promise<void> {
     }
     const { lat, lng, alt } = coords
     msg()!.textContent = '住所・場所を照合中…'
-    const [adrsGeo, hit] = await Promise.all([
+    const [geo, hit] = await Promise.all([
       reverseGeocode(lat, lng),
       findNearestPlace(lat, lng, alt),
     ])
-    const addrFetchFailed = !String(adrsGeo ?? '').trim()
-    const curAdrs = adrsGeo || hit?.place.ADRS || ''
+    const addrFetchFailed = !geo.address
+    const curAdrs = geo.address || hit?.place.ADRS || ''
     const newName = hit
       ? await nextDerivedPlaceName(hit.name)
       : curAdrs.trim() || '新規'
@@ -2749,7 +2758,7 @@ async function runPlaceHereSearch(): Promise<void> {
       newName,
     })
     const detail = addrFetchFailed
-      ? `${copy.detail}\n\n${NET_FAIL_ADDRESS}`
+      ? `${copy.detail}\n\n${addressFailMessage(geo.status)}`
       : copy.detail
     const selected = await chooseFromList(copy.title, [PLACE_HERE_SKIP, PLACE_HERE_NEW], {
       withBackButton: false,
@@ -2822,7 +2831,8 @@ async function runPlaceHereSearchNew(): Promise<void> {
     }
 
     msg()!.textContent = '住所を取得中…'
-    let adrs = String((await reverseGeocode(lat, lng)) ?? '').trim()
+    const geo = await reverseGeocode(lat, lng)
+    let adrs = String(geo.address ?? '').trim()
     if (alt == null || !Number.isFinite(alt)) {
       const elev = await fetchGroundElevation(lat, lng)
       if (elev != null) alt = elev
@@ -2857,6 +2867,7 @@ async function runPlaceHereSearchNew(): Promise<void> {
     posac = String(reviewed.posac ?? posac).trim() || PLACE_DEFAULT_POSAC
     altac = String(reviewed.altac ?? altac).trim() || PLACE_DEFAULT_ALTAC
     const addrFetchFailed = !adrs
+    const addrFailStatus = adrs ? 'ok' : geo.status
 
     msg()!.textContent = '場所を照合中…'
     const hit = await findNearestPlace(lat, lng, alt)
@@ -2880,7 +2891,7 @@ async function runPlaceHereSearchNew(): Promise<void> {
       gpsPlaceName,
     })
     const detail = addrFetchFailed
-      ? `${copy.detail}\n\n${NET_FAIL_ADDRESS}`
+      ? `${copy.detail}\n\n${addressFailMessage(addrFailStatus)}`
       : copy.detail
     const selected = await chooseFromList(copy.title, [PLACE_HERE_SKIP, PLACE_HERE_NEW], {
       withBackButton: false,

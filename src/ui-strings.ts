@@ -336,8 +336,13 @@ export const PLACE_DEL_OK = '1.削除'
 export const PLACE_DEL_BACK = '2.戻る'
 
 /** 通信失敗時（操作ごと。常時オンライン表示はしない） */
+/** @deprecated 空／タイムアウトを分けた文言を使う */
 export const NET_FAIL_ADDRESS =
-  '住所を取得できませんでした（時間切れ／通信）。手入力するか、ピンを動かして再試行してください'
+  '住所を取得できませんでした（手入力するか、ピンを動かして再試行してください）'
+export const NET_FAIL_ADDRESS_EMPTY =
+  'この地点では住所を取得できませんでした（手入力可）'
+export const NET_FAIL_ADDRESS_TIMEOUT =
+  '住所の取得が時間切れになりました（通信を確認するか、手入力／ピン再試行）'
 export const NET_FAIL_ELEVATION =
   '標高を取得できませんでした（通信を確認してください）'
 export const NET_FAIL_WEATHER =

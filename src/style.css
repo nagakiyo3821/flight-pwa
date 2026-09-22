@@ -948,6 +948,13 @@ code { font-size: 0.85em; }
   align-items: center;
   gap: 0.2rem;
   white-space: nowrap;
+  max-width: 100%;
+  min-width: 0;
+}
+.sc-geopick-title-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: min(14em, 55vw);
 }
 .sc-geo-dual-btns {
   display: flex;
@@ -963,7 +970,7 @@ code { font-size: 0.85em; }
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 0.15rem 0.2rem;
   flex: 1 1 0;
   min-width: 0;
@@ -975,6 +982,12 @@ code { font-size: 0.85em; }
   border-radius: 8px;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+}
+.sc-btn-gps-copy-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 .sc-btn-gps-copy {
   color: #0b6bcb;

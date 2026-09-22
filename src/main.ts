@@ -1611,14 +1611,26 @@ function placeNamePrefill(raw: string): string {
 /** 場所名の検証（空・空白・長さ・重複） */
 async function validatePlaceNameCandidate(
   raw: string,
+  opts?: { allowExistingName?: string },
 ): Promise<{ ok: true; value: string } | { ok: false; err: string }> {
   const value = String(raw ?? '').trim()
   if (!value) return { ok: false, err: '場所名は空にできません' }
   if (/\s/.test(value)) return { ok: false, err: '空白は使えません' }
   if ([...value].length > 20) return { ok: false, err: '20文字以内にしてください' }
+  const allow = String(opts?.allowExistingName ?? '').trim()
+  if (allow && value === allow) return { ok: true, value }
   const exists = await getPlace(value)
   if (exists) return { ok: false, err: `同じ場所名があります: ${value}` }
   return { ok: true, value }
+}
+
+/** ボタン等向けに末尾を … で短縮（書記素単位） */
+function ellipsizeText(raw: string, maxChars: number): string {
+  const chars = [...String(raw ?? '').trim()]
+  if (maxChars < 1) return ''
+  if (chars.length <= maxChars) return chars.join('')
+  if (maxChars === 1) return '…'
+  return `${chars.slice(0, maxChars - 1).join('')}…`
 }
 
 /**
@@ -1679,23 +1691,37 @@ function applyGeopickMapPixelHeight(
 /**
  * %新規場所登録用: GPS（固定）＋タップ地点（移動可）の二重ポイント UI。
  * 確定値はタップ地点の緯度・経度・高度＋住所・精度。
+ * placeRef: 既存場所の確認（青＝登録地点・場所名表示）。確定で座標等を返す。
  */
 function askDualPlaceGeo(opts: {
   gps: { lat: number; lng: number; alt: number }
   adrs?: string
   posac?: string
   altac?: string
+  /** 場所欄の初期値 */
+  name?: string
+  /** 既存場所プレビュー（青側・コピーボタンを場所名表示） */
+  placeRef?: { name: string }
 }): Promise<LatLngAlt | null> {
   return new Promise((resolve) => {
     const root = openDialogRoot()
     root.classList.add('sc-dialog--geopick')
     const mapTiles: GsiTileMode = 'detail'
+    const placeRefName = String(opts.placeRef?.name ?? '').trim()
+    const isPlaceReview = !!placeRefName
     const gps = {
       lat: Math.round(opts.gps.lat * 1e8) / 1e8,
       lng: Math.round(opts.gps.lng * 1e8) / 1e8,
       alt: opts.gps.alt,
     }
-    const titleHtml = `${escapeHtml(PLACE_NEW_CONFIRM_LINE)}<br/><span class="sc-geopick-title-line"><span class="sc-geopick-title-pair"><span class="sc-map-ico sc-map-ico--gps sc-map-ico--inline" aria-hidden="true"></span>現在地(GPS)</span><span class="sc-geopick-title-sep">　</span><span class="sc-geopick-title-pair"><span class="sc-map-ico sc-map-ico--tap sc-map-ico--inline" aria-hidden="true"></span>タップ地点</span></span>`
+    const refTitleLabel = isPlaceReview ? placeRefName : '現在地(GPS)'
+    const refBtnLabel = isPlaceReview
+      ? ellipsizeText(placeRefName, 10)
+      : '現在地(GPS)'
+    const refBtnAria = isPlaceReview
+      ? `${placeRefName}をタップ地点へ`
+      : PLACE_GPS_TO_POINT
+    const titleHtml = `${escapeHtml(PLACE_NEW_CONFIRM_LINE)}<br/><span class="sc-geopick-title-line"><span class="sc-geopick-title-pair"><span class="sc-map-ico sc-map-ico--gps sc-map-ico--inline" aria-hidden="true"></span><span class="sc-geopick-title-name">${escapeHtml(refTitleLabel)}</span></span><span class="sc-geopick-title-sep">　</span><span class="sc-geopick-title-pair"><span class="sc-map-ico sc-map-ico--tap sc-map-ico--inline" aria-hidden="true"></span>タップ地点</span></span>`
 
     const gpsNums = [
       geoFieldHtml('sc-gps-lat', GPS_LABEL_LAT, String(gps.lat), {
@@ -1725,11 +1751,12 @@ function askDualPlaceGeo(opts: {
         labelHtml: dualGeoLabelHtml('tap', GPS_LABEL_ALT),
       }),
     ].join('')
+    const initialName = String(opts.name ?? '').trim() || placeNamePrefill(opts.adrs ?? '')
     const fieldsHtml = `<div class="sc-geo-fields--geopick">
       <div class="sc-geo-fields--geopick-nums">${gpsNums}</div>
       <div class="sc-geo-fields--geopick-nums">${ptNums}</div>
       <div class="sc-geo-dual-btns">
-        <button type="button" class="sc-btn-gps-copy" id="sc-gps-to-pt" aria-label="${escapeHtml(PLACE_GPS_TO_POINT)}"><span class="sc-map-ico sc-map-ico--gps sc-map-ico--inline" aria-hidden="true"></span>現在地(GPS)</button>
+        <button type="button" class="sc-btn-gps-copy" id="sc-gps-to-pt" aria-label="${escapeHtml(refBtnAria)}"><span class="sc-map-ico sc-map-ico--gps sc-map-ico--inline" aria-hidden="true"></span><span class="sc-btn-gps-copy-label">${escapeHtml(refBtnLabel)}</span></button>
         <button type="button" class="sc-btn-pt-undo" id="sc-pt-undo" aria-label="${escapeHtml(PLACE_PT_UNDO)}" disabled><span class="sc-map-ico sc-map-ico--tap sc-map-ico--inline" aria-hidden="true"></span>${escapeHtml(PLACE_PT_UNDO)}</button>
       </div>
       <div class="sc-geo-fields--geopick-acc">
@@ -1737,8 +1764,12 @@ function askDualPlaceGeo(opts: {
         ${geoFieldHtml('sc-altac', GPS_LABEL_ALTAC, opts.altac ?? PLACE_DEFAULT_ALTAC, { fill: true, undo: true, undoMode: 'committed' })}
       </div>
       ${geoFieldHtml('sc-adrs', GPS_LABEL_ADRS, opts.adrs ?? '', { fill: true, text: true, textUndo: true })}
-      ${geoFieldHtml('sc-name', GPS_LABEL_NAME, placeNamePrefill(opts.adrs ?? ''), { fill: true, text: true, textUndo: true })}
+      ${geoFieldHtml('sc-name', GPS_LABEL_NAME, initialName, { fill: true, text: true, textUndo: true })}
     </div>`
+
+    const defaultMapHint = isPlaceReview
+      ? `タップで地点を移動（青＝${ellipsizeText(placeRefName, 8)}／橙＝タップ地点）`
+      : 'タップで地点を移動（青＝GPS固定／橙＝登録点）'
 
     root.innerHTML = `
       <div class="sc-geopick-stack">
@@ -1747,7 +1778,7 @@ function askDualPlaceGeo(opts: {
           ${fieldsHtml}
           <div class="sc-geopick-map-block">
             <div id="sc-map-pick" class="sc-map-pick sc-map-pick--geopick" role="application" aria-label="位置選択マップ"></div>
-            <p class="sc-map-hint" id="sc-map-hint">タップで地点を移動（青＝GPS固定／橙＝登録点）</p>
+            <p class="sc-map-hint" id="sc-map-hint">${escapeHtml(defaultMapHint)}</p>
           </div>
         </div>
         <div class="sc-actions sc-geopick-actions">
@@ -1769,7 +1800,7 @@ function askDualPlaceGeo(opts: {
     const nameEl = root.querySelector<HTMLInputElement>('#sc-name')!
     const mapHint = root.querySelector<HTMLElement>('#sc-map-hint')
     const undoBtn = root.querySelector<HTMLButtonElement>('#sc-pt-undo')!
-    let nameTouched = false
+    let nameTouched = !!(opts.name?.trim() || isPlaceReview)
 
     for (const el of [gpsLatEl, gpsLngEl, gpsAltEl]) {
       el.readOnly = true
@@ -1789,7 +1820,6 @@ function askDualPlaceGeo(opts: {
     let syncing = false
     let elevReq = 0
     let adrsReq = 0
-    const defaultMapHint = 'タップで地点を移動（青＝GPS固定／橙＝登録点）'
 
     const parseField = (el: HTMLInputElement | null): number | undefined => {
       if (!el) return undefined
@@ -2112,7 +2142,9 @@ function askDualPlaceGeo(opts: {
         return
       }
       adrsEl.setCustomValidity('')
-      const checked = await validatePlaceNameCandidate(nameEl.value)
+      const checked = await validatePlaceNameCandidate(nameEl.value, {
+        allowExistingName: isPlaceReview ? placeRefName : undefined,
+      })
       if (!checked.ok) {
         nameEl.setCustomValidity(checked.err)
         nameEl.reportValidity()
@@ -3393,7 +3425,43 @@ async function onPlaceMenu(id: string): Promise<void> {
     return
   }
   if (id.startsWith('p:')) {
-    placeEditName = id.slice(2)
+    const name = id.slice(2)
+    const row = await getPlace(name)
+    if (!row) {
+      flashMsg = `場所が見つかりません: ${name}`
+      await render()
+      return
+    }
+    const lat = Number(row.DATA1)
+    const lng = Number(row.DATA2)
+    const alt = Number(row.DATA3)
+    if (!Number.isFinite(lat) || !Number.isFinite(lng) || !Number.isFinite(alt)) {
+      flashMsg = '場所の座標データが不正です'
+      await render()
+      return
+    }
+    const coords = await askDualPlaceGeo({
+      gps: { lat, lng, alt },
+      adrs: row.ADRS ?? '',
+      posac: row.POSAC || PLACE_DEFAULT_POSAC,
+      altac: row.ALTAC || PLACE_DEFAULT_ALTAC,
+      name,
+      placeRef: { name },
+    })
+    if (!coords) return
+    const newName = String(coords.name ?? name).trim() || name
+    if (newName !== name) {
+      await renamePlace(name, newName)
+    }
+    await upsertPlace(newName, {
+      lat: coords.lat,
+      lng: coords.lng,
+      alt: coords.alt,
+      adrs: coords.adrs ?? '',
+      posac: String(coords.posac ?? PLACE_DEFAULT_POSAC),
+      altac: String(coords.altac ?? PLACE_DEFAULT_ALTAC),
+    })
+    placeEditName = newName
     view = 'place-edit'
     await render()
   }

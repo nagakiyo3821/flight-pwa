@@ -1725,6 +1725,7 @@ function askDualPlaceGeo(opts: {
       ? PLACE_REVIEW_CONFIRM_LINE
       : PLACE_NEW_CONFIRM_LINE
     const refTitleLabel = isPlaceReview ? placeWrapped : '現在地(GPS)'
+    // プレビュー: 青＝場所名のみ / 橙＝場所(名前)
     const refBtnLabel = isPlaceReview
       ? ellipsizeText(placeRefName, 10)
       : '現在地(GPS)'
@@ -1732,7 +1733,7 @@ function askDualPlaceGeo(opts: {
       ? `${placeRefName}をタップ地点へ`
       : PLACE_GPS_TO_POINT
     const undoBtnLabel = isPlaceReview
-      ? ellipsizeText(placeWrapped, 10)
+      ? ellipsizeText(placeWrapped, 12)
       : PLACE_PT_UNDO
     const undoBtnAria = isPlaceReview
       ? `タップ地点を戻す（${placeWrapped}）`
@@ -3503,8 +3504,9 @@ async function onPlaceMenu(id: string): Promise<void> {
       posac: String(coords.posac ?? PLACE_DEFAULT_POSAC),
       altac: String(coords.altac ?? PLACE_DEFAULT_ALTAC),
     })
-    placeEditName = newName
-    view = 'place-edit'
+    placeEditName = null
+    view = 'places'
+    flashMsg = `場所を更新しました（${newName}）`
     await render()
   }
 }

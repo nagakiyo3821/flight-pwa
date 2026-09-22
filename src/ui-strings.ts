@@ -346,6 +346,9 @@ export const PLACE_EDIT_PROMPT = '削除または更新したい項目1~7を選�
 export const PLACE_DEL_PROMPT = '本当にこの場所データを削除しますか？'
 export const PLACE_DEL_OK = '1.削除'
 export const PLACE_DEL_BACK = '2.戻る'
+/** 場所一覧→地図プレビューの削除ボタン */
+export const PLACE_REVIEW_DEL = '削除'
+export const PLACE_REVIEW_DEL_PROMPT = '本当に削除しますか？'
 
 /** 通信失敗時（操作ごと。常時オンライン表示はしない） */
 /** @deprecated 空／タイムアウトを分けた文言を使う */

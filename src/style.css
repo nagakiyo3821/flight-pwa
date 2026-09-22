@@ -1128,6 +1128,21 @@ code { font-size: 0.85em; }
   padding: 0.5rem 0.75rem;
   font-size: 0.9rem;
 }
+.sc-actions.sc-geopick-actions--triple {
+  gap: 0.35rem;
+}
+.sc-actions.sc-geopick-actions--triple .sc-btn {
+  padding: 0.48rem 0.4rem;
+  font-size: 0.85rem;
+}
+.sc-btn.sc-btn-del {
+  color: #9b2c2c;
+  background: #fdecec;
+  border: 1px solid #f0b4b4;
+}
+.sc-btn.sc-btn-del:active {
+  background: #f8d8d8;
+}
 .sc-actions .sc-btn {
   flex: 1 1 0;
   min-width: 0;

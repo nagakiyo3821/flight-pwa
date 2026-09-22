@@ -125,6 +125,8 @@ import {
   PLACE_PT_UNDO,
   PLACE_DEFAULT_POSAC,
   PLACE_DEFAULT_ALTAC,
+  PLACE_REVIEW_DEL,
+  PLACE_REVIEW_DEL_PROMPT,
   PLACE_UPDATE_BACK,
   REC_DEL_BACK,
   REC_DEL_OK,
@@ -907,6 +909,9 @@ type LatLngAlt = {
   /** %新規場所登録で同一画面入力した場所名 */
   name?: string
 }
+
+/** askDualPlaceGeo の戻り。deleted は既存場所プレビューでの削除確定 */
+type DualPlaceGeoResult = LatLngAlt | 'deleted' | null
 type GeoParts = { lat?: number; lng?: number; alt?: number }
 
 function isFiniteNum(n: unknown): n is number {
@@ -1702,7 +1707,7 @@ function askDualPlaceGeo(opts: {
   name?: string
   /** 既存場所プレビュー（青側・コピーボタンを場所名表示） */
   placeRef?: { name: string }
-}): Promise<LatLngAlt | null> {
+}): Promise<DualPlaceGeoResult> {
   return new Promise((resolve) => {
     const root = openDialogRoot()
     root.classList.add('sc-dialog--geopick')
@@ -1781,8 +1786,13 @@ function askDualPlaceGeo(opts: {
             <p class="sc-map-hint" id="sc-map-hint">${escapeHtml(defaultMapHint)}</p>
           </div>
         </div>
-        <div class="sc-actions sc-geopick-actions">
+        <div class="sc-actions sc-geopick-actions${isPlaceReview ? ' sc-geopick-actions--triple' : ''}">
           <button type="button" class="sc-btn sc-btn-ok" id="sc-ok">${escapeHtml(ITEM_OK)}</button>
+          ${
+            isPlaceReview
+              ? `<button type="button" class="sc-btn sc-btn-del" id="sc-del">${escapeHtml(PLACE_REVIEW_DEL)}</button>`
+              : ''
+          }
           <button type="button" class="sc-btn sc-btn-back" id="sc-back">${escapeHtml(ITEM_BACK)}</button>
         </div>
       </div>`
@@ -2103,7 +2113,7 @@ function askDualPlaceGeo(opts: {
     })
 
     let done = false
-    const finish = (value: LatLngAlt | null) => {
+    const finish = (value: DualPlaceGeoResult) => {
       if (done) return
       done = true
       window.removeEventListener('resize', onWindowResize)
@@ -2161,8 +2171,23 @@ function askDualPlaceGeo(opts: {
       })
     }
 
+    const confirmDelete = async () => {
+      if (!isPlaceReview || !placeRefName) return
+      const sel = await chooseFromList(
+        PLACE_REVIEW_DEL_PROMPT,
+        [PLACE_DEL_OK, PLACE_DEL_BACK],
+        { withBackButton: false },
+      )
+      if (!sel || sel === PLACE_DEL_BACK || !sel.includes('削除')) return
+      await deletePlace(placeRefName)
+      finish('deleted')
+    }
+
     root.querySelector('#sc-ok')!.addEventListener('click', () => {
       void confirm()
+    })
+    root.querySelector('#sc-del')?.addEventListener('click', () => {
+      void confirmDelete()
     })
     root.querySelector('#sc-back')!.addEventListener('click', () => finish(null))
   })
@@ -3448,7 +3473,13 @@ async function onPlaceMenu(id: string): Promise<void> {
       name,
       placeRef: { name },
     })
-    if (!coords) return
+    if (!coords || coords === 'deleted') {
+      if (coords === 'deleted') {
+        flashMsg = `削除しました（${name}）`
+        await render()
+      }
+      return
+    }
     const newName = String(coords.name ?? name).trim() || name
     if (newName !== name) {
       await renamePlace(name, newName)
@@ -3558,7 +3589,7 @@ async function runPlaceNewRegister(): Promise<void> {
       // GPS 失敗 → マップのみ
     }
 
-    let coords: LatLngAlt | null = null
+    let coords: DualPlaceGeoResult = null
 
     if (gpsLat != null && gpsLng != null) {
       const round8 = (n: number) => Math.round(n * 1e8) / 1e8
@@ -3612,7 +3643,7 @@ async function runPlaceNewRegister(): Promise<void> {
       )
     }
 
-    if (!coords) {
+    if (!coords || coords === 'deleted') {
       flashMsg = '場所登録をキャンセルしました'
       return
     }

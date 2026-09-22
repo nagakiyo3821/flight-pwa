@@ -808,8 +808,8 @@ code { font-size: 0.85em; }
   width: 100%;
   max-width: 100%;
   /* JS が残り高さで上書き。未計測時の下限 */
-  height: clamp(120px, 26dvh, 280px);
-  min-height: clamp(120px, 22dvh, 200px);
+  height: clamp(88px, 18dvh, 180px);
+  min-height: clamp(88px, 15dvh, 130px);
   max-height: none;
   margin: 0;
   border: 1px solid var(--line);
@@ -823,7 +823,7 @@ code { font-size: 0.85em; }
 }
 .sc-geopick-map-block .sc-map-pick--geopick {
   flex: 1 1 auto;
-  min-height: clamp(120px, 22dvh, 200px);
+  min-height: clamp(88px, 15dvh, 130px);
 }
 .sc-dialog--geopick .sc-map-hint {
   margin: 0;
@@ -842,8 +842,8 @@ code { font-size: 0.85em; }
   }
   .sc-geopick-map-block .sc-map-pick--geopick {
     flex: 0 0 auto;
-    height: clamp(110px, 24dvh, 180px);
-    min-height: 110px;
+    height: clamp(80px, 16dvh, 140px);
+    min-height: 80px;
   }
 }
 

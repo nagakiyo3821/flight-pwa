@@ -207,6 +207,7 @@ export const GPS_LABEL_LAT = '緯度'
 export const GPS_LABEL_LNG = '経度'
 export const GPS_LABEL_ALT = '高度m'
 export const GPS_LABEL_ADRS = '住所'
+export const GPS_LABEL_NAME = '場所'
 export const GPS_LABEL_POSAC = '位置精度m'
 export const GPS_LABEL_ALTAC = '高度精度m'
 

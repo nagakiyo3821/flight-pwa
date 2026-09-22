@@ -87,6 +87,7 @@ import {
   GPS_LABEL_LAT,
   GPS_LABEL_LNG,
   GPS_LABEL_ADRS,
+  GPS_LABEL_NAME,
   GPS_LABEL_POSAC,
   GPS_LABEL_ALTAC,
   LANDING_UPDATE_OK,
@@ -903,6 +904,8 @@ type LatLngAlt = {
   adrs?: string
   posac?: string
   altac?: string
+  /** %新規場所登録で同一画面入力した場所名 */
+  name?: string
 }
 type GeoParts = { lat?: number; lng?: number; alt?: number }
 
@@ -1453,6 +1456,28 @@ function leafletDivIcon(kind: 'gps' | 'tap'): L.DivIcon {
   })
 }
 
+/** 住所などから場所名の初期候補（空白除去・20文字） */
+function placeNamePrefill(raw: string): string {
+  const t = String(raw ?? '')
+    .trim()
+    .replace(/\s+/g, '')
+  if (!t) return '新規'
+  return [...t].slice(0, 20).join('')
+}
+
+/** 場所名の検証（空・空白・長さ・重複） */
+async function validatePlaceNameCandidate(
+  raw: string,
+): Promise<{ ok: true; value: string } | { ok: false; err: string }> {
+  const value = String(raw ?? '').trim()
+  if (!value) return { ok: false, err: '場所名は空にできません' }
+  if (/\s/.test(value)) return { ok: false, err: '空白は使えません' }
+  if ([...value].length > 20) return { ok: false, err: '20文字以内にしてください' }
+  const exists = await getPlace(value)
+  if (exists) return { ok: false, err: `同じ場所名があります: ${value}` }
+  return { ok: true, value }
+}
+
 /** geopick 地図を残り高さ（または dvh 下限）に合わせる */
 function fitGeopickMapHeight(
   map: L.Map,
@@ -1462,8 +1487,8 @@ function fitGeopickMapHeight(
   const block = root.querySelector<HTMLElement>('.sc-geopick-map-block')
   const hint = root.querySelector<HTMLElement>('.sc-geopick-map-block .sc-map-hint, #sc-map-hint')
   const vh = window.visualViewport?.height ?? window.innerHeight
-  const floor = Math.round(Math.min(200, Math.max(110, vh * 0.22)))
-  const ceil = Math.round(Math.min(360, Math.max(floor, vh * 0.42)))
+  const floor = Math.round(Math.min(130, Math.max(88, vh * 0.15)))
+  const ceil = Math.round(Math.min(200, Math.max(floor, vh * 0.24)))
   let h = floor
   if (block && block.clientHeight > 0) {
     const hintH = hint?.offsetHeight ?? 0
@@ -1540,6 +1565,7 @@ function askDualPlaceGeo(opts: {
         ${geoFieldHtml('sc-altac', GPS_LABEL_ALTAC, opts.altac ?? PLACE_DEFAULT_ALTAC, { fill: true })}
       </div>
       ${geoFieldHtml('sc-adrs', GPS_LABEL_ADRS, opts.adrs ?? '', { fill: true, text: true })}
+      ${geoFieldHtml('sc-name', GPS_LABEL_NAME, placeNamePrefill(opts.adrs ?? ''), { fill: true, text: true })}
     </div>`
 
     root.innerHTML = `
@@ -1568,8 +1594,10 @@ function askDualPlaceGeo(opts: {
     const posacEl = root.querySelector<HTMLInputElement>('#sc-posac')!
     const altacEl = root.querySelector<HTMLInputElement>('#sc-altac')!
     const adrsEl = root.querySelector<HTMLInputElement>('#sc-adrs')!
+    const nameEl = root.querySelector<HTMLInputElement>('#sc-name')!
     const mapHint = root.querySelector<HTMLElement>('#sc-map-hint')
     const undoBtn = root.querySelector<HTMLButtonElement>('#sc-pt-undo')!
+    let nameTouched = false
 
     for (const el of [gpsLatEl, gpsLngEl, gpsAltEl]) {
       el.readOnly = true
@@ -1696,6 +1724,9 @@ function askDualPlaceGeo(opts: {
         if (req !== adrsReq) return
         adrsEl.placeholder = ''
         adrsEl.value = String(geo.address ?? '').trim()
+        if (!nameTouched && adrsEl.value) {
+          nameEl.value = placeNamePrefill(adrsEl.value)
+        }
         refreshClearable()
         if (!adrsEl.value) {
           if (mapHint) {
@@ -1823,7 +1854,18 @@ function askDualPlaceGeo(opts: {
     }
     adrsEl.addEventListener('input', () => adrsEl.setCustomValidity(''))
     adrsEl.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') confirm()
+      if (e.key === 'Enter') void confirm()
+      if (e.key === 'Escape') finish(null)
+    })
+    nameEl.addEventListener('input', () => {
+      nameTouched = true
+      nameEl.setCustomValidity('')
+      const clipped = [...String(nameEl.value ?? '')].slice(0, 20).join('')
+      if (clipped !== nameEl.value) nameEl.value = clipped
+      refreshClearable()
+    })
+    nameEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') void confirm()
       if (e.key === 'Escape') finish(null)
     })
 
@@ -1849,7 +1891,7 @@ function askDualPlaceGeo(opts: {
       return Number(v)
     }
 
-    const confirm = () => {
+    const confirm = async () => {
       const lat = readRequired(latEl)
       if (lat === null) return
       const lng = readRequired(lngEl)
@@ -1860,6 +1902,12 @@ function askDualPlaceGeo(opts: {
       if (posac === null) return
       const altac = readRequired(altacEl)
       if (altac === null) return
+      const checked = await validatePlaceNameCandidate(nameEl.value)
+      if (!checked.ok) {
+        nameEl.setCustomValidity(checked.err)
+        nameEl.reportValidity()
+        return
+      }
       finish({
         lat,
         lng,
@@ -1867,10 +1915,13 @@ function askDualPlaceGeo(opts: {
         adrs: String(adrsEl.value ?? '').trim(),
         posac: String(posac),
         altac: String(altac),
+        name: checked.value,
       })
     }
 
-    root.querySelector('#sc-ok')!.addEventListener('click', confirm)
+    root.querySelector('#sc-ok')!.addEventListener('click', () => {
+      void confirm()
+    })
     root.querySelector('#sc-back')!.addEventListener('click', () => finish(null))
   })
 }
@@ -2271,36 +2322,20 @@ function displayValue(rec: FlightRecord, f: FieldDef): string {
 
 /** 新規場所名の入力。初期値は派生名／住所。戻るで null。 */
 async function askNewPlaceName(initial: string): Promise<string | null> {
-  // 住所流用時は長いので、入力欄には先頭20文字を入れる
-  let draft = initial.trim().slice(0, 20)
+  let draft = placeNamePrefill(initial)
   let err = ''
   for (;;) {
     const prompt = err ? `${PLACE_NAME_PROMPT}\n（${err}）` : PLACE_NAME_PROMPT
     const raw = await askText(prompt, draft)
     if (raw === null) return null
-    const value = raw.trim()
-    if (!value) {
-      err = '場所名は空にできません'
-      draft = ''
+    const checked = await validatePlaceNameCandidate(raw)
+    if (!checked.ok) {
+      err = checked.err
+      draft = placeNamePrefill(String(raw ?? ''))
+      if (!draft && checked.err.includes('空')) draft = ''
       continue
     }
-    if (/\s/.test(value)) {
-      err = '空白は使えません'
-      draft = value.replace(/\s+/g, '')
-      continue
-    }
-    if ([...value].length > 20) {
-      err = '20文字以内にしてください'
-      draft = [...value].slice(0, 20).join('')
-      continue
-    }
-    const exists = await getPlace(value)
-    if (exists) {
-      err = `同じ場所名があります: ${value}`
-      draft = value
-      continue
-    }
-    return value
+    return checked.value
   }
 }
 
@@ -3310,8 +3345,9 @@ async function runPlaceNewRegister(): Promise<void> {
     const altac =
       String(coords.altac ?? PLACE_DEFAULT_ALTAC).trim() || PLACE_DEFAULT_ALTAC
     const addrFetchFailed = !curAdrs
-    const nameDefault = curAdrs || '新規'
-    const entered = await askNewPlaceName(nameDefault)
+    const nameDefault = placeNamePrefill(curAdrs)
+    const entered =
+      String(coords.name ?? '').trim() || (await askNewPlaceName(nameDefault))
     if (!entered) {
       flashMsg = '場所登録をキャンセルしました'
       return

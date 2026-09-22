@@ -1725,19 +1725,15 @@ function askDualPlaceGeo(opts: {
       ? PLACE_REVIEW_CONFIRM_LINE
       : PLACE_NEW_CONFIRM_LINE
     const refTitleLabel = isPlaceReview ? placeWrapped : '現在地(GPS)'
-    // プレビュー: 青＝場所名のみ / 橙＝場所(名前)
+    // プレビュー: 青＝場所(名前) / 橙＝タップ地点を戻す（従来どおり）
     const refBtnLabel = isPlaceReview
-      ? ellipsizeText(placeRefName, 10)
+      ? ellipsizeText(placeWrapped, 12)
       : '現在地(GPS)'
     const refBtnAria = isPlaceReview
-      ? `${placeRefName}をタップ地点へ`
+      ? `${placeWrapped}をタップ地点へ`
       : PLACE_GPS_TO_POINT
-    const undoBtnLabel = isPlaceReview
-      ? ellipsizeText(placeWrapped, 12)
-      : PLACE_PT_UNDO
-    const undoBtnAria = isPlaceReview
-      ? `タップ地点を戻す（${placeWrapped}）`
-      : PLACE_PT_UNDO
+    const undoBtnLabel = PLACE_PT_UNDO
+    const undoBtnAria = PLACE_PT_UNDO
     const titleHtml = `${escapeHtml(titleLine1)}<br/><span class="sc-geopick-title-line"><span class="sc-geopick-title-pair"><span class="sc-map-ico sc-map-ico--gps sc-map-ico--inline" aria-hidden="true"></span><span class="sc-geopick-title-name">${escapeHtml(refTitleLabel)}</span></span><span class="sc-geopick-title-sep">　</span><span class="sc-geopick-title-pair"><span class="sc-map-ico sc-map-ico--tap sc-map-ico--inline" aria-hidden="true"></span>タップ地点</span></span>`
 
     const gpsNums = [

@@ -1069,11 +1069,13 @@ function askMissingGeo(
         : 'タップで緯度・経度・高度・住所をセット'
       root.innerHTML = `
         <div class="sc-geopick-stack">
-          <div class="sc-geopick-scroll">
+          <div class="sc-geopick-scroll sc-geopick-scroll--fill">
             <h1 class="prompt sc-geopick-title">${promptHtml}</h1>
             ${fieldsHtml}
-            <div id="sc-map-pick" class="sc-map-pick sc-map-pick--geopick" role="application" aria-label="位置選択マップ"></div>
-            <p class="sc-map-hint" id="sc-map-hint">${hint}</p>
+            <div class="sc-geopick-map-block">
+              <div id="sc-map-pick" class="sc-map-pick sc-map-pick--geopick" role="application" aria-label="位置選択マップ"></div>
+              <p class="sc-map-hint" id="sc-map-hint">${hint}</p>
+            </div>
           </div>
           <div class="sc-actions sc-geopick-actions">
             <button type="button" class="sc-btn sc-btn-ok" id="sc-ok">${escapeHtml(ITEM_OK)}</button>
@@ -1300,23 +1302,11 @@ function askMissingGeo(
       const mapEl = root.querySelector<HTMLDivElement>('#sc-map-pick')!
       const fitMapWidth = () => {
         if (!map) return
-        mapEl.style.width = '100%'
-        mapEl.style.maxWidth = '100%'
-        mapEl.style.boxSizing = 'border-box'
-        mapEl.style.overflow = 'hidden'
-        if (geopick) {
-          mapEl.style.height = '240px'
-        }
-        const c = map.getContainer()
-        c.style.width = '100%'
-        c.style.maxWidth = '100%'
-        c.style.boxSizing = 'border-box'
-        if (geopick) c.style.height = '240px'
-        map.invalidateSize({ animate: false })
+        fitGeopickMapHeight(map, mapEl, root)
       }
       if (geopick) {
-        mapEl.style.cssText =
-          'height:240px;min-height:240px;max-height:240px;width:100%;max-width:100%;overflow:hidden;box-sizing:border-box;'
+        mapEl.style.width = '100%'
+        mapEl.style.maxWidth = '100%'
       }
       // classic=従来 / detail=引いた表示は詳細、寄ると classic と同じタイル
       map = L.map(mapEl, {
@@ -1463,6 +1453,32 @@ function leafletDivIcon(kind: 'gps' | 'tap'): L.DivIcon {
   })
 }
 
+/** geopick 地図を残り高さ（または dvh 下限）に合わせる */
+function fitGeopickMapHeight(
+  map: L.Map,
+  mapEl: HTMLElement,
+  root: ParentNode,
+): void {
+  const block = root.querySelector<HTMLElement>('.sc-geopick-map-block')
+  const hint = root.querySelector<HTMLElement>('.sc-geopick-map-block .sc-map-hint, #sc-map-hint')
+  const vh = window.visualViewport?.height ?? window.innerHeight
+  const floor = Math.round(Math.min(200, Math.max(110, vh * 0.22)))
+  const ceil = Math.round(Math.min(360, Math.max(floor, vh * 0.42)))
+  let h = floor
+  if (block && block.clientHeight > 0) {
+    const hintH = hint?.offsetHeight ?? 0
+    h = Math.floor(block.clientHeight - hintH - 4)
+  }
+  h = Math.max(floor, Math.min(ceil, h))
+  mapEl.style.cssText =
+    `height:${h}px;min-height:${h}px;max-height:${h}px;width:100%;max-width:100%;overflow:hidden;box-sizing:border-box;`
+  const c = map.getContainer()
+  c.style.width = '100%'
+  c.style.maxWidth = '100%'
+  c.style.height = `${h}px`
+  map.invalidateSize({ animate: false })
+}
+
 /**
  * %新規場所登録用: GPS（固定）＋タップ地点（移動可）の二重ポイント UI。
  * 確定値はタップ地点の緯度・経度・高度＋住所・精度。
@@ -1528,11 +1544,13 @@ function askDualPlaceGeo(opts: {
 
     root.innerHTML = `
       <div class="sc-geopick-stack">
-        <div class="sc-geopick-scroll">
+        <div class="sc-geopick-scroll sc-geopick-scroll--fill">
           <h1 class="prompt sc-geopick-title">${titleHtml}</h1>
           ${fieldsHtml}
-          <div id="sc-map-pick" class="sc-map-pick sc-map-pick--geopick" role="application" aria-label="位置選択マップ"></div>
-          <p class="sc-map-hint" id="sc-map-hint">タップで地点を移動（青＝GPS固定／橙＝登録点）</p>
+          <div class="sc-geopick-map-block">
+            <div id="sc-map-pick" class="sc-map-pick sc-map-pick--geopick" role="application" aria-label="位置選択マップ"></div>
+            <p class="sc-map-hint" id="sc-map-hint">タップで地点を移動（青＝GPS固定／橙＝登録点）</p>
+          </div>
         </div>
         <div class="sc-actions sc-geopick-actions">
           <button type="button" class="sc-btn sc-btn-ok" id="sc-ok">${escapeHtml(ITEM_OK)}</button>
@@ -1725,8 +1743,6 @@ function askDualPlaceGeo(opts: {
     }
 
     const mapEl = root.querySelector<HTMLDivElement>('#sc-map-pick')!
-    mapEl.style.cssText =
-      'height:240px;min-height:240px;max-height:240px;width:100%;max-width:100%;overflow:hidden;box-sizing:border-box;'
     map = L.map(mapEl, {
       zoomControl: true,
       maxZoom: jpMapMaxZoom(mapTiles),
@@ -1749,19 +1765,16 @@ function askDualPlaceGeo(opts: {
       onPointMoved(latR, lngR, 'mapClick')
     })
 
-    const fitMapWidth = () => {
+    const fitMap = () => {
       if (!map) return
-      mapEl.style.width = '100%'
-      mapEl.style.maxWidth = '100%'
-      const c = map.getContainer()
-      c.style.width = '100%'
-      c.style.maxWidth = '100%'
-      c.style.height = '240px'
-      map.invalidateSize({ animate: false })
+      fitGeopickMapHeight(map, mapEl, root)
     }
-    requestAnimationFrame(() => fitMapWidth())
-    setTimeout(() => fitMapWidth(), 100)
-    setTimeout(() => fitMapWidth(), 300)
+    const onViewport = () => fitMap()
+    requestAnimationFrame(() => fitMap())
+    setTimeout(() => fitMap(), 80)
+    setTimeout(() => fitMap(), 250)
+    window.addEventListener('resize', onViewport)
+    window.visualViewport?.addEventListener('resize', onViewport)
 
     root.querySelector('#sc-gps-to-pt')!.addEventListener('click', () => {
       copyGpsToPoint()
@@ -1818,6 +1831,8 @@ function askDualPlaceGeo(opts: {
     const finish = (value: LatLngAlt | null) => {
       if (done) return
       done = true
+      window.removeEventListener('resize', onViewport)
+      window.visualViewport?.removeEventListener('resize', onViewport)
       map?.remove()
       closeDialogSafely(root, () => resolve(value))
     }

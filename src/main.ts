@@ -125,6 +125,7 @@ import {
   PLACE_PT_UNDO,
   PLACE_DEFAULT_POSAC,
   PLACE_DEFAULT_ALTAC,
+  PLACE_REVIEW_CONFIRM_LINE,
   PLACE_REVIEW_DEL,
   PLACE_REVIEW_DEL_PROMPT,
   PLACE_UPDATE_BACK,
@@ -1719,14 +1720,24 @@ function askDualPlaceGeo(opts: {
       lng: Math.round(opts.gps.lng * 1e8) / 1e8,
       alt: opts.gps.alt,
     }
-    const refTitleLabel = isPlaceReview ? placeRefName : '現在地(GPS)'
+    const placeWrapped = isPlaceReview ? `場所(${placeRefName})` : ''
+    const titleLine1 = isPlaceReview
+      ? PLACE_REVIEW_CONFIRM_LINE
+      : PLACE_NEW_CONFIRM_LINE
+    const refTitleLabel = isPlaceReview ? placeWrapped : '現在地(GPS)'
     const refBtnLabel = isPlaceReview
       ? ellipsizeText(placeRefName, 10)
       : '現在地(GPS)'
     const refBtnAria = isPlaceReview
       ? `${placeRefName}をタップ地点へ`
       : PLACE_GPS_TO_POINT
-    const titleHtml = `${escapeHtml(PLACE_NEW_CONFIRM_LINE)}<br/><span class="sc-geopick-title-line"><span class="sc-geopick-title-pair"><span class="sc-map-ico sc-map-ico--gps sc-map-ico--inline" aria-hidden="true"></span><span class="sc-geopick-title-name">${escapeHtml(refTitleLabel)}</span></span><span class="sc-geopick-title-sep">　</span><span class="sc-geopick-title-pair"><span class="sc-map-ico sc-map-ico--tap sc-map-ico--inline" aria-hidden="true"></span>タップ地点</span></span>`
+    const undoBtnLabel = isPlaceReview
+      ? ellipsizeText(placeWrapped, 10)
+      : PLACE_PT_UNDO
+    const undoBtnAria = isPlaceReview
+      ? `タップ地点を戻す（${placeWrapped}）`
+      : PLACE_PT_UNDO
+    const titleHtml = `${escapeHtml(titleLine1)}<br/><span class="sc-geopick-title-line"><span class="sc-geopick-title-pair"><span class="sc-map-ico sc-map-ico--gps sc-map-ico--inline" aria-hidden="true"></span><span class="sc-geopick-title-name">${escapeHtml(refTitleLabel)}</span></span><span class="sc-geopick-title-sep">　</span><span class="sc-geopick-title-pair"><span class="sc-map-ico sc-map-ico--tap sc-map-ico--inline" aria-hidden="true"></span>タップ地点</span></span>`
 
     const gpsNums = [
       geoFieldHtml('sc-gps-lat', GPS_LABEL_LAT, String(gps.lat), {
@@ -1762,7 +1773,7 @@ function askDualPlaceGeo(opts: {
       <div class="sc-geo-fields--geopick-nums">${ptNums}</div>
       <div class="sc-geo-dual-btns">
         <button type="button" class="sc-btn-gps-copy" id="sc-gps-to-pt" aria-label="${escapeHtml(refBtnAria)}"><span class="sc-map-ico sc-map-ico--gps sc-map-ico--inline" aria-hidden="true"></span><span class="sc-btn-gps-copy-label">${escapeHtml(refBtnLabel)}</span></button>
-        <button type="button" class="sc-btn-pt-undo" id="sc-pt-undo" aria-label="${escapeHtml(PLACE_PT_UNDO)}" disabled><span class="sc-map-ico sc-map-ico--tap sc-map-ico--inline" aria-hidden="true"></span>${escapeHtml(PLACE_PT_UNDO)}</button>
+        <button type="button" class="sc-btn-pt-undo" id="sc-pt-undo" aria-label="${escapeHtml(undoBtnAria)}" disabled><span class="sc-map-ico sc-map-ico--tap sc-map-ico--inline" aria-hidden="true"></span><span class="sc-btn-gps-copy-label">${escapeHtml(undoBtnLabel)}</span></button>
       </div>
       <div class="sc-geo-fields--geopick-acc">
         ${geoFieldHtml('sc-posac', GPS_LABEL_POSAC, opts.posac ?? PLACE_DEFAULT_POSAC, { fill: true, undo: true, undoMode: 'committed' })}
@@ -1773,7 +1784,7 @@ function askDualPlaceGeo(opts: {
     </div>`
 
     const defaultMapHint = isPlaceReview
-      ? `タップで地点を移動（青＝${ellipsizeText(placeRefName, 8)}／橙＝タップ地点）`
+      ? `タップで地点を移動（青＝${ellipsizeText(placeWrapped, 8)}／橙＝タップ地点）`
       : 'タップで地点を移動（青＝GPS固定／橙＝登録点）'
 
     root.innerHTML = `

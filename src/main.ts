@@ -3484,8 +3484,9 @@ async function onPlaceMenu(id: string): Promise<void> {
     if (!coords || coords === 'deleted') {
       if (coords === 'deleted') {
         flashMsg = `削除しました（${name}）`
-        await render()
       }
+      // ダイアログ戻りでは DOM が残るため再描画（古い flash 表示も消える）
+      await render()
       return
     }
     const newName = String(coords.name ?? name).trim() || name
@@ -3506,8 +3507,11 @@ async function onPlaceMenu(id: string): Promise<void> {
         newPosac &&
       (String(row.ALTAC || PLACE_DEFAULT_ALTAC).trim() || PLACE_DEFAULT_ALTAC) ===
         newAltac
-    // 変化なし → 戻ると同じ（更新・メッセージなし）
-    if (unchanged) return
+    // 変化なし → 戻ると同じ（更新なし・一覧を再描画してメッセージ解除）
+    if (unchanged) {
+      await render()
+      return
+    }
 
     if (newName !== name) {
       await renamePlace(name, newName)

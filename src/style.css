@@ -779,10 +779,10 @@ code { font-size: 0.85em; }
   min-width: 0;
   flex: 0 0 auto;
 }
-/* 緯度・経度・高度は1行。緯度経度は桁が多いのでややコンパクト */
+/* 緯度・経度・高度は1行。高度を狭め、緯度経度に幅を回す */
 .sc-geo-fields--geopick-nums {
   display: grid;
-  grid-template-columns: 4.4fr 4.4fr 3fr;
+  grid-template-columns: 4.9fr 4.9fr 2.2fr;
   gap: 0.2rem;
   width: 100%;
   min-width: 0;
@@ -842,10 +842,10 @@ code { font-size: 0.85em; }
 /* 数値は右寄せ → × が数値の右端に来る */
 .sc-geo-fields--geopick-nums .sc-geo-field .sc-input {
   text-align: right;
-  padding: 0.22rem 1.4rem 0.22rem 0.15rem;
-  /* 桁が多い緯度経度向けに少し小さめ（iOSズーム回避のため15px以上） */
-  font-size: 15px;
-  letter-spacing: -0.02em;
+  padding: 0.2rem 1.35rem 0.2rem 0.12rem;
+  /* 桁が多い緯度経度向け（iOSズーム回避のため14px以上） */
+  font-size: 14px;
+  letter-spacing: -0.03em;
 }
 .sc-geo-fields--geopick-nums .sc-geo-field > span {
   font-size: 0.62rem;

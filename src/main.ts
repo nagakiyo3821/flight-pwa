@@ -134,6 +134,8 @@ import {
   PLACE_REVIEW_DEL_CANCEL_MSG,
   PLACE_REVIEW_NOCHANGE_MSG,
   PLACE_REVIEW_DEL_DONE_PREFIX,
+  PLACE_REVIEW_UPDATE_MSG_PREFIX,
+  PLACE_NEW_DONE_MSG_PREFIX,
   PLACE_UPDATE_BACK,
   REC_DEL_BACK,
   REC_DEL_OK,
@@ -3539,7 +3541,7 @@ async function onPlaceMenu(id: string): Promise<void> {
     })
     placeEditName = null
     view = 'places'
-    flashMsg = `場所を更新しました（${newName}）`
+    flashMsg = `${PLACE_REVIEW_UPDATE_MSG_PREFIX}(${newName})`
     await render()
   }
 }
@@ -3605,7 +3607,7 @@ async function runPlaceHereSearch(): Promise<void> {
     })
     placeEditName = entered
     view = 'place-edit'
-    flashMsg = `場所を登録しました（${entered}）`
+    flashMsg = `${PLACE_NEW_DONE_MSG_PREFIX}(${entered})`
   } catch (e) {
     flashMsg = `失敗: ${(e as Error).message}`
   }
@@ -3718,8 +3720,8 @@ async function runPlaceNewRegister(): Promise<void> {
     placeEditName = null
     view = 'places'
     flashMsg = addrFetchFailed
-      ? `場所を登録しました（${entered}）。住所は後から編集できます`
-      : `場所を登録しました（${entered}）`
+      ? `${PLACE_NEW_DONE_MSG_PREFIX}(${entered})。住所は後から編集できます`
+      : `${PLACE_NEW_DONE_MSG_PREFIX}(${entered})`
   } catch (e) {
     flashMsg = `失敗: ${(e as Error).message}`
   }

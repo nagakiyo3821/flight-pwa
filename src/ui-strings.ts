@@ -358,6 +358,8 @@ export const PLACE_REVIEW_CANCEL_MSG = '選択した場所の修正をキャン�
 export const PLACE_REVIEW_DEL_CANCEL_MSG = '選択した場所の削除をキャンセルしました'
 export const PLACE_REVIEW_NOCHANGE_MSG = '選択した場所を修正しませんでした'
 export const PLACE_REVIEW_DEL_DONE_PREFIX = '選択した場所を削除しました'
+export const PLACE_REVIEW_UPDATE_MSG_PREFIX = '選択した場所を修正しました'
+export const PLACE_NEW_DONE_MSG_PREFIX = '新規場所登録をしました'
 
 /** 通信失敗時（操作ごと。常時オンライン表示はしない） */
 /** @deprecated 空／タイムアウトを分けた文言を使う */

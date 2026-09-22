@@ -989,7 +989,7 @@ function clearableInputHtml(
 ): string {
   const wrapCls = opts?.undo ? ' sc-input-wrap--with-undo' : ''
   const undoBtn = opts?.undo
-    ? `<button type="button" class="sc-input-undo" aria-label="1つ前に戻す" tabindex="-1" title="1つ前に戻す" disabled>↶</button>`
+    ? `<button type="button" class="sc-input-undo" aria-label="1つ前に戻す" tabindex="-1" title="1つ前に戻す" disabled><svg class="sc-input-undo-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z"/></svg></button>`
     : ''
   return `<div class="sc-input-wrap${wrapCls}">
     <input id="${id}" ${inputAttrs} value="${escapeHtml(value)}" />
@@ -1573,7 +1573,8 @@ async function validatePlaceNameCandidate(
 
 /**
  * geopick 地図の高さを決める。
- * キーボード表示で visualViewport が縮んでも、初回確定の高さを維持する（マップだけ縮むのを防ぐ）。
+ * 余り高さを地図が埋めて確定ボタン直上まで寄せる。
+ * キーボード表示で visualViewport が縮んでも、初回確定の高さを維持する。
  */
 function fitGeopickMapHeight(
   map: L.Map,
@@ -1596,13 +1597,13 @@ function fitGeopickMapHeight(
   const hint = root.querySelector<HTMLElement>(
     '.sc-geopick-map-block .sc-map-hint, #sc-map-hint',
   )
-  // innerHeight 基準（キーボードで縮まない）。svh 相当の下限・上限
-  const floor = Math.round(Math.min(130, Math.max(96, layoutH * 0.15)))
-  const ceil = Math.round(Math.min(220, Math.max(floor, layoutH * 0.26)))
+  // 下限のみ。上限は画面の約半分まで広げ、マップ下の空きを無くす
+  const floor = Math.round(Math.min(120, Math.max(88, layoutH * 0.12)))
+  const ceil = Math.round(Math.min(layoutH * 0.52, 480))
   let h = floor
   if (block && block.clientHeight > 0) {
     const hintH = hint?.offsetHeight ?? 0
-    h = Math.floor(block.clientHeight - hintH - 4)
+    h = Math.floor(block.clientHeight - hintH - 2)
   }
   h = Math.max(floor, Math.min(ceil, h))
   // 一度決めた高さより縮めない（キーボード閉じ後の再計測では拡大のみ可）

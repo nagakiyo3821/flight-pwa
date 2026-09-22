@@ -1861,6 +1861,8 @@ function askDualPlaceGeo(opts: {
     let nearMarker: L.Marker | undefined
     let nearCircle: L.Circle | undefined
     let nearCenter: L.LatLng | null = null
+    /** 精度円専用（padding 大）。既定 SVG だとパン後や端付近で円全体がクリップされ消えることがある */
+    let nearRenderer: L.SVG | undefined
     let placesCache: Array<PlaceRecord & { name: string }> = []
     let syncing = false
     let elevReq = 0
@@ -1877,8 +1879,15 @@ function askDualPlaceGeo(opts: {
       const visible = map.getBounds().contains(nearCenter)
       const el = nearMarker.getElement()
       if (el) el.style.display = visible ? '' : 'none'
-      // getElement が未準備のときは opacity で代替
       nearMarker.setOpacity(visible ? 1 : 0)
+    }
+
+    const redrawNearCircle = () => {
+      if (nearCircle) {
+        nearCircle.redraw()
+        nearCircle.bringToFront()
+      }
+      syncNearIconVisibility()
     }
 
     const clearNearOverlay = () => {
@@ -1897,15 +1906,19 @@ function askDualPlaceGeo(opts: {
       if (!map || isPlaceReview) return
       const radius = Number.isFinite(posacM) && posacM > 0 ? posacM : Number(PLACE_DEFAULT_POSAC)
       nearCenter = L.latLng(lat, lng)
+      if (!nearRenderer) {
+        nearRenderer = L.svg({ padding: 1 })
+      }
       if (!nearCircle) {
         nearCircle = L.circle(nearCenter, {
           radius,
           color: '#2a7a3a',
-          weight: 1.5,
-          opacity: 0.55,
+          weight: 2,
+          opacity: 0.75,
           fillColor: '#2a7a3a',
-          fillOpacity: 0.18,
+          fillOpacity: 0.22,
           interactive: false,
+          renderer: nearRenderer,
         }).addTo(map)
       } else {
         nearCircle.setLatLng(nearCenter)
@@ -1920,7 +1933,7 @@ function askDualPlaceGeo(opts: {
       } else {
         nearMarker.setLatLng(nearCenter)
       }
-      syncNearIconVisibility()
+      redrawNearCircle()
     }
 
     /** タップ地点（橙）更新のたび、キャッシュ上で ECEF 3D 最短を再検出 */
@@ -2119,8 +2132,8 @@ function askDualPlaceGeo(opts: {
       zIndexOffset: 400,
     }).addTo(map)
     setPtMarker(gps.lat, gps.lng, false)
-    map.on('moveend', syncNearIconVisibility)
-    map.on('zoomend', syncNearIconVisibility)
+    map.on('moveend', redrawNearCircle)
+    map.on('zoomend', redrawNearCircle)
     void listPlaces().then((rows) => {
       placesCache = rows
       refreshNearest()
@@ -2139,6 +2152,7 @@ function askDualPlaceGeo(opts: {
     const fitMap = () => {
       if (!map) return
       fitGeopickMapHeight(map, mapEl, root)
+      redrawNearCircle()
     }
     /** キーボード開閉では高さ固定。向き変更などは window.resize で再計測 */
     const onWindowResize = () => fitMap()

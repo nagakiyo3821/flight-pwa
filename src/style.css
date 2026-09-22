@@ -1105,12 +1105,19 @@ code { font-size: 0.85em; }
 }
 .sc-dialog .leaflet-map-pane,
 .sc-dialog .leaflet-tile-pane,
-.sc-dialog .leaflet-overlay-pane,
 .sc-dialog .leaflet-shadow-pane,
 .sc-dialog .leaflet-marker-pane,
 .sc-dialog .leaflet-tooltip-pane,
 .sc-dialog .leaflet-popup-pane {
   max-width: 100%;
+}
+/* 精度円など SVG パスはビュー外にはみ出して描く。overlay を幅制限すると中心が画面内でも円が消える */
+.sc-dialog .leaflet-overlay-pane {
+  max-width: none;
+  overflow: visible;
+}
+.sc-dialog--geopick .leaflet-overlay-pane svg {
+  overflow: visible;
 }
 .sc-dialog .leaflet-control-container {
   max-width: 100%;

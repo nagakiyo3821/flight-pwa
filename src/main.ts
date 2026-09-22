@@ -3715,8 +3715,8 @@ async function runPlaceNewRegister(): Promise<void> {
       posac,
       altac,
     })
-    placeEditName = entered
-    view = 'place-edit'
+    placeEditName = null
+    view = 'places'
     flashMsg = addrFetchFailed
       ? `場所を登録しました（${entered}）。住所は後から編集できます`
       : `場所を登録しました（${entered}）`

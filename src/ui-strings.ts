@@ -356,7 +356,7 @@ export const PLACE_REVIEW_DEL_PROMPT = '本当に削除しますか？'
 export const PLACE_NEW_CANCEL_MSG = '新規場所登録をキャンセルしました'
 export const PLACE_REVIEW_CANCEL_MSG = '選択した場所の修正をキャンセルしました'
 export const PLACE_REVIEW_DEL_CANCEL_MSG = '選択した場所の削除をキャンセルしました'
-export const PLACE_REVIEW_NOCHANGE_MSG = '選択した場所の修正しませんでした'
+export const PLACE_REVIEW_NOCHANGE_MSG = '選択した場所を修正しませんでした'
 export const PLACE_REVIEW_DEL_DONE_PREFIX = '選択した場所を削除しました'
 
 /** 通信失敗時（操作ごと。常時オンライン表示はしない） */

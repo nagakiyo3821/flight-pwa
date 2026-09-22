@@ -1645,7 +1645,7 @@ function askDualPlaceGeo(opts: {
       lng: Math.round(opts.gps.lng * 1e8) / 1e8,
       alt: opts.gps.alt,
     }
-    const titleHtml = `<span class="sc-geopick-title-line"><span class="sc-geopick-title-pair"><span class="sc-map-ico sc-map-ico--gps sc-map-ico--inline" aria-hidden="true"></span>現在地（GPS）</span><span class="sc-geopick-title-sep">、</span><span class="sc-geopick-title-pair"><span class="sc-map-ico sc-map-ico--tap sc-map-ico--inline" aria-hidden="true"></span>タップ地点</span></span><br/>${escapeHtml(PLACE_NEW_CONFIRM_LINE)}`
+    const titleHtml = `${escapeHtml(PLACE_NEW_CONFIRM_LINE)}<br/><span class="sc-geopick-title-line"><span class="sc-geopick-title-pair"><span class="sc-map-ico sc-map-ico--gps sc-map-ico--inline" aria-hidden="true"></span>現在地(GPS)</span><span class="sc-geopick-title-sep">　</span><span class="sc-geopick-title-pair"><span class="sc-map-ico sc-map-ico--tap sc-map-ico--inline" aria-hidden="true"></span>タップ地点</span></span>`
 
     const gpsNums = [
       geoFieldHtml('sc-gps-lat', GPS_LABEL_LAT, String(gps.lat), {

@@ -20,6 +20,8 @@ import {
   exportSettings,
   exportTmp,
   findNearestPlace,
+  closestPlace3dFromList,
+  listPlaces,
   getCurrentPosition,
   getMeta,
   getPlace,
@@ -122,6 +124,7 @@ import {
   PLACE_MENU_HERE,
   PLACE_MENU_NEW,
   PLACE_NEW_CONFIRM_LINE,
+  placeNearest3dHint,
   PLACE_GPS_TO_POINT,
   PLACE_PT_UNDO,
   PLACE_DEFAULT_POSAC,
@@ -1601,10 +1604,16 @@ function askMissingGeo(
   })
 }
 
-function leafletDivIcon(kind: 'gps' | 'tap'): L.DivIcon {
-  const cls = kind === 'gps' ? 'sc-map-ico sc-map-ico--gps' : 'sc-map-ico sc-map-ico--tap'
-  const size = kind === 'gps' ? 22 : 18
-  const anchor: [number, number] = kind === 'gps' ? [11, 11] : [9, 16]
+function leafletDivIcon(kind: 'gps' | 'tap' | 'near'): L.DivIcon {
+  const cls =
+    kind === 'gps'
+      ? 'sc-map-ico sc-map-ico--gps'
+      : kind === 'near'
+        ? 'sc-map-ico sc-map-ico--near'
+        : 'sc-map-ico sc-map-ico--tap'
+  const size = kind === 'gps' ? 22 : kind === 'near' ? 16 : 18
+  const anchor: [number, number] =
+    kind === 'gps' ? [11, 11] : kind === 'near' ? [8, 8] : [9, 16]
   return L.divIcon({
     className: 'sc-leaflet-ico',
     html: `<div class="${cls}" aria-hidden="true"></div>`,
@@ -1790,7 +1799,7 @@ function askDualPlaceGeo(opts: {
 
     const defaultMapHint = isPlaceReview
       ? `タップで地点を移動（青＝${ellipsizeText(placeWrapped, 8)}／橙＝タップ地点）`
-      : 'タップで地点を移動（青＝GPS固定／橙＝登録点）'
+      : 'タップで地点を移動（青＝GPS／橙＝登録点／緑＝最寄り＋精度円）'
 
     root.innerHTML = `
       <div class="sc-geopick-stack">
@@ -1800,6 +1809,11 @@ function askDualPlaceGeo(opts: {
           <div class="sc-geopick-map-block">
             <div id="sc-map-pick" class="sc-map-pick sc-map-pick--geopick" role="application" aria-label="位置選択マップ"></div>
             <p class="sc-map-hint" id="sc-map-hint">${escapeHtml(defaultMapHint)}</p>
+            ${
+              isPlaceReview
+                ? ''
+                : '<p class="sc-nearest-hint" id="sc-nearest-hint" aria-live="polite"></p>'
+            }
           </div>
         </div>
         <div class="sc-actions sc-geopick-actions${isPlaceReview ? ' sc-geopick-actions--triple' : ''}">
@@ -1825,6 +1839,7 @@ function askDualPlaceGeo(opts: {
     const adrsEl = root.querySelector<HTMLInputElement>('#sc-adrs')!
     const nameEl = root.querySelector<HTMLInputElement>('#sc-name')!
     const mapHint = root.querySelector<HTMLElement>('#sc-map-hint')
+    const nearestHint = root.querySelector<HTMLElement>('#sc-nearest-hint')
     const undoBtn = root.querySelector<HTMLButtonElement>('#sc-pt-undo')!
     let nameTouched = !!(opts.name?.trim() || isPlaceReview)
 
@@ -1843,6 +1858,10 @@ function askDualPlaceGeo(opts: {
     let preEditSnap: PtSnap | null = null
     let map: L.Map | undefined
     let ptMarker: L.Marker | undefined
+    let nearMarker: L.Marker | undefined
+    let nearCircle: L.Circle | undefined
+    let nearCenter: L.LatLng | null = null
+    let placesCache: Array<PlaceRecord & { name: string }> = []
     let syncing = false
     let elevReq = 0
     let adrsReq = 0
@@ -1851,6 +1870,84 @@ function askDualPlaceGeo(opts: {
       if (!el) return undefined
       const v = normalizeNumberInput(el.value)
       return isRequiredNumber(v) ? Number(v) : undefined
+    }
+
+    const syncNearIconVisibility = () => {
+      if (!map || !nearMarker || !nearCenter) return
+      const visible = map.getBounds().contains(nearCenter)
+      const el = nearMarker.getElement()
+      if (el) el.style.display = visible ? '' : 'none'
+      // getElement が未準備のときは opacity で代替
+      nearMarker.setOpacity(visible ? 1 : 0)
+    }
+
+    const clearNearOverlay = () => {
+      if (nearMarker) {
+        nearMarker.remove()
+        nearMarker = undefined
+      }
+      if (nearCircle) {
+        nearCircle.remove()
+        nearCircle = undefined
+      }
+      nearCenter = null
+    }
+
+    const setNearOverlay = (lat: number, lng: number, posacM: number) => {
+      if (!map || isPlaceReview) return
+      const radius = Number.isFinite(posacM) && posacM > 0 ? posacM : Number(PLACE_DEFAULT_POSAC)
+      nearCenter = L.latLng(lat, lng)
+      if (!nearCircle) {
+        nearCircle = L.circle(nearCenter, {
+          radius,
+          color: '#2a7a3a',
+          weight: 1.5,
+          opacity: 0.55,
+          fillColor: '#2a7a3a',
+          fillOpacity: 0.18,
+          interactive: false,
+        }).addTo(map)
+      } else {
+        nearCircle.setLatLng(nearCenter)
+        nearCircle.setRadius(radius)
+      }
+      if (!nearMarker) {
+        nearMarker = L.marker(nearCenter, {
+          icon: leafletDivIcon('near'),
+          interactive: false,
+          zIndexOffset: 350,
+        }).addTo(map)
+      } else {
+        nearMarker.setLatLng(nearCenter)
+      }
+      syncNearIconVisibility()
+    }
+
+    /** タップ地点（橙）更新のたび、キャッシュ上で ECEF 3D 最短を再検出 */
+    const refreshNearest = () => {
+      if (isPlaceReview || !nearestHint) return
+      const lat = parseField(latEl)
+      const lng = parseField(lngEl)
+      // 標高取得中はフィールド空になるため GPS 高度で暫定照合
+      const alt = parseField(altEl) ?? (Number.isFinite(gps.alt) ? gps.alt : undefined)
+      if (lat == null || lng == null || alt == null) {
+        nearestHint.textContent = ''
+        clearNearOverlay()
+        return
+      }
+      const hit = closestPlace3dFromList(placesCache, lat, lng, alt)
+      nearestHint.textContent = placeNearest3dHint(
+        hit ? { name: hit.name, dist3d: hit.dist3d } : null,
+      )
+      if (!hit) {
+        clearNearOverlay()
+        return
+      }
+      const plat = Number(hit.place.DATA1)
+      const plng = Number(hit.place.DATA2)
+      const posac = Number(hit.place.POSAC) || Number(PLACE_DEFAULT_POSAC)
+      if (Number.isFinite(plat) && Number.isFinite(plng)) setNearOverlay(plat, plng, posac)
+      else clearNearOverlay()
     }
 
     const readPtSnap = (): PtSnap | null => {
@@ -1935,6 +2032,7 @@ function askDualPlaceGeo(opts: {
         commitNumericLastGood(altEl)
       }
       refreshClearable()
+      refreshNearest()
     }
 
     const fetchAddress = async (lat: number, lng: number) => {
@@ -1989,6 +2087,7 @@ function askDualPlaceGeo(opts: {
       commitNumericLastGood(altEl)
       setPtMarker(gps.lat, gps.lng, true)
       refreshClearable()
+      refreshNearest()
       void fetchAddress(gps.lat, gps.lng)
     }
 
@@ -2000,6 +2099,7 @@ function askDualPlaceGeo(opts: {
       elevReq++
       adrsReq++
       applyPtSnap(snap, true)
+      refreshNearest()
       if (mapHint) {
         mapHint.textContent = defaultMapHint
         mapHint.classList.remove('net-fail')
@@ -2019,6 +2119,12 @@ function askDualPlaceGeo(opts: {
       zIndexOffset: 400,
     }).addTo(map)
     setPtMarker(gps.lat, gps.lng, false)
+    map.on('moveend', syncNearIconVisibility)
+    map.on('zoomend', syncNearIconVisibility)
+    void listPlaces().then((rows) => {
+      placesCache = rows
+      refreshNearest()
+    })
 
     map.on('click', (e: L.LeafletMouseEvent) => {
       rememberUndoFrom(readPtSnap())
@@ -2026,6 +2132,7 @@ function askDualPlaceGeo(opts: {
       const lngR = Math.round(e.latlng.lng * 1e8) / 1e8
       applyPtLatLng(latR, lngR)
       setPtMarker(latR, lngR, false)
+      refreshNearest()
       onPointMoved(latR, lngR, 'mapClick')
     })
 
@@ -2105,6 +2212,7 @@ function askDualPlaceGeo(opts: {
         if (changed && preEditSnap) rememberUndoFrom(preEditSnap)
         preEditSnap = null
         if (el === latEl || el === lngEl) onPointMoved(lat, lng, 'soft')
+        refreshNearest()
       })
       el.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') confirm()

@@ -330,6 +330,13 @@ export const PLACE_MENU_MAP_NEW_2 = '%マップ新規場所登録～2'
 
 /** %新規場所登録（GPS＋タップ）タイトル1行目 */
 export const PLACE_NEW_CONFIRM_LINE = '新規場所データの登録'
+/** タップ地点に対するリスト内最寄り（ECEF 3D） */
+export function placeNearest3dHint(
+  hit: { name: string; dist3d: number } | null,
+): string {
+  if (!hit) return '最寄り: （登録場所なし）'
+  return `最寄り: ${hit.name}（3D ${hit.dist3d.toFixed(1)}m）`
+}
 /** 場所一覧→既存場所プレビューのタイトル1行目 */
 export const PLACE_REVIEW_CONFIRM_LINE = '選択した場所データの修正、削除'
 /** GPS測定値をタップ地点フィールドへコピー（ボタン表示は「現在地(GPS)」） */

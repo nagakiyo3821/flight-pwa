@@ -1045,6 +1045,22 @@ code { font-size: 0.85em; }
   border: 2px solid #fff;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
 }
+.sc-map-ico--near {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid #2a7a3a;
+  background: #2a7a3a;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.9), 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+.sc-nearest-hint {
+  margin: 0.15rem 0 0;
+  flex: 0 0 auto;
+  font-size: 0.72rem;
+  line-height: 1.25;
+  color: #2a7a3a;
+  font-weight: 600;
+}
 .sc-map-ico--inline {
   display: inline-flex;
   width: 14px;

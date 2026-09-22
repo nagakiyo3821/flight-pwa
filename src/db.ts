@@ -552,6 +552,17 @@ export type PlaceMatch = {
   altDiff: number
 }
 
+/** ECEF 3D 最短（閾値なし）。%新規場所登録のタップ照合用 */
+export type PlaceClosest3d = {
+  name: string
+  place: PlaceRecord
+  /** WGS84→ECEF の直線距離 (m) */
+  dist3d: number
+  /** 水平距離 haversine (m) */
+  distHoriz: number
+  altDiff: number
+}
+
 /** pos 照合（水平 < POSAC かつ 高度差 < ALTAC）。最短を採用。 */
 export async function findNearestPlace(
   lat: number,
@@ -575,6 +586,47 @@ export async function findNearestPlace(
     }
   }
   return best
+}
+
+/**
+ * 場所リストから ECEF 直線距離が最短の1件（POSAC/ALTAC は見ない）。
+ * 緯度・経度・高度が揃わない行はスキップ。同期・キャッシュ向け。
+ */
+export function closestPlace3dFromList(
+  places: Array<PlaceRecord & { name: string }>,
+  lat: number,
+  lng: number,
+  alt: number,
+): PlaceClosest3d | null {
+  if (![lat, lng, alt].every((n) => Number.isFinite(n))) return null
+  let best: PlaceClosest3d | null = null
+  for (const row of places) {
+    const { name, ...place } = row
+    const plat = Number(place.DATA1)
+    const plng = Number(place.DATA2)
+    const palt = Number(place.DATA3)
+    if (![plat, plng, palt].every((n) => Number.isFinite(n))) continue
+    const dist3d = ecefDistanceM(lat, lng, alt, plat, plng, palt)
+    const distHoriz = haversineM(lat, lng, plat, plng)
+    const altDiff = Math.abs(alt - palt)
+    if (!best || dist3d < best.dist3d) {
+      best = { name, place, dist3d, distHoriz, altDiff }
+    }
+  }
+  return best
+}
+
+/** IndexedDB から読み、ECEF 最短1件。タップ連打時は `closestPlace3dFromList`＋キャッシュ推奨。 */
+export async function findClosestPlace3d(
+  lat: number,
+  lng: number,
+  alt: number,
+): Promise<PlaceClosest3d | null> {
+  return closestPlace3dFromList(await db.places.toArray(), lat, lng, alt)
+}
+
+export async function listPlaces(): Promise<Array<PlaceRecord & { name: string }>> {
+  return db.places.toArray()
 }
 
 /** ヒット名から派生（例: 自宅 → 自宅_0）。無ければ stem_0。 */
@@ -650,6 +702,39 @@ function haversineM(lat1: number, lng1: number, lat2: number, lng2: number): num
     Math.sin(dLat / 2) ** 2 +
     Math.cos(toR(lat1)) * Math.cos(toR(lat2)) * Math.sin(dLng / 2) ** 2
   return 2 * R * Math.asin(Math.sqrt(a))
+}
+
+/** WGS84 楕円体 → ECEF (m) */
+function wgs84ToEcef(latDeg: number, lngDeg: number, altM: number): [number, number, number] {
+  const a = 6378137
+  const f = 1 / 298.257223563
+  const e2 = f * (2 - f)
+  const lat = (latDeg * Math.PI) / 180
+  const lng = (lngDeg * Math.PI) / 180
+  const sinLat = Math.sin(lat)
+  const cosLat = Math.cos(lat)
+  const N = a / Math.sqrt(1 - e2 * sinLat * sinLat)
+  const x = (N + altM) * cosLat * Math.cos(lng)
+  const y = (N + altM) * cosLat * Math.sin(lng)
+  const z = (N * (1 - e2) + altM) * sinLat
+  return [x, y, z]
+}
+
+/** 2点間の ECEF 直線距離 (m) */
+function ecefDistanceM(
+  lat1: number,
+  lng1: number,
+  alt1: number,
+  lat2: number,
+  lng2: number,
+  alt2: number,
+): number {
+  const [x1, y1, z1] = wgs84ToEcef(lat1, lng1, alt1)
+  const [x2, y2, z2] = wgs84ToEcef(lat2, lng2, alt2)
+  const dx = x1 - x2
+  const dy = y1 - y2
+  const dz = z1 - z2
+  return Math.sqrt(dx * dx + dy * dy + dz * dz)
 }
 
 /**

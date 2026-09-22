@@ -417,7 +417,7 @@ code { font-size: 0.85em; }
   background: transparent;
   color: var(--muted);
   font: inherit;
-  font-size: 1.05rem;
+  font-size: 1.2rem;
   line-height: 1;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
@@ -426,6 +426,13 @@ code { font-size: 0.85em; }
 .sc-input-undo:active {
   color: var(--ink);
   background: rgb(26 42 50 / 8%);
+}
+.sc-input-undo:disabled,
+.sc-input-undo[aria-disabled='true'] {
+  opacity: 0.35;
+  cursor: default;
+  pointer-events: none;
+  background: transparent;
 }
 .sc-input-undo[hidden] {
   display: none !important;
@@ -716,12 +723,14 @@ code { font-size: 0.85em; }
   -webkit-overflow-scrolling: touch;
   padding-bottom: 0.2rem;
 }
-/* 二重ポイント: 縦を flex で配分。地図が余り高さを吸収 */
+/* 二重ポイント: 地図は固定高、余りはスクロール（キーボード時もマップ縮めない） */
 .sc-geopick-scroll--fill {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   padding-top: 0.15rem;
   padding-bottom: 0.1rem;
 }
@@ -817,7 +826,7 @@ code { font-size: 0.85em; }
   width: 1.35rem;
   height: 1.35rem;
   right: 1.45rem;
-  font-size: 0.95rem;
+  font-size: 1.05rem;
 }
 /* 数値は右寄せ → × が数値の右端に来る */
 .sc-geo-fields--geopick-nums .sc-geo-field .sc-input {
@@ -837,6 +846,7 @@ code { font-size: 0.85em; }
   }
 }
 .sc-geopick-map-block {
+  /* 初回レイアウトで余り高さを測る。確定後は JS が px 固定 */
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
@@ -848,9 +858,9 @@ code { font-size: 0.85em; }
   display: block;
   width: 100%;
   max-width: 100%;
-  /* JS が残り高さで上書き。未計測時の下限 */
-  height: clamp(88px, 18dvh, 180px);
-  min-height: clamp(88px, 15dvh, 130px);
+  /* JS が初回レイアウトで固定。svh はキーボードで縮まない */
+  height: clamp(96px, 18svh, 200px);
+  min-height: clamp(96px, 15svh, 140px);
   max-height: none;
   margin: 0;
   border: 1px solid var(--line);
@@ -860,11 +870,11 @@ code { font-size: 0.85em; }
   box-sizing: border-box;
   contain: paint;
   z-index: 0;
-  flex: 1 1 auto;
+  flex: 0 0 auto;
 }
 .sc-geopick-map-block .sc-map-pick--geopick {
-  flex: 1 1 auto;
-  min-height: clamp(88px, 15dvh, 130px);
+  flex: 0 0 auto;
+  min-height: clamp(96px, 15svh, 140px);
 }
 .sc-dialog--geopick .sc-map-hint {
   margin: 0;
@@ -873,18 +883,14 @@ code { font-size: 0.85em; }
   line-height: 1.25;
   color: var(--muted);
 }
-/* 短い画面では全体スクロールに切り替え（地図は min を維持） */
+/* 短い画面でもマップは固定高のまま全体スクロール */
 @media (max-height: 560px) {
-  .sc-geopick-scroll--fill {
-    overflow-y: auto;
-  }
   .sc-geopick-map-block {
     flex: 0 0 auto;
   }
   .sc-geopick-map-block .sc-map-pick--geopick {
-    flex: 0 0 auto;
-    height: clamp(80px, 16dvh, 140px);
-    min-height: 80px;
+    height: clamp(88px, 16svh, 150px);
+    min-height: 88px;
   }
 }
 

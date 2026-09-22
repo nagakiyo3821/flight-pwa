@@ -980,7 +980,7 @@ function dualGeoLabelHtml(kind: 'gps' | 'tap', text: string): string {
   return `${ico}<span class="sc-geo-field-label-text">${escapeHtml(text)}</span>`
 }
 
-/** テキスト／数値／日付／時刻入力＋消去（×）。undo で × 直前の値を復元 */
+/** テキスト／数値／日付／時刻入力＋消去（×）。undo で × 直前の値を復元（常時表示） */
 function clearableInputHtml(
   id: string,
   inputAttrs: string,
@@ -989,7 +989,7 @@ function clearableInputHtml(
 ): string {
   const wrapCls = opts?.undo ? ' sc-input-wrap--with-undo' : ''
   const undoBtn = opts?.undo
-    ? `<button type="button" class="sc-input-undo" aria-label="1つ前に戻す" tabindex="-1" hidden title="1つ前に戻す">↩</button>`
+    ? `<button type="button" class="sc-input-undo" aria-label="1つ前に戻す" tabindex="-1" title="1つ前に戻す" disabled>↶</button>`
     : ''
   return `<div class="sc-input-wrap${wrapCls}">
     <input id="${id}" ${inputAttrs} value="${escapeHtml(value)}" />
@@ -998,7 +998,7 @@ function clearableInputHtml(
   </div>`
 }
 
-/** 入力が空でなければ × を表示。readOnly／locked は常に非表示。 */
+/** 入力が空でなければ × を表示。undo は常時表示（復元不可時は disabled）。 */
 function wireClearableInputs(root: ParentNode): () => void {
   const syncAll: Array<() => void> = []
   root.querySelectorAll<HTMLElement>('.sc-input-wrap').forEach((wrap) => {
@@ -1012,13 +1012,18 @@ function wireClearableInputs(root: ParentNode): () => void {
     const sync = () => {
       if (input.readOnly || input.classList.contains('sc-input--locked') || btn.disabled) {
         btn.hidden = true
-        if (undoBtn) undoBtn.hidden = true
+        if (undoBtn) {
+          undoBtn.disabled = true
+          undoBtn.setAttribute('aria-disabled', 'true')
+        }
         return
       }
       btn.hidden = String(input.value ?? '').length === 0
       if (undoBtn) {
-        undoBtn.hidden =
-          undoValue == null || String(input.value ?? '') === undoValue
+        const canUndo =
+          undoValue != null && String(input.value ?? '') !== undoValue
+        undoBtn.disabled = !canUndo
+        undoBtn.setAttribute('aria-disabled', canUndo ? 'false' : 'true')
       }
     }
     sync()
@@ -1040,7 +1045,7 @@ function wireClearableInputs(root: ParentNode): () => void {
     undoBtn?.addEventListener('click', (e) => {
       e.preventDefault()
       e.stopPropagation()
-      if (undoValue == null) return
+      if (undoValue == null || undoBtn.disabled) return
       input.value = undoValue
       input.setCustomValidity('')
       undoValue = null
@@ -1509,7 +1514,16 @@ function askMissingGeo(
         posac = String(p)
         altac = String(a)
       }
-      const adrs = geopick ? String(adrsEl?.value ?? '').trim() : undefined
+      let adrs: string | undefined
+      if (geopick) {
+        adrs = String(adrsEl?.value ?? '').trim()
+        if (!adrs) {
+          adrsEl?.setCustomValidity('住所を入力してください')
+          adrsEl?.reportValidity()
+          return
+        }
+        adrsEl?.setCustomValidity('')
+      }
       finish({
         lat,
         lng,
@@ -1557,25 +1571,53 @@ async function validatePlaceNameCandidate(
   return { ok: true, value }
 }
 
-/** geopick 地図を残り高さ（または dvh 下限）に合わせる */
+/**
+ * geopick 地図の高さを決める。
+ * キーボード表示で visualViewport が縮んでも、初回確定の高さを維持する（マップだけ縮むのを防ぐ）。
+ */
 function fitGeopickMapHeight(
   map: L.Map,
   mapEl: HTMLElement,
   root: ParentNode,
 ): void {
+  const locked = Number(mapEl.dataset.geopickMapH || 0)
+  const vv = window.visualViewport?.height
+  const layoutH = window.innerHeight
+  const keyboardOpen =
+    vv != null && Number.isFinite(vv) && vv < layoutH - 72
+
+  // キーボード表示中は高さ再計算せず、確定済みサイズを維持
+  if (keyboardOpen && locked > 0) {
+    applyGeopickMapPixelHeight(map, mapEl, locked)
+    return
+  }
+
   const block = root.querySelector<HTMLElement>('.sc-geopick-map-block')
-  const hint = root.querySelector<HTMLElement>('.sc-geopick-map-block .sc-map-hint, #sc-map-hint')
-  const vh = window.visualViewport?.height ?? window.innerHeight
-  const floor = Math.round(Math.min(130, Math.max(88, vh * 0.15)))
-  const ceil = Math.round(Math.min(200, Math.max(floor, vh * 0.24)))
+  const hint = root.querySelector<HTMLElement>(
+    '.sc-geopick-map-block .sc-map-hint, #sc-map-hint',
+  )
+  // innerHeight 基準（キーボードで縮まない）。svh 相当の下限・上限
+  const floor = Math.round(Math.min(130, Math.max(96, layoutH * 0.15)))
+  const ceil = Math.round(Math.min(220, Math.max(floor, layoutH * 0.26)))
   let h = floor
   if (block && block.clientHeight > 0) {
     const hintH = hint?.offsetHeight ?? 0
     h = Math.floor(block.clientHeight - hintH - 4)
   }
   h = Math.max(floor, Math.min(ceil, h))
+  // 一度決めた高さより縮めない（キーボード閉じ後の再計測では拡大のみ可）
+  if (locked > 0) h = Math.max(h, locked)
+  mapEl.dataset.geopickMapH = String(h)
+  applyGeopickMapPixelHeight(map, mapEl, h)
+}
+
+function applyGeopickMapPixelHeight(
+  map: L.Map,
+  mapEl: HTMLElement,
+  h: number,
+): void {
   mapEl.style.cssText =
-    `height:${h}px;min-height:${h}px;max-height:${h}px;width:100%;max-width:100%;overflow:hidden;box-sizing:border-box;`
+    `height:${h}px;min-height:${h}px;max-height:${h}px;width:100%;max-width:100%;overflow:hidden;box-sizing:border-box;flex:0 0 auto;`
   const c = map.getContainer()
   c.style.width = '100%'
   c.style.maxWidth = '100%'
@@ -1884,12 +1926,25 @@ function askDualPlaceGeo(opts: {
       if (!map) return
       fitGeopickMapHeight(map, mapEl, root)
     }
-    const onViewport = () => fitMap()
+    /** キーボード開閉では高さ固定。向き変更などは window.resize で再計測 */
+    const onWindowResize = () => fitMap()
+    const onVisualViewport = () => {
+      if (!map) return
+      const locked = Number(mapEl.dataset.geopickMapH || 0)
+      const vv = window.visualViewport?.height
+      const keyboardOpen =
+        vv != null && Number.isFinite(vv) && vv < window.innerHeight - 72
+      if (keyboardOpen && locked > 0) {
+        applyGeopickMapPixelHeight(map, mapEl, locked)
+        return
+      }
+      fitMap()
+    }
     requestAnimationFrame(() => fitMap())
     setTimeout(() => fitMap(), 80)
     setTimeout(() => fitMap(), 250)
-    window.addEventListener('resize', onViewport)
-    window.visualViewport?.addEventListener('resize', onViewport)
+    window.addEventListener('resize', onWindowResize)
+    window.visualViewport?.addEventListener('resize', onVisualViewport)
 
     root.querySelector('#sc-gps-to-pt')!.addEventListener('click', () => {
       copyGpsToPoint()
@@ -1970,8 +2025,8 @@ function askDualPlaceGeo(opts: {
     const finish = (value: LatLngAlt | null) => {
       if (done) return
       done = true
-      window.removeEventListener('resize', onViewport)
-      window.visualViewport?.removeEventListener('resize', onViewport)
+      window.removeEventListener('resize', onWindowResize)
+      window.visualViewport?.removeEventListener('resize', onVisualViewport)
       map?.remove()
       closeDialogSafely(root, () => resolve(value))
     }
@@ -1999,6 +2054,13 @@ function askDualPlaceGeo(opts: {
       if (posac === null) return
       const altac = readRequired(altacEl)
       if (altac === null) return
+      const adrs = String(adrsEl.value ?? '').trim()
+      if (!adrs) {
+        adrsEl.setCustomValidity('住所を入力してください')
+        adrsEl.reportValidity()
+        return
+      }
+      adrsEl.setCustomValidity('')
       const checked = await validatePlaceNameCandidate(nameEl.value)
       if (!checked.ok) {
         nameEl.setCustomValidity(checked.err)
@@ -2009,7 +2071,7 @@ function askDualPlaceGeo(opts: {
         lat,
         lng,
         alt,
-        adrs: String(adrsEl.value ?? '').trim(),
+        adrs,
         posac: String(posac),
         altac: String(altac),
         name: checked.value,

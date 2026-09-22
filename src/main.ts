@@ -927,11 +927,20 @@ function geoFieldHtml(
   id: string,
   label: string,
   initial: string,
-  opts?: { fill?: boolean; text?: boolean; labelHtml?: string; textUndo?: boolean; undo?: boolean },
+  opts?: {
+    fill?: boolean
+    text?: boolean
+    labelHtml?: string
+    textUndo?: boolean
+    undo?: boolean
+    /** clear=×直前 / committed=直前に確定した有効値 */
+    undoMode?: 'clear' | 'committed'
+  },
 ): string {
   const inputClass = opts?.fill ? 'sc-input sc-input--fill' : 'sc-input'
   const labelInner = opts?.labelHtml ?? escapeHtml(label)
   const withUndo = !!(opts?.undo || opts?.textUndo)
+  const undoMode = opts?.undoMode === 'committed' ? 'committed' : 'clear'
   if (opts?.text) {
     const auto = id.includes('adrs') ? 'street-address' : 'off'
     return `<label class="sc-geo-field sc-geo-field--adrs"><span>${labelInner}</span>
@@ -939,7 +948,7 @@ function geoFieldHtml(
       id,
       `class="${inputClass}" type="text" inputmode="text" autocomplete="${auto}"`,
       initial,
-      { undo: withUndo },
+      { undo: withUndo, undoMode },
     )}</label>`
   }
   return `<label class="sc-geo-field"><span class="sc-geo-field-label">${labelInner}</span>
@@ -947,7 +956,7 @@ function geoFieldHtml(
       id,
       `class="${inputClass}" type="text" inputmode="decimal" autocomplete="off"`,
       sanitizeNumberDraft(initial),
-      { undo: withUndo },
+      { undo: withUndo, undoMode },
     )}</label>`
 }
 
@@ -986,18 +995,20 @@ function dualGeoLabelHtml(kind: 'gps' | 'tap', text: string): string {
   return `${ico}<span class="sc-geo-field-label-text">${escapeHtml(text)}</span>`
 }
 
-/** テキスト／数値／日付／時刻入力＋消去（×）。undo で × 直前の値を復元（常時表示） */
+/** テキスト／数値／日付／時刻入力＋消去（×）。undo で復元（常時表示） */
 function clearableInputHtml(
   id: string,
   inputAttrs: string,
   value: string,
-  opts?: { undo?: boolean },
+  opts?: { undo?: boolean; undoMode?: 'clear' | 'committed' },
 ): string {
   const wrapCls = opts?.undo ? ' sc-input-wrap--with-undo' : ''
+  const undoMode = opts?.undoMode === 'committed' ? 'committed' : 'clear'
   const undoBtn = opts?.undo
     ? `<button type="button" class="sc-input-undo" aria-label="1つ前に戻す" tabindex="-1" title="1つ前に戻す" disabled><svg class="sc-input-undo-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z"/></svg></button>`
     : ''
-  return `<div class="sc-input-wrap${wrapCls}">
+  const modeAttr = opts?.undo ? ` data-undo-mode="${undoMode}"` : ''
+  return `<div class="sc-input-wrap${wrapCls}"${modeAttr}>
     <input id="${id}" ${inputAttrs} value="${escapeHtml(value)}" />
     ${undoBtn}
     <button type="button" class="sc-input-clear" aria-label="消去" tabindex="-1" hidden>&times;</button>
@@ -1014,7 +1025,12 @@ function wireClearableInputs(root: ParentNode): () => void {
     const btn = wrap.querySelector<HTMLButtonElement>('.sc-input-clear')
     const undoBtn = wrap.querySelector<HTMLButtonElement>('.sc-input-undo')
     if (!input || !btn) return
+    const undoMode =
+      wrap.dataset.undoMode === 'committed' ? 'committed' : 'clear'
+    /** clear: ×直前。committed: 直前に確定した有効値 */
     let undoValue: string | null = null
+    let committed = String(input.value ?? '')
+    let suppressingCommit = false
     const sync = () => {
       if (input.readOnly || input.classList.contains('sc-input--locked') || btn.disabled) {
         btn.hidden = true
@@ -1036,11 +1052,29 @@ function wireClearableInputs(root: ParentNode): () => void {
     syncAll.push(sync)
     input.addEventListener('input', sync)
     input.addEventListener('change', sync)
+    if (undoMode === 'committed') {
+      const commitIfValid = () => {
+        if (suppressingCommit) return
+        const v = normalizeNumberInput(input.value)
+        if (!isRequiredNumber(v)) return
+        if (v !== committed) {
+          undoValue = committed
+          committed = v
+          input.value = v
+          commitNumericLastGood(input)
+        }
+        sync()
+      }
+      input.addEventListener('change', commitIfValid)
+      input.addEventListener('blur', commitIfValid)
+    }
     btn.addEventListener('click', (e) => {
       e.preventDefault()
       e.stopPropagation()
       if (input.readOnly || input.classList.contains('sc-input--locked')) return
-      undoValue = String(input.value ?? '')
+      if (undoMode === 'clear') {
+        undoValue = String(input.value ?? '')
+      }
       input.value = ''
       input.setCustomValidity('')
       input.dispatchEvent(new Event('input', { bubbles: true }))
@@ -1052,11 +1086,21 @@ function wireClearableInputs(root: ParentNode): () => void {
       e.preventDefault()
       e.stopPropagation()
       if (undoValue == null || undoBtn.disabled) return
-      input.value = undoValue
+      const prev = undoValue
+      suppressingCommit = true
+      input.value = prev
       input.setCustomValidity('')
-      undoValue = null
+      if (undoMode === 'committed') {
+        // 1つ前へ戻したあと、もう一度で直前値にトグル可
+        undoValue = committed
+        committed = prev
+        commitNumericLastGood(input)
+      } else {
+        undoValue = null
+      }
       input.dispatchEvent(new Event('input', { bubbles: true }))
       input.dispatchEvent(new Event('change', { bubbles: true }))
+      suppressingCommit = false
       sync()
       input.focus()
     })
@@ -1107,8 +1151,8 @@ function askMissingGeo(
     if (need.alt) parts.push(geoFieldHtml('sc-alt', GPS_LABEL_ALT, fieldPrefill?.alt ?? '', { fill }))
     const accHtml = geopick
       ? `<div class="sc-geo-fields--geopick-acc">
-          ${geoFieldHtml('sc-posac', GPS_LABEL_POSAC, opts?.extraPrefill?.posac ?? PLACE_DEFAULT_POSAC, { fill, undo: true })}
-          ${geoFieldHtml('sc-altac', GPS_LABEL_ALTAC, opts?.extraPrefill?.altac ?? PLACE_DEFAULT_ALTAC, { fill, undo: true })}
+          ${geoFieldHtml('sc-posac', GPS_LABEL_POSAC, opts?.extraPrefill?.posac ?? PLACE_DEFAULT_POSAC, { fill, undo: true, undoMode: 'committed' })}
+          ${geoFieldHtml('sc-altac', GPS_LABEL_ALTAC, opts?.extraPrefill?.altac ?? PLACE_DEFAULT_ALTAC, { fill, undo: true, undoMode: 'committed' })}
         </div>`
       : ''
     const adrsHtml = geopick
@@ -1689,8 +1733,8 @@ function askDualPlaceGeo(opts: {
         <button type="button" class="sc-btn-pt-undo" id="sc-pt-undo" aria-label="${escapeHtml(PLACE_PT_UNDO)}" disabled><span class="sc-map-ico sc-map-ico--tap sc-map-ico--inline" aria-hidden="true"></span>${escapeHtml(PLACE_PT_UNDO)}</button>
       </div>
       <div class="sc-geo-fields--geopick-acc">
-        ${geoFieldHtml('sc-posac', GPS_LABEL_POSAC, opts.posac ?? PLACE_DEFAULT_POSAC, { fill: true, undo: true })}
-        ${geoFieldHtml('sc-altac', GPS_LABEL_ALTAC, opts.altac ?? PLACE_DEFAULT_ALTAC, { fill: true, undo: true })}
+        ${geoFieldHtml('sc-posac', GPS_LABEL_POSAC, opts.posac ?? PLACE_DEFAULT_POSAC, { fill: true, undo: true, undoMode: 'committed' })}
+        ${geoFieldHtml('sc-altac', GPS_LABEL_ALTAC, opts.altac ?? PLACE_DEFAULT_ALTAC, { fill: true, undo: true, undoMode: 'committed' })}
       </div>
       ${geoFieldHtml('sc-adrs', GPS_LABEL_ADRS, opts.adrs ?? '', { fill: true, text: true, textUndo: true })}
       ${geoFieldHtml('sc-name', GPS_LABEL_NAME, placeNamePrefill(opts.adrs ?? ''), { fill: true, text: true, textUndo: true })}

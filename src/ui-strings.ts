@@ -330,6 +330,8 @@ export const PLACE_MENU_MAP_NEW_2 = '%マップ新規場所登録～2'
 export const PLACE_NEW_CONFIRM_LINE = '緯度、経度、高度を確認して確定'
 /** GPS測定値をタップ地点フィールドへコピー（ボタン文言は HTML でアイコン付き） */
 export const PLACE_GPS_TO_POINT = '現在地（GPS）をタップ地点へ'
+/** タップ地点を1つ前の位置へ戻す */
+export const PLACE_PT_UNDO = 'タップ地点を戻す'
 
 /** 場所マスタの位置／高度精度デフォルト（m） */
 export const PLACE_DEFAULT_POSAC = '15'

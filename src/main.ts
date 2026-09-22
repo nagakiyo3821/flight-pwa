@@ -121,6 +121,7 @@ import {
   PLACE_MENU_NEW,
   PLACE_NEW_CONFIRM_LINE,
   PLACE_GPS_TO_POINT,
+  PLACE_PT_UNDO,
   PLACE_DEFAULT_POSAC,
   PLACE_DEFAULT_ALTAC,
   PLACE_UPDATE_BACK,
@@ -1514,7 +1515,10 @@ function askDualPlaceGeo(opts: {
     const fieldsHtml = `<div class="sc-geo-fields--geopick">
       <div class="sc-geo-fields--geopick-nums">${gpsNums}</div>
       <div class="sc-geo-fields--geopick-nums">${ptNums}</div>
-      <button type="button" class="sc-btn-gps-copy" id="sc-gps-to-pt" aria-label="${escapeHtml(PLACE_GPS_TO_POINT)}"><span class="sc-map-ico sc-map-ico--gps sc-map-ico--inline" aria-hidden="true"></span>現在地（GPS）を<span class="sc-map-ico sc-map-ico--tap sc-map-ico--inline" aria-hidden="true"></span>タップ地点へ</button>
+      <div class="sc-geo-dual-btns">
+        <button type="button" class="sc-btn-gps-copy" id="sc-gps-to-pt" aria-label="${escapeHtml(PLACE_GPS_TO_POINT)}"><span class="sc-map-ico sc-map-ico--gps sc-map-ico--inline" aria-hidden="true"></span>現在地（GPS）を<span class="sc-map-ico sc-map-ico--tap sc-map-ico--inline" aria-hidden="true"></span>タップ地点へ</button>
+        <button type="button" class="sc-btn-pt-undo" id="sc-pt-undo" aria-label="${escapeHtml(PLACE_PT_UNDO)}" disabled><span class="sc-map-ico sc-map-ico--tap sc-map-ico--inline" aria-hidden="true"></span>${escapeHtml(PLACE_PT_UNDO)}</button>
+      </div>
       <div class="sc-geo-fields--geopick-acc">
         ${geoFieldHtml('sc-posac', GPS_LABEL_POSAC, opts.posac ?? PLACE_DEFAULT_POSAC, { fill: true })}
         ${geoFieldHtml('sc-altac', GPS_LABEL_ALTAC, opts.altac ?? PLACE_DEFAULT_ALTAC, { fill: true })}
@@ -1547,6 +1551,7 @@ function askDualPlaceGeo(opts: {
     const altacEl = root.querySelector<HTMLInputElement>('#sc-altac')!
     const adrsEl = root.querySelector<HTMLInputElement>('#sc-adrs')!
     const mapHint = root.querySelector<HTMLElement>('#sc-map-hint')
+    const undoBtn = root.querySelector<HTMLButtonElement>('#sc-pt-undo')!
 
     for (const el of [gpsLatEl, gpsLngEl, gpsAltEl]) {
       el.readOnly = true
@@ -1558,6 +1563,9 @@ function askDualPlaceGeo(opts: {
       }
     }
 
+    type PtSnap = { lat: number; lng: number; alt: number; adrs: string }
+    let undoSnap: PtSnap | null = null
+    let preEditSnap: PtSnap | null = null
     let map: L.Map | undefined
     let ptMarker: L.Marker | undefined
     let syncing = false
@@ -1569,6 +1577,24 @@ function askDualPlaceGeo(opts: {
       if (!el) return undefined
       const v = normalizeNumberInput(el.value)
       return isRequiredNumber(v) ? Number(v) : undefined
+    }
+
+    const readPtSnap = (): PtSnap | null => {
+      const lat = parseField(latEl)
+      const lng = parseField(lngEl)
+      const alt = parseField(altEl)
+      if (lat == null || lng == null || alt == null) return null
+      return { lat, lng, alt, adrs: String(adrsEl.value ?? '').trim() }
+    }
+
+    const setUndoEnabled = () => {
+      undoBtn.disabled = !undoSnap
+    }
+
+    const rememberUndoFrom = (snap: PtSnap | null) => {
+      if (!snap) return
+      undoSnap = snap
+      setUndoEnabled()
     }
 
     const setPtMarker = (lat: number, lng: number, pan: boolean) => {
@@ -1588,6 +1614,15 @@ function askDualPlaceGeo(opts: {
       latEl.setCustomValidity('')
       lngEl.setCustomValidity('')
       syncing = false
+      refreshClearable()
+    }
+
+    const applyPtSnap = (snap: PtSnap, pan: boolean) => {
+      applyPtLatLng(snap.lat, snap.lng)
+      altEl.value = String(snap.alt)
+      altEl.setCustomValidity('')
+      adrsEl.value = snap.adrs
+      setPtMarker(snap.lat, snap.lng, pan)
       refreshClearable()
     }
 
@@ -1665,14 +1700,28 @@ function askDualPlaceGeo(opts: {
       void fetchAddress(lat, lng)
     }
 
-    const copyGpsToPoint = (refetch: boolean) => {
+    const copyGpsToPoint = () => {
+      rememberUndoFrom(readPtSnap())
       applyPtLatLng(gps.lat, gps.lng)
       altEl.value = String(gps.alt)
       altEl.setCustomValidity('')
       setPtMarker(gps.lat, gps.lng, true)
       refreshClearable()
-      if (refetch) onPointMoved(gps.lat, gps.lng, 'soft')
-      else void fetchAddress(gps.lat, gps.lng)
+      void fetchAddress(gps.lat, gps.lng)
+    }
+
+    const undoPoint = () => {
+      if (!undoSnap) return
+      const snap = undoSnap
+      undoSnap = null
+      setUndoEnabled()
+      elevReq++
+      adrsReq++
+      applyPtSnap(snap, true)
+      if (mapHint) {
+        mapHint.textContent = defaultMapHint
+        mapHint.classList.remove('net-fail')
+      }
     }
 
     const mapEl = root.querySelector<HTMLDivElement>('#sc-map-pick')!
@@ -1692,6 +1741,7 @@ function askDualPlaceGeo(opts: {
     setPtMarker(gps.lat, gps.lng, false)
 
     map.on('click', (e: L.LeafletMouseEvent) => {
+      rememberUndoFrom(readPtSnap())
       const latR = Math.round(e.latlng.lat * 1e8) / 1e8
       const lngR = Math.round(e.latlng.lng * 1e8) / 1e8
       applyPtLatLng(latR, lngR)
@@ -1714,10 +1764,18 @@ function askDualPlaceGeo(opts: {
     setTimeout(() => fitMapWidth(), 300)
 
     root.querySelector('#sc-gps-to-pt')!.addEventListener('click', () => {
-      copyGpsToPoint(false)
+      copyGpsToPoint()
+    })
+    undoBtn.addEventListener('click', () => {
+      undoPoint()
     })
 
     for (const el of [latEl, lngEl, altEl, posacEl, altacEl]) {
+      el.addEventListener('focus', () => {
+        if (el === latEl || el === lngEl || el === altEl) {
+          preEditSnap = readPtSnap()
+        }
+      })
       el.addEventListener('input', () => {
         const cleaned = sanitizeNumberDraft(el.value)
         if (cleaned !== el.value) el.value = cleaned
@@ -1731,11 +1789,19 @@ function askDualPlaceGeo(opts: {
         }
       })
       el.addEventListener('change', () => {
-        if (el !== latEl && el !== lngEl) return
+        if (el !== latEl && el !== lngEl && el !== altEl) return
         const lat = parseField(latEl)
         const lng = parseField(lngEl)
+        const alt = parseField(altEl)
         if (lat == null || lng == null) return
-        onPointMoved(lat, lng, 'soft')
+        const changed =
+          !preEditSnap ||
+          preEditSnap.lat !== lat ||
+          preEditSnap.lng !== lng ||
+          (alt != null && preEditSnap.alt !== alt)
+        if (changed && preEditSnap) rememberUndoFrom(preEditSnap)
+        preEditSnap = null
+        if (el === latEl || el === lngEl) onPointMoved(lat, lng, 'soft')
       })
       el.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') confirm()

@@ -745,14 +745,15 @@ code { font-size: 0.85em; }
   color: var(--muted);
 }
 .sc-geo-fields--geopick .sc-geo-field .sc-input {
-  padding: 0.35rem 1.7rem 0.35rem 0.35rem;
+  padding: 0.35rem 1.65rem 0.35rem 0.3rem;
   /* iOS: 16px未満だとフォーカス時に画面全体がズームする */
   font-size: 16px;
   font-variant-numeric: tabular-nums;
   min-width: 0;
   width: 100%;
   max-width: 100%;
-  overflow-x: auto;
+  overflow-x: hidden;
+  text-overflow: clip;
 }
 .sc-geo-fields--geopick .sc-geo-field .sc-input.sc-input--locked {
   background: #eef2f4;
@@ -760,15 +761,15 @@ code { font-size: 0.85em; }
   opacity: 1;
 }
 .sc-geo-fields--geopick .sc-input-clear {
-  width: 1.4rem;
-  height: 1.4rem;
-  right: 0.1rem;
-  font-size: 1.05rem;
+  width: 1.35rem;
+  height: 1.35rem;
+  right: 0.05rem;
+  font-size: 1rem;
 }
-.sc-geo-fields--geopick-nums .sc-geo-field:nth-child(3) .sc-input {
-  font-size: 16px;
-  padding: 0.35rem 1.55rem 0.35rem 0.3rem;
+/* 数値は右寄せ → × が数値の右端に来る */
+.sc-geo-fields--geopick-nums .sc-geo-field .sc-input {
   text-align: right;
+  padding: 0.35rem 1.55rem 0.35rem 0.25rem;
 }
 .sc-geo-fields--geopick .sc-geo-field--adrs .sc-input {
   font-size: 16px;
@@ -780,9 +781,6 @@ code { font-size: 0.85em; }
 @media (max-width: 360px) {
   .sc-geo-fields--geopick-nums {
     grid-template-columns: 1fr;
-  }
-  .sc-geo-fields--geopick-nums .sc-geo-field:nth-child(3) .sc-input {
-    text-align: left;
   }
 }
 .sc-map-pick--geopick,
@@ -842,25 +840,52 @@ code { font-size: 0.85em; }
   gap: 0.2rem;
   white-space: nowrap;
 }
-.sc-btn-gps-copy {
+.sc-geo-dual-btns {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 0.35rem;
+  width: 100%;
+  min-width: 0;
+  margin: 0.15rem 0 0.1rem;
+}
+.sc-btn-gps-copy,
+.sc-btn-pt-undo {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex-wrap: wrap;
-  gap: 0.2rem 0.25rem;
-  width: 100%;
-  margin: 0.15rem 0 0.1rem;
-  padding: 0.4rem 0.6rem;
-  font-size: 0.82rem;
+  gap: 0.15rem 0.2rem;
+  flex: 1 1 0;
+  min-width: 0;
+  margin: 0;
+  padding: 0.32rem 0.35rem;
+  font-size: 0.68rem;
   font-weight: 600;
+  line-height: 1.2;
+  border-radius: 8px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.sc-btn-gps-copy {
   color: #0b6bcb;
   background: #e8f2fb;
   border: 1px solid #b7d4ef;
-  border-radius: 8px;
-  cursor: pointer;
 }
 .sc-btn-gps-copy:active {
   background: #d5e8f7;
+}
+.sc-btn-pt-undo {
+  color: #c45c26;
+  background: #fdf0e8;
+  border: 1px solid #efc9b0;
+}
+.sc-btn-pt-undo:active:not(:disabled) {
+  background: #f8e0d0;
+}
+.sc-btn-pt-undo:disabled {
+  opacity: 0.45;
+  cursor: default;
 }
 
 /* 地図上・タイトル用アイコン */

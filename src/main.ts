@@ -927,10 +927,11 @@ function geoFieldHtml(
   id: string,
   label: string,
   initial: string,
-  opts?: { fill?: boolean; text?: boolean; labelHtml?: string; textUndo?: boolean },
+  opts?: { fill?: boolean; text?: boolean; labelHtml?: string; textUndo?: boolean; undo?: boolean },
 ): string {
   const inputClass = opts?.fill ? 'sc-input sc-input--fill' : 'sc-input'
   const labelInner = opts?.labelHtml ?? escapeHtml(label)
+  const withUndo = !!(opts?.undo || opts?.textUndo)
   if (opts?.text) {
     const auto = id.includes('adrs') ? 'street-address' : 'off'
     return `<label class="sc-geo-field sc-geo-field--adrs"><span>${labelInner}</span>
@@ -938,11 +939,16 @@ function geoFieldHtml(
       id,
       `class="${inputClass}" type="text" inputmode="text" autocomplete="${auto}"`,
       initial,
-      { undo: !!opts.textUndo },
+      { undo: withUndo },
     )}</label>`
   }
   return `<label class="sc-geo-field"><span class="sc-geo-field-label">${labelInner}</span>
-    ${clearableInputHtml(id, `class="${inputClass}" type="text" inputmode="decimal" autocomplete="off"`, sanitizeNumberDraft(initial))}</label>`
+    ${clearableInputHtml(
+      id,
+      `class="${inputClass}" type="text" inputmode="decimal" autocomplete="off"`,
+      sanitizeNumberDraft(initial),
+      { undo: withUndo },
+    )}</label>`
 }
 
 /** 数値欄: blur 時に空／不正なら直前の有効値へ戻す */
@@ -1101,8 +1107,8 @@ function askMissingGeo(
     if (need.alt) parts.push(geoFieldHtml('sc-alt', GPS_LABEL_ALT, fieldPrefill?.alt ?? '', { fill }))
     const accHtml = geopick
       ? `<div class="sc-geo-fields--geopick-acc">
-          ${geoFieldHtml('sc-posac', GPS_LABEL_POSAC, opts?.extraPrefill?.posac ?? PLACE_DEFAULT_POSAC, { fill })}
-          ${geoFieldHtml('sc-altac', GPS_LABEL_ALTAC, opts?.extraPrefill?.altac ?? PLACE_DEFAULT_ALTAC, { fill })}
+          ${geoFieldHtml('sc-posac', GPS_LABEL_POSAC, opts?.extraPrefill?.posac ?? PLACE_DEFAULT_POSAC, { fill, undo: true })}
+          ${geoFieldHtml('sc-altac', GPS_LABEL_ALTAC, opts?.extraPrefill?.altac ?? PLACE_DEFAULT_ALTAC, { fill, undo: true })}
         </div>`
       : ''
     const adrsHtml = geopick
@@ -1683,8 +1689,8 @@ function askDualPlaceGeo(opts: {
         <button type="button" class="sc-btn-pt-undo" id="sc-pt-undo" aria-label="${escapeHtml(PLACE_PT_UNDO)}" disabled><span class="sc-map-ico sc-map-ico--tap sc-map-ico--inline" aria-hidden="true"></span>${escapeHtml(PLACE_PT_UNDO)}</button>
       </div>
       <div class="sc-geo-fields--geopick-acc">
-        ${geoFieldHtml('sc-posac', GPS_LABEL_POSAC, opts.posac ?? PLACE_DEFAULT_POSAC, { fill: true })}
-        ${geoFieldHtml('sc-altac', GPS_LABEL_ALTAC, opts.altac ?? PLACE_DEFAULT_ALTAC, { fill: true })}
+        ${geoFieldHtml('sc-posac', GPS_LABEL_POSAC, opts.posac ?? PLACE_DEFAULT_POSAC, { fill: true, undo: true })}
+        ${geoFieldHtml('sc-altac', GPS_LABEL_ALTAC, opts.altac ?? PLACE_DEFAULT_ALTAC, { fill: true, undo: true })}
       </div>
       ${geoFieldHtml('sc-adrs', GPS_LABEL_ADRS, opts.adrs ?? '', { fill: true, text: true, textUndo: true })}
       ${geoFieldHtml('sc-name', GPS_LABEL_NAME, placeNamePrefill(opts.adrs ?? ''), { fill: true, text: true, textUndo: true })}

@@ -787,13 +787,16 @@ code { font-size: 0.85em; }
   width: 100%;
   min-width: 0;
 }
-/* 位置精度・高度精度を横並び */
+/* 位置精度・高度精度を横並び（UNDO 用に右余白） */
 .sc-geo-fields--geopick-acc {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.25rem;
   width: 100%;
   min-width: 0;
+}
+.sc-geo-fields--geopick-acc .sc-input-wrap--with-undo .sc-input {
+  padding-right: 2.85rem;
 }
 .sc-geo-fields--geopick .sc-geo-field {
   display: flex;

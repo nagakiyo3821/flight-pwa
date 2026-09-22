@@ -133,6 +133,7 @@ import {
   PLACE_REVIEW_CANCEL_MSG,
   PLACE_REVIEW_DEL_CANCEL_MSG,
   PLACE_REVIEW_NOCHANGE_MSG,
+  PLACE_REVIEW_DEL_DONE_PREFIX,
   PLACE_UPDATE_BACK,
   REC_DEL_BACK,
   REC_DEL_OK,
@@ -916,8 +917,8 @@ type LatLngAlt = {
   name?: string
 }
 
-/** askDualPlaceGeo の戻り。deleted は既存場所プレビューでの削除確定 */
-type DualPlaceGeoResult = LatLngAlt | 'deleted' | null
+/** askDualPlaceGeo の戻り。deleted / delete-cancelled は既存場所プレビュー */
+type DualPlaceGeoResult = LatLngAlt | 'deleted' | 'delete-cancelled' | null
 type GeoParts = { lat?: number; lng?: number; alt?: number }
 
 function isFiniteNum(n: unknown): n is number {
@@ -2192,7 +2193,8 @@ function askDualPlaceGeo(opts: {
         { withBackButton: false },
       )
       if (!sel || sel === PLACE_DEL_BACK || !sel.includes('削除')) {
-        flashMsg = PLACE_REVIEW_DEL_CANCEL_MSG
+        // 削除確認をキャンセル → 一覧へ戻りメッセージ表示
+        finish('delete-cancelled')
         return
       }
       await deletePlace(placeRefName)
@@ -3489,11 +3491,12 @@ async function onPlaceMenu(id: string): Promise<void> {
       name,
       placeRef: { name },
     })
-    if (!coords || coords === 'deleted') {
+    if (!coords || coords === 'deleted' || coords === 'delete-cancelled') {
       if (coords === 'deleted') {
-        flashMsg = `削除しました（${name}）`
-      } else if (!flashMsg) {
-        // 削除キャンセルメッセージが既にあればそれを優先
+        flashMsg = `${PLACE_REVIEW_DEL_DONE_PREFIX}(${name})`
+      } else if (coords === 'delete-cancelled') {
+        flashMsg = PLACE_REVIEW_DEL_CANCEL_MSG
+      } else {
         flashMsg = PLACE_REVIEW_CANCEL_MSG
       }
       await render()
@@ -3686,7 +3689,7 @@ async function runPlaceNewRegister(): Promise<void> {
       )
     }
 
-    if (!coords || coords === 'deleted') {
+    if (!coords || coords === 'deleted' || coords === 'delete-cancelled') {
       flashMsg = PLACE_NEW_CANCEL_MSG
       return
     }

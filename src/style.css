@@ -395,6 +395,41 @@ code { font-size: 0.85em; }
 .sc-input-clear[hidden] {
   display: none !important;
 }
+.sc-input-wrap--with-undo .sc-input,
+.sc-input-wrap--with-undo .sc-input--fill,
+.sc-input-wrap--with-undo input[type='text'] {
+  padding-right: 3.35rem;
+}
+.sc-input-wrap--with-undo .sc-input-clear {
+  right: 0.2rem;
+}
+.sc-input-undo {
+  position: absolute;
+  top: 50%;
+  right: 1.85rem;
+  transform: translateY(-50%);
+  width: 1.7rem;
+  height: 1.7rem;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 1.05rem;
+  line-height: 1;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.sc-input-undo:hover,
+.sc-input-undo:active {
+  color: var(--ink);
+  background: rgb(26 42 50 / 8%);
+}
+.sc-input-undo[hidden] {
+  display: none !important;
+}
 .sc-input,
 .sc-input-date,
 .sc-input-time {
@@ -778,6 +813,12 @@ code { font-size: 0.85em; }
   right: 0.05rem;
   font-size: 1rem;
 }
+.sc-geo-fields--geopick .sc-input-undo {
+  width: 1.35rem;
+  height: 1.35rem;
+  right: 1.45rem;
+  font-size: 0.95rem;
+}
 /* 数値は右寄せ → × が数値の右端に来る */
 .sc-geo-fields--geopick-nums .sc-geo-field .sc-input {
   text-align: right;
@@ -785,7 +826,7 @@ code { font-size: 0.85em; }
 }
 .sc-geo-fields--geopick .sc-geo-field--adrs .sc-input {
   font-size: 16px;
-  padding: 0.35rem 1.9rem 0.35rem 0.4rem;
+  padding: 0.35rem 3.2rem 0.35rem 0.4rem;
   font-variant-numeric: normal;
   text-align: left;
   overflow-x: hidden;

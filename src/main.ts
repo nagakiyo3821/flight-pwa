@@ -927,16 +927,49 @@ function geoFieldHtml(
   id: string,
   label: string,
   initial: string,
-  opts?: { fill?: boolean; text?: boolean; labelHtml?: string },
+  opts?: { fill?: boolean; text?: boolean; labelHtml?: string; textUndo?: boolean },
 ): string {
   const inputClass = opts?.fill ? 'sc-input sc-input--fill' : 'sc-input'
   const labelInner = opts?.labelHtml ?? escapeHtml(label)
   if (opts?.text) {
+    const auto = id.includes('adrs') ? 'street-address' : 'off'
     return `<label class="sc-geo-field sc-geo-field--adrs"><span>${labelInner}</span>
-    ${clearableInputHtml(id, `class="${inputClass}" type="text" inputmode="text" autocomplete="street-address"`, initial)}</label>`
+    ${clearableInputHtml(
+      id,
+      `class="${inputClass}" type="text" inputmode="text" autocomplete="${auto}"`,
+      initial,
+      { undo: !!opts.textUndo },
+    )}</label>`
   }
   return `<label class="sc-geo-field"><span class="sc-geo-field-label">${labelInner}</span>
     ${clearableInputHtml(id, `class="${inputClass}" type="text" inputmode="decimal" autocomplete="off"`, sanitizeNumberDraft(initial))}</label>`
+}
+
+/** 数値欄: blur 時に空／不正なら直前の有効値へ戻す */
+const numericLastGood = new Map<HTMLInputElement, string>()
+
+function commitNumericLastGood(el: HTMLInputElement): void {
+  numericLastGood.set(el, el.value)
+}
+
+function wireNumericLastGoodRevert(
+  el: HTMLInputElement,
+  onRestored?: () => void,
+): void {
+  if (el.readOnly || el.classList.contains('sc-input--locked')) return
+  if (!numericLastGood.has(el)) commitNumericLastGood(el)
+  el.addEventListener('blur', () => {
+    if (el.readOnly || el.classList.contains('sc-input--locked')) return
+    const v = normalizeNumberInput(el.value)
+    if (!isRequiredNumber(v)) {
+      el.value = numericLastGood.get(el) ?? ''
+      el.setCustomValidity('')
+      onRestored?.()
+      return
+    }
+    el.value = v
+    commitNumericLastGood(el)
+  })
 }
 
 function dualGeoLabelHtml(kind: 'gps' | 'tap', text: string): string {
@@ -947,10 +980,20 @@ function dualGeoLabelHtml(kind: 'gps' | 'tap', text: string): string {
   return `${ico}<span class="sc-geo-field-label-text">${escapeHtml(text)}</span>`
 }
 
-/** テキスト／数値／日付／時刻入力＋消去（×） */
-function clearableInputHtml(id: string, inputAttrs: string, value: string): string {
-  return `<div class="sc-input-wrap">
+/** テキスト／数値／日付／時刻入力＋消去（×）。undo で × 直前の値を復元 */
+function clearableInputHtml(
+  id: string,
+  inputAttrs: string,
+  value: string,
+  opts?: { undo?: boolean },
+): string {
+  const wrapCls = opts?.undo ? ' sc-input-wrap--with-undo' : ''
+  const undoBtn = opts?.undo
+    ? `<button type="button" class="sc-input-undo" aria-label="1つ前に戻す" tabindex="-1" hidden title="1つ前に戻す">↩</button>`
+    : ''
+  return `<div class="sc-input-wrap${wrapCls}">
     <input id="${id}" ${inputAttrs} value="${escapeHtml(value)}" />
+    ${undoBtn}
     <button type="button" class="sc-input-clear" aria-label="消去" tabindex="-1" hidden>&times;</button>
   </div>`
 }
@@ -963,13 +1006,20 @@ function wireClearableInputs(root: ParentNode): () => void {
       'input:not([type="hidden"]):not([type="radio"]):not([type="checkbox"]):not([type="file"])',
     )
     const btn = wrap.querySelector<HTMLButtonElement>('.sc-input-clear')
+    const undoBtn = wrap.querySelector<HTMLButtonElement>('.sc-input-undo')
     if (!input || !btn) return
+    let undoValue: string | null = null
     const sync = () => {
       if (input.readOnly || input.classList.contains('sc-input--locked') || btn.disabled) {
         btn.hidden = true
+        if (undoBtn) undoBtn.hidden = true
         return
       }
       btn.hidden = String(input.value ?? '').length === 0
+      if (undoBtn) {
+        undoBtn.hidden =
+          undoValue == null || String(input.value ?? '') === undoValue
+      }
     }
     sync()
     syncAll.push(sync)
@@ -979,8 +1029,21 @@ function wireClearableInputs(root: ParentNode): () => void {
       e.preventDefault()
       e.stopPropagation()
       if (input.readOnly || input.classList.contains('sc-input--locked')) return
+      undoValue = String(input.value ?? '')
       input.value = ''
       input.setCustomValidity('')
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+      input.dispatchEvent(new Event('change', { bubbles: true }))
+      sync()
+      input.focus()
+    })
+    undoBtn?.addEventListener('click', (e) => {
+      e.preventDefault()
+      e.stopPropagation()
+      if (undoValue == null) return
+      input.value = undoValue
+      input.setCustomValidity('')
+      undoValue = null
       input.dispatchEvent(new Event('input', { bubbles: true }))
       input.dispatchEvent(new Event('change', { bubbles: true }))
       sync()
@@ -1038,7 +1101,11 @@ function askMissingGeo(
         </div>`
       : ''
     const adrsHtml = geopick
-      ? geoFieldHtml('sc-adrs', GPS_LABEL_ADRS, opts?.extraPrefill?.adrs ?? '', { fill: true, text: true })
+      ? geoFieldHtml('sc-adrs', GPS_LABEL_ADRS, opts?.extraPrefill?.adrs ?? '', {
+          fill: true,
+          text: true,
+          textUndo: true,
+        })
       : ''
     const mapHtml = showMap
       ? `<div class="sc-map-pick-wrap">
@@ -1177,6 +1244,8 @@ function askMissingGeo(
       syncing = false
       refreshClearable()
       updateLive()
+      if (latEl) commitNumericLastGood(latEl)
+      if (lngEl) commitNumericLastGood(lngEl)
     }
 
     const syncMapFromFields = (pan = true) => {
@@ -1237,6 +1306,7 @@ function askMissingGeo(
       if (mode === 'mapClick' || altEl.value === prev || altEl.value === '') {
         altEl.value = String(elev)
         altEl.setCustomValidity('')
+        commitNumericLastGood(altEl)
       }
       refreshClearable()
       updateLive()
@@ -1352,6 +1422,15 @@ function askMissingGeo(
     }
 
     for (const el of inputs) {
+      const lockedGps = gpsReview && (el === latEl || el === lngEl || el === altEl)
+      if (!lockedGps) {
+        wireNumericLastGoodRevert(el, () => {
+          refreshClearable()
+          updateLive()
+          if (el === latEl || el === lngEl) syncMapFromFields(true)
+        })
+        commitNumericLastGood(el)
+      }
       el.addEventListener('input', () => {
         if (gpsReview && (el === latEl || el === lngEl || el === altEl)) return
         const cleaned = sanitizeNumberDraft(el.value)
@@ -1564,8 +1643,8 @@ function askDualPlaceGeo(opts: {
         ${geoFieldHtml('sc-posac', GPS_LABEL_POSAC, opts.posac ?? PLACE_DEFAULT_POSAC, { fill: true })}
         ${geoFieldHtml('sc-altac', GPS_LABEL_ALTAC, opts.altac ?? PLACE_DEFAULT_ALTAC, { fill: true })}
       </div>
-      ${geoFieldHtml('sc-adrs', GPS_LABEL_ADRS, opts.adrs ?? '', { fill: true, text: true })}
-      ${geoFieldHtml('sc-name', GPS_LABEL_NAME, placeNamePrefill(opts.adrs ?? ''), { fill: true, text: true })}
+      ${geoFieldHtml('sc-adrs', GPS_LABEL_ADRS, opts.adrs ?? '', { fill: true, text: true, textUndo: true })}
+      ${geoFieldHtml('sc-name', GPS_LABEL_NAME, placeNamePrefill(opts.adrs ?? ''), { fill: true, text: true, textUndo: true })}
     </div>`
 
     root.innerHTML = `
@@ -1661,12 +1740,15 @@ function askDualPlaceGeo(opts: {
       lngEl.setCustomValidity('')
       syncing = false
       refreshClearable()
+      commitNumericLastGood(latEl)
+      commitNumericLastGood(lngEl)
     }
 
     const applyPtSnap = (snap: PtSnap, pan: boolean) => {
       applyPtLatLng(snap.lat, snap.lng)
       altEl.value = String(snap.alt)
       altEl.setCustomValidity('')
+      commitNumericLastGood(altEl)
       adrsEl.value = snap.adrs
       setPtMarker(snap.lat, snap.lng, pan)
       refreshClearable()
@@ -1701,6 +1783,7 @@ function askDualPlaceGeo(opts: {
       if (mode === 'mapClick' || altEl.value === prev || altEl.value === '') {
         altEl.value = String(elev)
         altEl.setCustomValidity('')
+        commitNumericLastGood(altEl)
       }
       refreshClearable()
     }
@@ -1754,6 +1837,7 @@ function askDualPlaceGeo(opts: {
       applyPtLatLng(gps.lat, gps.lng)
       altEl.value = String(gps.alt)
       altEl.setCustomValidity('')
+      commitNumericLastGood(altEl)
       setPtMarker(gps.lat, gps.lng, true)
       refreshClearable()
       void fetchAddress(gps.lat, gps.lng)
@@ -1814,7 +1898,20 @@ function askDualPlaceGeo(opts: {
       undoPoint()
     })
 
+    const syncPtMarkerFromFields = () => {
+      const lat = parseField(latEl)
+      const lng = parseField(lngEl)
+      if (lat != null && lng != null && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+        setPtMarker(lat, lng, true)
+      }
+    }
+
     for (const el of [latEl, lngEl, altEl, posacEl, altacEl]) {
+      wireNumericLastGoodRevert(el, () => {
+        refreshClearable()
+        if (el === latEl || el === lngEl) syncPtMarkerFromFields()
+      })
+      commitNumericLastGood(el)
       el.addEventListener('focus', () => {
         if (el === latEl || el === lngEl || el === altEl) {
           preEditSnap = readPtSnap()

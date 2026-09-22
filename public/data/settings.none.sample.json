@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "sync": {
+    "enabled": false,
+    "provider": "none",
+    "mode": "manual",
+    "onLaunch": false,
+    "onOnline": false,
+    "onEdit": false
+  },
+  "active": "none",
+  "providers": {
+    "none": {}
+  },
+  "manualIoAlwaysAvailable": true,
+  "notes": "手動 JSON 入出力のみ。settings を置かなくてもこれと同じ。"
+}

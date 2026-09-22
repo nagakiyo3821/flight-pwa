@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "sync": {
+    "enabled": true,
+    "provider": "google",
+    "mode": "auto",
+    "onLaunch": true,
+    "onOnline": true,
+    "onEdit": false
+  },
+  "active": "google",
+  "providers": {
+    "none": {},
+    "google": {
+      "folderName": "drone",
+      "folderId": "",
+      "files": {
+        "log": "log.json",
+        "pos": "pos.json",
+        "tmp": "tmp.json",
+        "masters": "masters.json",
+        "settings": "settings.json"
+      },
+      "createFolderIfMissing": true
+    },
+    "webdav": {
+      "baseUrl": "",
+      "username": "",
+      "path": "/drone"
+    },
+    "s3compatible": {
+      "endpoint": "",
+      "bucket": "",
+      "prefix": "drone/"
+    }
+  },
+  "manualIoAlwaysAvailable": true,
+  "notes": "Google Drive 前提サンプル。OAuthトークンは書かない。folderId は初回ログイン後にアプリが埋めてもよい（空なら folderName で検索／作成）。"
+}

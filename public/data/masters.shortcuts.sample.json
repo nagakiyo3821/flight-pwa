@@ -1,0 +1,16 @@
+﻿{
+  "version": 1,
+  "notes": "PWA masters.default（共通リスト）＋本ファイル＝旧ショートカット埋め込みマスタ相当。個人値は差し替えて使う。共通 flt1 等は default のまま（既にショートカット由来）。",
+  "lists": {
+    "names": ["サンプル 一郎", "山田 太郎"]
+  },
+  "drones": {
+    "types": ["Mavic2Pro", "Tello", "Other"],
+    "ids": {
+      "Mavic2Pro": ["JU322647FF", "Juxxxxxxxx"],
+      "Tello": ["001", "002"],
+      "Other": ["AAA", "BBB"]
+    },
+    "profiles": {}
+  }
+}

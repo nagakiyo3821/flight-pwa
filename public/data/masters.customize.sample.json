@@ -1,0 +1,39 @@
+﻿{
+  "version": 1,
+  "notes": "ユーザーカスタマイズ例。①機種名 ②機種別ID ③機種別項目取捨(hiddenKeys) ④個人情報。Tello hiddenKeys は本登録レコード 2022/12/21 10:05（Tello_1）で空・Mavic ではほぼ必須の15キー（仕様書・マトリクス参照）。REMARK は両機種とも任意のため含めない。",
+  "lists": {
+    "names": ["サンプル 一郎", "山田 太郎"]
+  },
+  "drones": {
+    "types": ["Mavic2Pro", "Tello", "Other"],
+    "ids": {
+      "Mavic2Pro": ["JU322647FF", "Juxxxxxxxx"],
+      "Tello": ["001", "002"],
+      "Other": ["AAA", "BBB"]
+    },
+    "profiles": {
+      "Tello": {
+        "hiddenKeys": [
+          "A_PBAT%",
+          "A_BATN",
+          "A_BAT%",
+          "A_BATB",
+          "A_BATV",
+          "A_BATT",
+          "A_REMID",
+          "A_MAXH",
+          "A_MAXD",
+          "A_FAILS",
+          "B_BAT%",
+          "B_BATB",
+          "B_BATV",
+          "B_BATT",
+          "B_PBAT%"
+        ]
+      },
+      "Mavic2Pro": {
+        "hiddenKeys": []
+      }
+    }
+  }
+}

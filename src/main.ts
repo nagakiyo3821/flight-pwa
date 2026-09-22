@@ -3489,6 +3489,26 @@ async function onPlaceMenu(id: string): Promise<void> {
       return
     }
     const newName = String(coords.name ?? name).trim() || name
+    const newAdrs = String(coords.adrs ?? '').trim()
+    const newPosac =
+      String(coords.posac ?? PLACE_DEFAULT_POSAC).trim() || PLACE_DEFAULT_POSAC
+    const newAltac =
+      String(coords.altac ?? PLACE_DEFAULT_ALTAC).trim() || PLACE_DEFAULT_ALTAC
+    const sameNum = (a: number, b: number, eps: number) =>
+      Number.isFinite(a) && Number.isFinite(b) && Math.abs(a - b) <= eps
+    const unchanged =
+      newName === name &&
+      sameNum(Number(row.DATA1), coords.lat, 1e-10) &&
+      sameNum(Number(row.DATA2), coords.lng, 1e-10) &&
+      sameNum(Number(row.DATA3), coords.alt, 1e-6) &&
+      String(row.ADRS ?? '').trim() === newAdrs &&
+      (String(row.POSAC || PLACE_DEFAULT_POSAC).trim() || PLACE_DEFAULT_POSAC) ===
+        newPosac &&
+      (String(row.ALTAC || PLACE_DEFAULT_ALTAC).trim() || PLACE_DEFAULT_ALTAC) ===
+        newAltac
+    // 変化なし → 戻ると同じ（更新・メッセージなし）
+    if (unchanged) return
+
     if (newName !== name) {
       await renamePlace(name, newName)
     }
@@ -3496,9 +3516,9 @@ async function onPlaceMenu(id: string): Promise<void> {
       lat: coords.lat,
       lng: coords.lng,
       alt: coords.alt,
-      adrs: coords.adrs ?? '',
-      posac: String(coords.posac ?? PLACE_DEFAULT_POSAC),
-      altac: String(coords.altac ?? PLACE_DEFAULT_ALTAC),
+      adrs: newAdrs,
+      posac: newPosac,
+      altac: newAltac,
     })
     placeEditName = null
     view = 'places'

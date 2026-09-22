@@ -41,6 +41,7 @@ export const REC_DEL_BACK = '2.戻る'
 /** 項目入力ダイアログの確定／中断 */
 export const ITEM_OK = '確定'
 export const ITEM_BACK = '戻る'
+export const ITEM_CANCEL = 'キャンセル'
 
 /** ショートカット19 数値サブ処理と同じ（空は未入力として別扱い） */
 export const NUMBER_RE = /^[+-]?([1-9]\d*|0)(\.\d+)?$/
@@ -328,7 +329,7 @@ export const PLACE_MENU_MAP_NEW_1 = '%マップ新規場所登録～1'
 export const PLACE_MENU_MAP_NEW_2 = '%マップ新規場所登録～2'
 
 /** %新規場所登録（GPS＋タップ）タイトル1行目 */
-export const PLACE_NEW_CONFIRM_LINE = '登録地点をタップ、各データ設定後、確定'
+export const PLACE_NEW_CONFIRM_LINE = '新規場所データの登録'
 /** 場所一覧→既存場所プレビューのタイトル1行目 */
 export const PLACE_REVIEW_CONFIRM_LINE = '選択した場所データの修正、削除'
 /** GPS測定値をタップ地点フィールドへコピー（ボタン表示は「現在地(GPS)」） */
@@ -347,10 +348,15 @@ export const PLACE_EDIT_MAP = '#マップ表示'
 export const PLACE_EDIT_PROMPT = '削除または更新したい項目1~7を選択してください。'
 export const PLACE_DEL_PROMPT = '本当にこの場所データを削除しますか？'
 export const PLACE_DEL_OK = '1.削除'
-export const PLACE_DEL_BACK = '2.戻る'
+export const PLACE_DEL_BACK = '2.キャンセル'
 /** 場所一覧→地図プレビューの削除ボタン */
 export const PLACE_REVIEW_DEL = '削除'
 export const PLACE_REVIEW_DEL_PROMPT = '本当に削除しますか？'
+/** 場所プレビュー／新規登録の結果メッセージ */
+export const PLACE_NEW_CANCEL_MSG = '新規場所登録をキャンセルしました'
+export const PLACE_REVIEW_CANCEL_MSG = '選択した場所の修正をキャンセルしました'
+export const PLACE_REVIEW_DEL_CANCEL_MSG = '選択した場所の削除をキャンセルしました'
+export const PLACE_REVIEW_NOCHANGE_MSG = '選択した場所の修正しませんでした'
 
 /** 通信失敗時（操作ごと。常時オンライン表示はしない） */
 /** @deprecated 空／タイムアウトを分けた文言を使う */

@@ -96,6 +96,7 @@ import {
   MAP_PROMPT,
   ITEM_BACK,
   ITEM_OK,
+  ITEM_CANCEL,
   MENU_PROMPT,
   NUMBER_RE,
   NET_FAIL_ADDRESS,
@@ -128,6 +129,10 @@ import {
   PLACE_REVIEW_CONFIRM_LINE,
   PLACE_REVIEW_DEL,
   PLACE_REVIEW_DEL_PROMPT,
+  PLACE_NEW_CANCEL_MSG,
+  PLACE_REVIEW_CANCEL_MSG,
+  PLACE_REVIEW_DEL_CANCEL_MSG,
+  PLACE_REVIEW_NOCHANGE_MSG,
   PLACE_UPDATE_BACK,
   REC_DEL_BACK,
   REC_DEL_OK,
@@ -1801,7 +1806,7 @@ function askDualPlaceGeo(opts: {
               ? `<button type="button" class="sc-btn sc-btn-del" id="sc-del">${escapeHtml(PLACE_REVIEW_DEL)}</button>`
               : ''
           }
-          <button type="button" class="sc-btn sc-btn-back" id="sc-back">${escapeHtml(ITEM_BACK)}</button>
+          <button type="button" class="sc-btn sc-btn-back" id="sc-back">${escapeHtml(ITEM_CANCEL)}</button>
         </div>
       </div>`
 
@@ -2186,7 +2191,10 @@ function askDualPlaceGeo(opts: {
         [PLACE_DEL_OK, PLACE_DEL_BACK],
         { withBackButton: false },
       )
-      if (!sel || sel === PLACE_DEL_BACK || !sel.includes('削除')) return
+      if (!sel || sel === PLACE_DEL_BACK || !sel.includes('削除')) {
+        flashMsg = PLACE_REVIEW_DEL_CANCEL_MSG
+        return
+      }
       await deletePlace(placeRefName)
       finish('deleted')
     }
@@ -3484,8 +3492,10 @@ async function onPlaceMenu(id: string): Promise<void> {
     if (!coords || coords === 'deleted') {
       if (coords === 'deleted') {
         flashMsg = `削除しました（${name}）`
+      } else if (!flashMsg) {
+        // 削除キャンセルメッセージが既にあればそれを優先
+        flashMsg = PLACE_REVIEW_CANCEL_MSG
       }
-      // ダイアログ戻りでは DOM が残るため再描画（古い flash 表示も消える）
       await render()
       return
     }
@@ -3507,8 +3517,8 @@ async function onPlaceMenu(id: string): Promise<void> {
         newPosac &&
       (String(row.ALTAC || PLACE_DEFAULT_ALTAC).trim() || PLACE_DEFAULT_ALTAC) ===
         newAltac
-    // 変化なし → 戻ると同じ（更新なし・一覧を再描画してメッセージ解除）
     if (unchanged) {
+      flashMsg = PLACE_REVIEW_NOCHANGE_MSG
       await render()
       return
     }
@@ -3640,7 +3650,7 @@ async function runPlaceNewRegister(): Promise<void> {
           lng: String(gpsLng),
         })
         if (!filled) {
-          flashMsg = '場所登録をキャンセルしました'
+          flashMsg = PLACE_NEW_CANCEL_MSG
           return
         }
         gpsLat = filled.lat
@@ -3677,7 +3687,7 @@ async function runPlaceNewRegister(): Promise<void> {
     }
 
     if (!coords || coords === 'deleted') {
-      flashMsg = '場所登録をキャンセルしました'
+      flashMsg = PLACE_NEW_CANCEL_MSG
       return
     }
     const { lat, lng, alt } = coords
@@ -3691,7 +3701,7 @@ async function runPlaceNewRegister(): Promise<void> {
     const entered =
       String(coords.name ?? '').trim() || (await askNewPlaceName(nameDefault))
     if (!entered) {
-      flashMsg = '場所登録をキャンセルしました'
+      flashMsg = PLACE_NEW_CANCEL_MSG
       return
     }
     await upsertPlace(entered, {

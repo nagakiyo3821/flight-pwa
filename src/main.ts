@@ -1473,7 +1473,7 @@ function askMissingGeo(
           const latR = Math.round(lat * 1e8) / 1e8
           const lngR = Math.round(lng * 1e8) / 1e8
           applyLatLngToFields(latR, lngR)
-          setMarker(latR, lngR, false)
+          setMarker(latR, lngR, true)
           onPointMoved(latR, lngR, 'mapClick')
         })
       }
@@ -2131,7 +2131,7 @@ function askDualPlaceGeo(opts: {
       const latR = Math.round(e.latlng.lat * 1e8) / 1e8
       const lngR = Math.round(e.latlng.lng * 1e8) / 1e8
       applyPtLatLng(latR, lngR)
-      setPtMarker(latR, lngR, false)
+      setPtMarker(latR, lngR, true)
       refreshNearest()
       onPointMoved(latR, lngR, 'mapClick')
     })

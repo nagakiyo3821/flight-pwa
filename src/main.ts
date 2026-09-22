@@ -1516,7 +1516,7 @@ function askDualPlaceGeo(opts: {
       <div class="sc-geo-fields--geopick-nums">${gpsNums}</div>
       <div class="sc-geo-fields--geopick-nums">${ptNums}</div>
       <div class="sc-geo-dual-btns">
-        <button type="button" class="sc-btn-gps-copy" id="sc-gps-to-pt" aria-label="${escapeHtml(PLACE_GPS_TO_POINT)}"><span class="sc-map-ico sc-map-ico--gps sc-map-ico--inline" aria-hidden="true"></span>現在地（GPS）を<span class="sc-map-ico sc-map-ico--tap sc-map-ico--inline" aria-hidden="true"></span>タップ地点へ</button>
+        <button type="button" class="sc-btn-gps-copy" id="sc-gps-to-pt" aria-label="${escapeHtml(PLACE_GPS_TO_POINT)}"><span class="sc-map-ico sc-map-ico--gps sc-map-ico--inline" aria-hidden="true"></span>現在地（GPS）</button>
         <button type="button" class="sc-btn-pt-undo" id="sc-pt-undo" aria-label="${escapeHtml(PLACE_PT_UNDO)}" disabled><span class="sc-map-ico sc-map-ico--tap sc-map-ico--inline" aria-hidden="true"></span>${escapeHtml(PLACE_PT_UNDO)}</button>
       </div>
       <div class="sc-geo-fields--geopick-acc">

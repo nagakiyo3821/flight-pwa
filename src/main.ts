@@ -190,6 +190,7 @@ import { APP_VERSION } from './version'
 import { isIosDevice } from './platform'
 import {
   fetchGroundElevation,
+  resolveGpsOrDemAltitude,
   osmOpenUrl,
   reverseGeocode,
   jpGsiTileOpts,
@@ -3857,6 +3858,7 @@ async function runPlaceNewRegister(): Promise<void> {
     let gpsLat: number | undefined
     let gpsLng: number | undefined
     let gpsAlt: number | undefined
+    let gpsAltAcc: number | undefined
 
     try {
       const pos = await getCurrentPosition()
@@ -3864,6 +3866,9 @@ async function runPlaceNewRegister(): Promise<void> {
       if (isFiniteNum(c.latitude)) gpsLat = c.latitude
       if (isFiniteNum(c.longitude)) gpsLng = c.longitude
       if (c.altitude != null && isFiniteNum(c.altitude)) gpsAlt = roundAltMeters(c.altitude)
+      if (c.altitudeAccuracy != null && isFiniteNum(c.altitudeAccuracy)) {
+        gpsAltAcc = c.altitudeAccuracy
+      }
     } catch {
       // GPS 失敗 → マップのみ
     }
@@ -3874,11 +3879,14 @@ async function runPlaceNewRegister(): Promise<void> {
       const round8 = (n: number) => Math.round(n * 1e8) / 1e8
       gpsLat = round8(gpsLat)
       gpsLng = round8(gpsLng)
-      if (gpsAlt == null || !Number.isFinite(gpsAlt)) {
-        msg()!.textContent = '標高を取得中…'
-        const elev = await fetchGroundElevation(gpsLat, gpsLng)
-        if (elev != null) gpsAlt = elev
-      }
+      msg()!.textContent = '標高を確認中…'
+      const resolved = await resolveGpsOrDemAltitude(
+        gpsLat,
+        gpsLng,
+        gpsAlt,
+        gpsAltAcc,
+      )
+      if (resolved) gpsAlt = resolved.alt
       if (gpsAlt == null || !Number.isFinite(gpsAlt)) {
         msg()!.textContent = '高度の不足分を入力…'
         const filled = await resolveLatLngAlt({

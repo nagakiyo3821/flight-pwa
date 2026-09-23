@@ -662,6 +662,56 @@ export async function fetchGroundElevation(
   return elevationOpenMeteo(lat, lng)
 }
 
+/**
+ * GPS 高度と DEM 地表標高の差がこの値(m)以内なら「地表扱い」→ DEM を採用。
+ * 手持ち端末の高さ・GPS 鉛直誤差・DEM メッシュ誤差を見込む。
+ * これを超える差があればビル等の高所とみなし GPS 高度を残す。
+ */
+export const GPS_VS_DEM_GROUND_THRESHOLD_M = 10
+
+export type ResolvedAltitude = {
+  alt: number
+  /** dem=地表統一 / gps=構造物等高所 / gps-only=DEM取得失敗でGPS / dem-only=GPSなし */
+  source: 'dem' | 'gps' | 'gps-only' | 'dem-only'
+}
+
+/**
+ * 登録用高度の決定: 基本は DEM（地表）。
+ * GPS が DEM から閾値超で離れているときだけ GPS（ビル等）を採用。
+ * どちらも無いときは null。
+ */
+export async function resolveGpsOrDemAltitude(
+  lat: number,
+  lng: number,
+  gpsAlt: number | null | undefined,
+  altitudeAccuracy?: number | null,
+): Promise<ResolvedAltitude | null> {
+  const dem = await fetchGroundElevation(lat, lng)
+  const gps =
+    gpsAlt != null && Number.isFinite(gpsAlt) ? Math.round(gpsAlt * 100) / 100 : null
+
+  if (dem == null && gps == null) return null
+  if (dem == null && gps != null) return { alt: gps, source: 'gps-only' }
+  if (dem != null && gps == null) return { alt: dem, source: 'dem-only' }
+
+  // 両方ある
+  const demV = dem!
+  const gpsV = gps!
+  const diff = Math.abs(gpsV - demV)
+  // 鉛直精度が極端に悪いときは地表（DEM）優先
+  if (
+    altitudeAccuracy != null &&
+    Number.isFinite(altitudeAccuracy) &&
+    altitudeAccuracy > GPS_VS_DEM_GROUND_THRESHOLD_M * 2.5
+  ) {
+    return { alt: demV, source: 'dem' }
+  }
+  if (diff <= GPS_VS_DEM_GROUND_THRESHOLD_M) {
+    return { alt: demV, source: 'dem' }
+  }
+  return { alt: gpsV, source: 'gps' }
+}
+
 /** 国土地理院 標高API（DEM） */
 async function elevationGsi(lat: number, lng: number): Promise<number | null> {
   try {

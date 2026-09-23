@@ -747,7 +747,8 @@ code { font-size: 0.85em; }
   padding: 0;
   flex: 0 0 auto;
   /* vw 禁止: 横回転で肥大化し、戻しても戻らない端末がある */
-  font-size: 0.92rem;
+  /* 他画面の h1.prompt(1.15rem) に揃え、メイン行の基準にする */
+  font-size: 1.15rem;
   font-weight: 600;
   line-height: 1.2;
   overflow-wrap: anywhere;
@@ -957,7 +958,8 @@ code { font-size: 0.85em; }
 }
 .sc-geopick-title-line--main {
   /* em ではなく rem 固定（親 h1 / 回転後の継承崩れ防止） */
-  font-size: 0.92rem;
+  /* 「新規場所データの登録」など1行目。他画面タイトルと同程度 */
+  font-size: 1.15rem;
   font-weight: 600;
   line-height: 1.25;
 }

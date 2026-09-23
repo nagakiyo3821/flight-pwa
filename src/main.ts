@@ -1626,6 +1626,10 @@ function placeNamePrefill(raw: string): string {
   return [...t].slice(0, 20).join('')
 }
 
+function escapeRegExpLiteral(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
 /** 場所名の検証（空・空白・長さ・重複） */
 async function validatePlaceNameCandidate(
   raw: string,
@@ -1863,6 +1867,9 @@ function askDualPlaceGeo(opts: {
     const titleNearestDist = root.querySelector<HTMLElement>('#sc-title-nearest-dist')
     const undoBtn = root.querySelector<HTMLButtonElement>('#sc-pt-undo')!
     let nameTouched = !!(opts.name?.trim() || isPlaceReview)
+    /** 自動場所名: 円内=派生_xx / 円外=住所。手編集後は触らない */
+    let autoPlaceNameKind: 'derived' | 'address' | null = null
+    let autoPlaceNameReq = 0
 
     for (const el of [gpsLatEl, gpsLngEl, gpsAltEl]) {
       el.readOnly = true
@@ -2003,6 +2010,51 @@ function askDualPlaceGeo(opts: {
       setNearOverlay(gps.lat, gps.lng, readPosacM())
     }
 
+    /**
+     * %現在地検索相当の場所名自動入力。
+     * 最寄の POSAC 円内 → 派生名（場所_xx）、円外／無ヒット → 住所由来。
+     * ユーザーが場所欄を手編集したあとは更新しない。
+     */
+    const applyAutoPlaceName = async (
+      hit: {
+        name: string
+        distHoriz: number
+        place: { POSAC?: string }
+      } | null,
+    ) => {
+      if (nameTouched || isPlaceReview) return
+      const req = ++autoPlaceNameReq
+      let inside = false
+      if (hit) {
+        const posac = parsePlaceCoord(hit.place.POSAC)
+        const posacM =
+          Number.isFinite(posac) && posac > 0 ? posac : Number(PLACE_DEFAULT_POSAC)
+        inside = hit.distHoriz < posacM
+      }
+      if (inside && hit) {
+        const stem = String(hit.name).replace(/_\d+$/, '').trim() || '新規'
+        const cur = String(nameEl.value ?? '').trim()
+        // 同一ステムの派生名が既にあれば連番の付け替えを避ける
+        if (
+          autoPlaceNameKind === 'derived' &&
+          new RegExp(`^${escapeRegExpLiteral(stem)}_\\d+$`).test(cur)
+        ) {
+          return
+        }
+        const derived = await nextDerivedPlaceName(hit.name)
+        if (req !== autoPlaceNameReq || nameTouched) return
+        nameEl.value = derived
+        autoPlaceNameKind = 'derived'
+        refreshClearable()
+        return
+      }
+      const fromAdrs = placeNamePrefill(adrsEl.value)
+      if (req !== autoPlaceNameReq || nameTouched) return
+      nameEl.value = fromAdrs
+      autoPlaceNameKind = 'address'
+      refreshClearable()
+    }
+
     /** タップ地点（橙）更新のたび、キャッシュ上で ECEF 3D 最短を再検出 */
     const refreshNearest = () => {
       if (isPlaceReview) return
@@ -2018,17 +2070,20 @@ function askDualPlaceGeo(opts: {
       if (lat == null || lng == null || alt == null) {
         updateTitle(null)
         clearNearOverlay()
+        void applyAutoPlaceName(null)
         return
       }
       const hit = closestPlace3dFromList(placesCache, lat, lng, alt)
       updateTitle(hit ? { name: hit.name, dist3d: hit.dist3d } : null)
       if (!hit) {
         clearNearOverlay()
+        void applyAutoPlaceName(null)
         return
       }
       const posac = parsePlaceCoord(hit.place.POSAC)
       const posacM = Number.isFinite(posac) && posac > 0 ? posac : Number(PLACE_DEFAULT_POSAC)
       setNearOverlay(hit.plat, hit.plng, posacM)
+      void applyAutoPlaceName(hit)
     }
 
     const readPtSnap = (): PtSnap | null => {
@@ -2136,8 +2191,9 @@ function askDualPlaceGeo(opts: {
         if (req !== adrsReq) return
         adrsEl.placeholder = ''
         adrsEl.value = String(geo.address ?? '').trim()
-        if (!nameTouched && adrsEl.value) {
+        if (!nameTouched && adrsEl.value && autoPlaceNameKind !== 'derived') {
           nameEl.value = placeNamePrefill(adrsEl.value)
+          autoPlaceNameKind = 'address'
         }
         refreshClearable()
         if (!adrsEl.value) {

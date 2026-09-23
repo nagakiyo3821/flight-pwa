@@ -191,6 +191,7 @@ import { isIosDevice } from './platform'
 import {
   fetchGroundElevation,
   resolveGpsOrDemAltitude,
+  roundAltMeters,
   osmOpenUrl,
   reverseGeocode,
   jpGsiTileOpts,
@@ -932,11 +933,6 @@ function isFiniteNum(n: unknown): n is number {
   return typeof n === 'number' && Number.isFinite(n)
 }
 
-/** 高度(m)を小数第2位に丸める（GPS等の過剰桁を抑える） */
-function roundAltMeters(n: number): number {
-  return Math.round(n * 100) / 100
-}
-
 function isRequiredNumber(raw: string): boolean {
   const v = normalizeNumberInput(raw)
   return v !== '' && NUMBER_RE.test(v)
@@ -1380,7 +1376,7 @@ function askMissingGeo(
       }
       // マップタップ: 常に地表標高で確定。ソフト: 取得中に手入力されていなければ更新
       if (mode === 'mapClick' || altEl.value === prev || altEl.value === '') {
-        altEl.value = String(elev)
+        altEl.value = String(roundAltMeters(elev))
         altEl.setCustomValidity('')
         commitNumericLastGood(altEl)
       }
@@ -1598,7 +1594,7 @@ function askMissingGeo(
       finish({
         lat,
         lng,
-        alt,
+        alt: roundAltMeters(alt),
         ...(geopick ? { adrs, posac, altac } : {}),
       })
     }
@@ -1757,7 +1753,7 @@ function askDualPlaceGeo(opts: {
     const gps = {
       lat: Math.round(opts.gps.lat * 1e8) / 1e8,
       lng: Math.round(opts.gps.lng * 1e8) / 1e8,
-      alt: opts.gps.alt,
+      alt: roundAltMeters(opts.gps.alt),
     }
     const placeWrapped = isPlaceReview ? `場所(${placeRefName})` : ''
     const titleLine1 = isPlaceReview
@@ -2117,7 +2113,7 @@ function askDualPlaceGeo(opts: {
         mapHint.classList.remove('net-fail')
       }
       if (mode === 'mapClick' || altEl.value === prev || altEl.value === '') {
-        altEl.value = String(elev)
+        altEl.value = String(roundAltMeters(elev))
         altEl.setCustomValidity('')
         commitNumericLastGood(altEl)
       }
@@ -2411,7 +2407,7 @@ function askDualPlaceGeo(opts: {
       finish({
         lat,
         lng,
-        alt,
+        alt: roundAltMeters(alt),
         adrs,
         posac: String(posac),
         altac: String(altac),
@@ -3008,7 +3004,7 @@ async function runTakeoffLanding(action: 'takeoff' | 'landing'): Promise<void> {
       }
       rec.A_DATA1 = String(lat)
       rec.A_DATA2 = String(lng)
-      rec.A_DATA3 = String(alt)
+      rec.A_DATA3 = String(roundAltMeters(alt))
       rec.A_ADRS = adrs
       rec.A_POS = posName
     } else {
@@ -3019,7 +3015,7 @@ async function runTakeoffLanding(action: 'takeoff' | 'landing'): Promise<void> {
       }
       rec.B_DATA1 = String(lat)
       rec.B_DATA2 = String(lng)
-      rec.B_DATA3 = String(alt)
+      rec.B_DATA3 = String(roundAltMeters(alt))
       rec.B_ADRS = adrs
       rec.B_POS = posName
     }

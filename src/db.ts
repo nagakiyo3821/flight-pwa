@@ -17,6 +17,7 @@ import {
   setSettings,
   type SettingsFile,
 } from './settings'
+import { roundAltMeters } from './geo'
 
 export interface MetaRow {
   id: string
@@ -680,7 +681,7 @@ export async function upsertPlace(
     name,
     DATA1: String(data.lat),
     DATA2: String(data.lng),
-    DATA3: String(data.alt),
+    DATA3: String(roundAltMeters(data.alt)),
     ADRS: data.adrs || existing?.ADRS || '',
     POSAC: data.posac || existing?.POSAC || '15',
     ALTAC: data.altac || existing?.ALTAC || '5',

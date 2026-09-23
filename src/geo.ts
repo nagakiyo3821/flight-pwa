@@ -649,6 +649,13 @@ async function reverseGsiChome(lat: number, lng: number): Promise<string> {
 }
 
 /**
+ * 高度(m)を小数第1位に丸める（GPS／DEM／入力の統一）。
+ */
+export function roundAltMeters(n: number): number {
+  return Math.round(n * 10) / 10
+}
+
+/**
  * 指定座標の地表標高 (m)。
  * 日本域は国土地理院（ショートカット同様）、失敗時は Open-Meteo。
  * 取得不可なら null。
@@ -678,7 +685,7 @@ export type ResolvedAltitude = {
 /**
  * 登録用高度の決定: 基本は DEM（地表）。
  * GPS が DEM から閾値超で離れているときだけ GPS（ビル等）を採用。
- * どちらも無いときは null。
+ * どちらも無いときは null。戻り高度は常に小数第1位。
  */
 export async function resolveGpsOrDemAltitude(
   lat: number,
@@ -688,7 +695,7 @@ export async function resolveGpsOrDemAltitude(
 ): Promise<ResolvedAltitude | null> {
   const dem = await fetchGroundElevation(lat, lng)
   const gps =
-    gpsAlt != null && Number.isFinite(gpsAlt) ? Math.round(gpsAlt * 100) / 100 : null
+    gpsAlt != null && Number.isFinite(gpsAlt) ? roundAltMeters(gpsAlt) : null
 
   if (dem == null && gps == null) return null
   if (dem == null && gps != null) return { alt: gps, source: 'gps-only' }
@@ -725,7 +732,7 @@ async function elevationGsi(lat: number, lng: number): Promise<number | null> {
     const data = (await res.json()) as { elevation?: number | string }
     const elev = typeof data.elevation === 'number' ? data.elevation : Number(data.elevation)
     if (!Number.isFinite(elev)) return null
-    return Math.round(elev * 10) / 10
+    return roundAltMeters(elev)
   } catch {
     return null
   }
@@ -742,7 +749,7 @@ async function elevationOpenMeteo(lat: number, lng: number): Promise<number | nu
     const data = (await res.json()) as { elevation?: number[] }
     const elev = data.elevation?.[0]
     if (typeof elev !== 'number' || !Number.isFinite(elev)) return null
-    return Math.round(elev * 10) / 10
+    return roundAltMeters(elev)
   } catch {
     return null
   }

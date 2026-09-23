@@ -1614,14 +1614,13 @@ function leafletDivIcon(kind: 'gps' | 'tap' | 'near'): L.DivIcon {
       : kind === 'near'
         ? 'sc-map-ico sc-map-ico--near'
         : 'sc-map-ico sc-map-ico--tap'
-  const size = kind === 'gps' ? 22 : kind === 'near' ? 16 : 18
-  const anchor: [number, number] =
-    kind === 'gps' ? [11, 11] : kind === 'near' ? [8, 8] : [9, 16]
+  // 塗り円統一: 同サイズ・中心アンカー（色のみで区別）
+  const size = 16
   return L.divIcon({
     className: 'sc-leaflet-ico',
     html: `<div class="${cls}" aria-hidden="true"></div>`,
     iconSize: [size, size],
-    iconAnchor: anchor,
+    iconAnchor: [size / 2, size / 2],
   })
 }
 

@@ -330,7 +330,7 @@ export const PLACE_MENU_MAP_NEW_2 = '%マップ新規場所登録～2'
 
 /** %新規場所登録（GPS＋タップ）タイトル1行目 */
 export const PLACE_NEW_CONFIRM_LINE = '新規場所データの登録'
-/** タップ地点に対するリスト内最寄り（ECEF 3D） */
+/** タップ地点に対するリスト内最寄り（ECEF 3D）— マップ下用 */
 export function placeNearest3dHint(
   hit: { name: string; dist3d: number; distHoriz?: number } | null,
 ): string {
@@ -340,6 +340,26 @@ export function placeNearest3dHint(
       ? ` / 水平 ${hit.distHoriz.toFixed(1)}m`
       : ''
   return `最寄り: ${hit.name}（3D ${hit.dist3d.toFixed(1)}m${horiz}）`
+}
+
+/** タイトル行: 最寄場所(名前)　距離xxm */
+export function placeNearestTitleLabel(
+  hit: { name: string; dist3d: number } | null,
+): { namePart: string; distPart: string } {
+  if (!hit) {
+    return { namePart: '最寄場所(—)', distPart: '距離—' }
+  }
+  const name = ellipsizeForNearestTitle(hit.name, 12)
+  return {
+    namePart: `最寄場所(${name})`,
+    distPart: `距離${hit.dist3d.toFixed(1)}m`,
+  }
+}
+
+function ellipsizeForNearestTitle(s: string, maxChars: number): string {
+  const chars = [...String(s ?? '')]
+  if (chars.length <= maxChars) return chars.join('')
+  return `${chars.slice(0, Math.max(1, maxChars - 1)).join('')}…`
 }
 /** 場所一覧→既存場所プレビューのタイトル1行目 */
 export const PLACE_REVIEW_CONFIRM_LINE = '選択した場所データの修正、削除'

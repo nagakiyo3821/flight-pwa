@@ -125,7 +125,7 @@ import {
   PLACE_MENU_HERE,
   PLACE_MENU_NEW,
   PLACE_NEW_CONFIRM_LINE,
-  placeNearest3dHint,
+  placeNearestTitleLabel,
   PLACE_GPS_TO_POINT,
   PLACE_PT_UNDO,
   PLACE_DEFAULT_POSAC,
@@ -1752,7 +1752,11 @@ function askDualPlaceGeo(opts: {
       : PLACE_GPS_TO_POINT
     const undoBtnLabel = PLACE_PT_UNDO
     const undoBtnAria = PLACE_PT_UNDO
-    const titleHtml = `${escapeHtml(titleLine1)}<br/><span class="sc-geopick-title-line"><span class="sc-geopick-title-pair"><span class="sc-map-ico sc-map-ico--gps sc-map-ico--inline" aria-hidden="true"></span><span class="sc-geopick-title-name">${escapeHtml(refTitleLabel)}</span></span><span class="sc-geopick-title-sep">　</span><span class="sc-geopick-title-pair"><span class="sc-map-ico sc-map-ico--tap sc-map-ico--inline" aria-hidden="true"></span>タップ地点</span></span>`
+    const nearestTitleInit = placeNearestTitleLabel(null)
+    const titleNearestHtml = isPlaceReview
+      ? ''
+      : `<br/><span class="sc-geopick-title-line sc-geopick-title-line--near" id="sc-title-nearest"><span class="sc-geopick-title-pair"><span class="sc-map-ico sc-map-ico--near sc-map-ico--inline" aria-hidden="true"></span><span class="sc-geopick-title-name" id="sc-title-nearest-name">${escapeHtml(nearestTitleInit.namePart)}</span></span><span class="sc-geopick-title-sep">　</span><span class="sc-geopick-title-dist" id="sc-title-nearest-dist">${escapeHtml(nearestTitleInit.distPart)}</span></span>`
+    const titleHtml = `${escapeHtml(titleLine1)}<br/><span class="sc-geopick-title-line"><span class="sc-geopick-title-pair"><span class="sc-map-ico sc-map-ico--gps sc-map-ico--inline" aria-hidden="true"></span><span class="sc-geopick-title-name">${escapeHtml(refTitleLabel)}</span></span><span class="sc-geopick-title-sep">　</span><span class="sc-geopick-title-pair"><span class="sc-map-ico sc-map-ico--tap sc-map-ico--inline" aria-hidden="true"></span>タップ地点</span></span>${titleNearestHtml}`
 
     const gpsNums = [
       geoFieldHtml('sc-gps-lat', GPS_LABEL_LAT, String(gps.lat), {
@@ -1810,11 +1814,6 @@ function askDualPlaceGeo(opts: {
           <div class="sc-geopick-map-block">
             <div id="sc-map-pick" class="sc-map-pick sc-map-pick--geopick" role="application" aria-label="位置選択マップ"></div>
             <p class="sc-map-hint" id="sc-map-hint">${escapeHtml(defaultMapHint)}</p>
-            ${
-              isPlaceReview
-                ? ''
-                : '<p class="sc-nearest-hint" id="sc-nearest-hint" aria-live="polite"></p>'
-            }
           </div>
         </div>
         <div class="sc-actions sc-geopick-actions${isPlaceReview ? ' sc-geopick-actions--triple' : ''}">
@@ -1840,7 +1839,8 @@ function askDualPlaceGeo(opts: {
     const adrsEl = root.querySelector<HTMLInputElement>('#sc-adrs')!
     const nameEl = root.querySelector<HTMLInputElement>('#sc-name')!
     const mapHint = root.querySelector<HTMLElement>('#sc-map-hint')
-    const nearestHint = root.querySelector<HTMLElement>('#sc-nearest-hint')
+    const titleNearestName = root.querySelector<HTMLElement>('#sc-title-nearest-name')
+    const titleNearestDist = root.querySelector<HTMLElement>('#sc-title-nearest-dist')
     const undoBtn = root.querySelector<HTMLButtonElement>('#sc-pt-undo')!
     let nameTouched = !!(opts.name?.trim() || isPlaceReview)
 
@@ -1946,22 +1946,23 @@ function askDualPlaceGeo(opts: {
 
     /** タップ地点（橙）更新のたび、キャッシュ上で ECEF 3D 最短を再検出 */
     const refreshNearest = () => {
-      if (isPlaceReview || !nearestHint) return
+      if (isPlaceReview) return
+      const updateTitle = (hit: { name: string; dist3d: number } | null) => {
+        const parts = placeNearestTitleLabel(hit)
+        if (titleNearestName) titleNearestName.textContent = parts.namePart
+        if (titleNearestDist) titleNearestDist.textContent = parts.distPart
+      }
       const lat = parseField(latEl)
       const lng = parseField(lngEl)
       // 標高取得中はフィールド空になるため GPS 高度で暫定照合
       const alt = parseField(altEl) ?? (Number.isFinite(gps.alt) ? gps.alt : undefined)
       if (lat == null || lng == null || alt == null) {
-        nearestHint.textContent = ''
+        updateTitle(null)
         clearNearOverlay()
         return
       }
       const hit = closestPlace3dFromList(placesCache, lat, lng, alt)
-      nearestHint.textContent = placeNearest3dHint(
-        hit
-          ? { name: hit.name, dist3d: hit.dist3d, distHoriz: hit.distHoriz }
-          : null,
-      )
+      updateTitle(hit ? { name: hit.name, dist3d: hit.dist3d } : null)
       if (!hit) {
         clearNearOverlay()
         return

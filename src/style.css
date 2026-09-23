@@ -1075,11 +1075,18 @@ code { font-size: 0.85em; }
   width: 5px;
   height: 5px;
 }
-.sc-map-ico--inline.sc-map-ico--tap {
-  width: 11px;
-  height: 11px;
-  margin-top: 0;
-  border-width: 1px;
+.sc-geopick-title-line--near {
+  color: #2a7a3a;
+  font-weight: 600;
+}
+.sc-geopick-title-dist {
+  white-space: nowrap;
+}
+.sc-map-ico--inline.sc-map-ico--near {
+  width: 12px;
+  height: 12px;
+  border-width: 2px;
+  background: #2a7a3a;
 }
 .sc-leaflet-ico {
   background: transparent !important;

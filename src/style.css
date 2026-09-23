@@ -916,6 +916,10 @@ code { font-size: 0.85em; }
   font-size: 0.68rem;
   line-height: 1.2;
   color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 /* 短い画面でもマップは固定高のまま全体スクロール */
 @media (max-height: 560px) {

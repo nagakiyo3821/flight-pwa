@@ -1332,14 +1332,10 @@ function askMissingGeo(
 
     const mapHint = root.querySelector<HTMLElement>('#sc-map-hint')
     const defaultMapHint = gpsReview
-      ? mapTiles === 'detail'
-        ? 'GPS現在地（位置は変更できません・詳細タイル・拡大可）'
-        : 'GPS現在地（位置は変更できません）'
+      ? 'GPS現在地（位置は変更不可）'
       : mapReg
-        ? mapTiles === 'detail'
-          ? 'タップで緯度・経度・高度・住所をセット（詳細タイル・拡大可）'
-          : 'タップで緯度・経度・高度・住所をセット'
-        : 'マップをタップすると緯度・経度と地表標高をセット'
+        ? 'タップで緯度・経度・高度・住所をセット'
+        : 'タップで緯度・経度と標高をセット'
 
     const fetchElevation = async (
       lat: number,
@@ -1397,7 +1393,7 @@ function askMissingGeo(
         if (req !== adrsReq) return
         if (mapHint) {
           mapHint.textContent =
-            '住所の取得に時間がかかっています…（確定後に手修正も可）'
+            '住所取得が遅いです…（後で手修正可）'
         }
       }, 3000)
       try {
@@ -1827,8 +1823,8 @@ function askDualPlaceGeo(opts: {
     </div>`
 
     const defaultMapHint = isPlaceReview
-      ? `タップで地点を移動（緑＝${ellipsizeText(placeWrapped, 8)}＋精度円／橙＝タップ＋精度円）`
-      : 'タップで地点を移動（青＝GPS／橙＝登録点＋精度円／緑＝最寄り＋精度円）'
+      ? `緑＝場所／橙＝タップ（精度円あり）`
+      : '青＝GPS／橙＝登録／緑＝最寄（精度円あり）'
 
     root.innerHTML = `
       <div class="sc-geopick-stack">
@@ -2132,7 +2128,7 @@ function askDualPlaceGeo(opts: {
         if (req !== adrsReq) return
         if (mapHint) {
           mapHint.textContent =
-            '住所の取得に時間がかかっています…（確定後に手修正も可）'
+            '住所取得が遅いです…（後で手修正可）'
         }
       }, 3000)
       try {

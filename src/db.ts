@@ -590,7 +590,7 @@ export async function findNearestPlace(
 
 /**
  * 場所リストから ECEF 直線距離が最短の1件（POSAC/ALTAC は見ない）。
- * 緯度・経度・高度が揃わない行はスキップ。同期・キャッシュ向け。
+ * 緯度・経度必須。高度欠落時はタップ高度を代用（＝ほぼ水平距離）。
  */
 export function closestPlace3dFromList(
   places: Array<PlaceRecord & { name: string }>,
@@ -604,11 +604,13 @@ export function closestPlace3dFromList(
     const { name, ...place } = row
     const plat = Number(place.DATA1)
     const plng = Number(place.DATA2)
-    const palt = Number(place.DATA3)
-    if (![plat, plng, palt].every((n) => Number.isFinite(n))) continue
+    if (![plat, plng].every((n) => Number.isFinite(n))) continue
+    const rawAlt = Number(place.DATA3)
+    // 高度未設定のダミー等はタップ高度で埋める（3D ≈ 水平）
+    const palt = Number.isFinite(rawAlt) ? rawAlt : alt
     const dist3d = ecefDistanceM(lat, lng, alt, plat, plng, palt)
     const distHoriz = haversineM(lat, lng, plat, plng)
-    const altDiff = Math.abs(alt - palt)
+    const altDiff = Number.isFinite(rawAlt) ? Math.abs(alt - rawAlt) : 0
     if (!best || dist3d < best.dist3d) {
       best = { name, place, dist3d, distHoriz, altDiff }
     }

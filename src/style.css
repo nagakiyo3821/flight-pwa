@@ -748,9 +748,18 @@ code { font-size: 0.85em; }
   flex: 0 0 auto;
   font-size: clamp(0.76rem, 2.4vw, 0.84rem);
   font-weight: 600;
-  line-height: 1.35;
+  line-height: 1.2;
   overflow-wrap: anywhere;
   max-width: 100%;
+}
+.sc-geopick-title-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.02rem;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 .sc-geopick-title-sep {
   margin: 0 0.05rem;
@@ -1092,15 +1101,15 @@ code { font-size: 0.85em; }
 .sc-geopick-title-line--near {
   display: flex;
   flex-wrap: nowrap;
-  align-items: baseline;
+  align-items: center;
   gap: 0.15rem;
   max-width: 100%;
   min-width: 0;
-  /* 3行目: 最寄場所は他タイトルと同じ字号、距離のみ縮小、アイコン以外は黒 */
+  /* 3行目: 最寄場所は他タイトルと同じ字号、距離のみ入力字号、アイコン以外は黒 */
   color: var(--ink);
   font-size: inherit;
   font-weight: 600;
-  line-height: inherit;
+  line-height: 1.2;
   overflow: hidden;
 }
 .sc-geopick-title-near-text {

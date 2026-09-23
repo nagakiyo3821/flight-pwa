@@ -119,10 +119,7 @@ import {
   PLACE_EDIT_DEL,
   PLACE_EDIT_MAP,
   PLACE_EDIT_PROMPT,
-  PLACE_HERE_NEW,
-  PLACE_HERE_SKIP,
   PLACE_MENU_BACK,
-  PLACE_MENU_HERE,
   PLACE_MENU_NEW,
   PLACE_NEW_CONFIRM_LINE,
   placeNearestTitleLabel,
@@ -182,7 +179,6 @@ import {
   parenData,
   placeDecisionCopy,
   placeEditCopyCmd,
-  placeHereCopy,
   targetDataLine,
 } from './ui-strings'
 import { fetchWeatherSet } from './weather'
@@ -3699,7 +3695,6 @@ async function renderPlaces(): Promise<void> {
   const names = await listPlaceNames()
   const rows = [
     { id: 'back', text: PLACE_MENU_BACK },
-    { id: 'here', text: PLACE_MENU_HERE },
     { id: 'newplace', text: PLACE_MENU_NEW },
     ...names.map((n) => ({ id: `p:${n}`, text: n })),
   ]
@@ -3736,11 +3731,6 @@ async function onPlaceMenu(id: string): Promise<void> {
   if (id === 'back') {
     view = 'menu'
     placeEditName = null
-    await render()
-    return
-  }
-  if (id === 'here') {
-    await runPlaceHereSearch()
     await render()
     return
   }
@@ -3823,73 +3813,6 @@ async function onPlaceMenu(id: string): Promise<void> {
     view = 'places'
     flashMsg = `${PLACE_REVIEW_UPDATE_MSG_PREFIX}(${newName})`
     await render()
-  }
-}
-
-/** 場所管理の %現在地検索（登録しない／新規のみ。検索結果名での上書きはしない） */
-async function runPlaceHereSearch(): Promise<void> {
-  const msg = () => app.querySelector('#msg')
-  try {
-    msg()!.textContent = '位置情報を取得中…'
-    const coords = await resolveLatLngAlt()
-    if (!coords) {
-      flashMsg = '位置入力をキャンセルしました'
-      return
-    }
-    const { lat, lng, alt } = coords
-    msg()!.textContent = '住所・場所を照合中…'
-    const [geo, hit] = await Promise.all([
-      reverseGeocode(lat, lng),
-      findNearestPlace(lat, lng, alt),
-    ])
-    const addrFetchFailed = !geo.address
-    const curAdrs = geo.address || hit?.place.ADRS || ''
-    const newName = hit
-      ? await nextDerivedPlaceName(hit.name)
-      : curAdrs.trim() || '新規'
-
-    await showMapDialog(lat, lng, alt)
-
-    const copy = placeHereCopy({
-      curAdrs,
-      lat,
-      lng,
-      alt,
-      hitName: hit?.name ?? '',
-      hitAdrs: hit?.place.ADRS ?? '',
-      posDif: hit ? hit.dist.toFixed(1) : '',
-      altDif: hit ? hit.altDiff.toFixed(1) : '',
-      newName,
-    })
-    const detail = addrFetchFailed
-      ? `${copy.detail}\n\n${addressFailMessage(geo.status)}`
-      : copy.detail
-    const selected = await chooseFromList(copy.title, [PLACE_HERE_SKIP, PLACE_HERE_NEW], {
-      withBackButton: false,
-      detail,
-    })
-    if (!selected || selected === PLACE_HERE_SKIP) {
-      flashMsg = '場所登録をキャンセルしました'
-      return
-    }
-    const entered = await askNewPlaceName(newName)
-    if (!entered) {
-      flashMsg = '場所登録をキャンセルしました'
-      return
-    }
-    await upsertPlace(entered, {
-      lat,
-      lng,
-      alt,
-      adrs: curAdrs,
-      posac: PLACE_DEFAULT_POSAC,
-      altac: PLACE_DEFAULT_ALTAC,
-    })
-    placeEditName = entered
-    view = 'place-edit'
-    flashMsg = `${PLACE_NEW_DONE_MSG_PREFIX}(${entered})`
-  } catch (e) {
-    flashMsg = `失敗: ${(e as Error).message}`
   }
 }
 

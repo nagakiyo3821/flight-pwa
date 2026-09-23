@@ -1831,8 +1831,8 @@ function askDualPlaceGeo(opts: {
     </div>`
 
     const defaultMapHint = isPlaceReview
-      ? `タップで地点を移動（緑＝${ellipsizeText(placeWrapped, 8)}＋精度円／橙＝タップ地点）`
-      : 'タップで地点を移動（青＝GPS／橙＝登録点／緑＝最寄り＋精度円）'
+      ? `タップで地点を移動（緑＝${ellipsizeText(placeWrapped, 8)}＋精度円／橙＝タップ＋精度円）`
+      : 'タップで地点を移動（青＝GPS／橙＝登録点＋精度円／緑＝最寄り＋精度円）'
 
     root.innerHTML = `
       <div class="sc-geopick-stack">
@@ -1887,6 +1887,7 @@ function askDualPlaceGeo(opts: {
     let preEditSnap: PtSnap | null = null
     let map: L.Map | undefined
     let ptMarker: L.Marker | undefined
+    let ptCircle: L.Circle | undefined
     let nearMarker: L.Marker | undefined
     let nearCircle: L.Circle | undefined
     let nearCenter: L.LatLng | null = null
@@ -1903,6 +1904,11 @@ function askDualPlaceGeo(opts: {
       return isRequiredNumber(v) ? Number(v) : undefined
     }
 
+    const readPosacM = (): number => {
+      const posac = parseField(posacEl)
+      return posac != null && posac > 0 ? posac : Number(PLACE_DEFAULT_POSAC)
+    }
+
     const syncNearIconVisibility = () => {
       if (!map || !nearMarker || !nearCenter) return
       // 地理 bounds よりコンテナ座標の方が「画面に見えている」判定に近い
@@ -1917,10 +1923,13 @@ function askDualPlaceGeo(opts: {
     }
 
     const redrawNearCircle = () => {
+      if (ptCircle) ptCircle.redraw()
       if (nearCircle) {
         nearCircle.redraw()
         nearCircle.bringToFront()
       }
+      if (ptCircle) ptCircle.bringToFront()
+      if (ptMarker) ptMarker.setZIndexOffset(600)
       if (nearMarker) nearMarker.setZIndexOffset(650)
       syncNearIconVisibility()
     }
@@ -1972,13 +1981,34 @@ function askDualPlaceGeo(opts: {
       redrawNearCircle()
     }
 
+    /** タップ地点（橙）: 画面の位置精度mを半径とする円 */
+    const setPtAccuracyCircle = (lat: number, lng: number) => {
+      if (!map) return
+      const radius = readPosacM()
+      if (!nearRenderer) {
+        nearRenderer = L.svg({ padding: 1 })
+      }
+      if (ptCircle) {
+        ptCircle.remove()
+        ptCircle = undefined
+      }
+      ptCircle = L.circle([lat, lng], {
+        radius,
+        color: '#c45c26',
+        weight: 2,
+        opacity: 0.75,
+        fillColor: '#c45c26',
+        fillOpacity: 0.18,
+        interactive: false,
+        renderer: nearRenderer,
+      }).addTo(map)
+      redrawNearCircle()
+    }
+
     /** 場所修正: 登録地点の POSAC 円をフォーム値で更新 */
     const syncPlaceReviewOverlay = () => {
       if (!isPlaceReview) return
-      const posac = parseField(posacEl)
-      const posacM =
-        posac != null && posac > 0 ? posac : Number(PLACE_DEFAULT_POSAC)
-      setNearOverlay(gps.lat, gps.lng, posacM)
+      setNearOverlay(gps.lat, gps.lng, readPosacM())
     }
 
     /** タップ地点（橙）更新のたび、キャッシュ上で ECEF 3D 最短を再検出 */
@@ -2034,6 +2064,7 @@ function askDualPlaceGeo(opts: {
       } else {
         ptMarker.setLatLng([lat, lng])
       }
+      setPtAccuracyCircle(lat, lng)
       if (pan) map.panTo([lat, lng])
     }
 
@@ -2282,8 +2313,13 @@ function askDualPlaceGeo(opts: {
         }
       })
       el.addEventListener('change', () => {
-        if (el === posacEl && isPlaceReview) {
-          syncPlaceReviewOverlay()
+        if (el === posacEl) {
+          if (isPlaceReview) syncPlaceReviewOverlay()
+          const lat = parseField(latEl)
+          const lng = parseField(lngEl)
+          if (lat != null && lng != null && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+            setPtAccuracyCircle(lat, lng)
+          }
           return
         }
         if (el !== latEl && el !== lngEl && el !== altEl) return

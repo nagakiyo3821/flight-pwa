@@ -2161,6 +2161,12 @@ function askDualPlaceGeo(opts: {
     const fitMap = () => {
       if (!map) return
       fitGeopickMapHeight(map, mapEl, root)
+      // 向き変更でコンテナ寸法が変わってもタップ地点が画面中央になるよう再寄せ
+      const lat = parseField(latEl)
+      const lng = parseField(lngEl)
+      if (lat != null && lng != null && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+        map.setView([lat, lng], map.getZoom(), { animate: false })
+      }
       redrawNearCircle()
     }
     /** キーボード開閉では高さ固定。向き変更などは window.resize で再計測 */
@@ -2168,19 +2174,30 @@ function askDualPlaceGeo(opts: {
     const onVisualViewport = () => {
       if (!map) return
       const locked = Number(mapEl.dataset.geopickMapH || 0)
+      const layoutKey = `${window.innerWidth}x${Math.round(window.innerHeight)}`
+      const layoutChanged =
+        !!mapEl.dataset.geopickLayoutKey &&
+        mapEl.dataset.geopickLayoutKey !== layoutKey
       const vv = window.visualViewport?.height
       const keyboardOpen =
         vv != null && Number.isFinite(vv) && vv < window.innerHeight - 72
-      if (keyboardOpen && locked > 0) {
+      if (keyboardOpen && locked > 0 && !layoutChanged) {
         applyGeopickMapPixelHeight(map, mapEl, locked)
         return
       }
       fitMap()
     }
+    const onOrientation = () => {
+      // iOS は orientationchange 直後は寸法が古いことがある
+      window.setTimeout(fitMap, 50)
+      window.setTimeout(fitMap, 200)
+      window.setTimeout(fitMap, 400)
+    }
     requestAnimationFrame(() => fitMap())
     setTimeout(() => fitMap(), 80)
     setTimeout(() => fitMap(), 250)
     window.addEventListener('resize', onWindowResize)
+    window.addEventListener('orientationchange', onOrientation)
     window.visualViewport?.addEventListener('resize', onVisualViewport)
 
     root.querySelector('#sc-gps-to-pt')!.addEventListener('click', () => {
@@ -2264,6 +2281,7 @@ function askDualPlaceGeo(opts: {
       if (done) return
       done = true
       window.removeEventListener('resize', onWindowResize)
+      window.removeEventListener('orientationchange', onOrientation)
       window.visualViewport?.removeEventListener('resize', onVisualViewport)
       map?.remove()
       closeDialogSafely(root, () => resolve(value))

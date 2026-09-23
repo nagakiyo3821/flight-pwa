@@ -1073,6 +1073,15 @@ code { font-size: 0.85em; }
 .sc-btn-gps-copy:active {
   background: #d5e8f7;
 }
+/* 場所修正: 登録地点コピー（最寄りと同色） */
+.sc-btn-gps-copy--near {
+  color: #2a7a3a;
+  background: #e8f5ea;
+  border: 1px solid #b5d9bc;
+}
+.sc-btn-gps-copy--near:active {
+  background: #d5ebd9;
+}
 .sc-btn-pt-undo {
   color: #c45c26;
   background: #fdf0e8;

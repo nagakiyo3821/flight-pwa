@@ -1005,11 +1005,13 @@ function wireNumericLastGoodRevert(
   })
 }
 
-function dualGeoLabelHtml(kind: 'gps' | 'tap', text: string): string {
+function dualGeoLabelHtml(kind: 'gps' | 'tap' | 'near', text: string): string {
   const ico =
     kind === 'gps'
       ? '<span class="sc-map-ico sc-map-ico--gps sc-map-ico--inline" aria-hidden="true"></span>'
-      : '<span class="sc-map-ico sc-map-ico--tap sc-map-ico--inline" aria-hidden="true"></span>'
+      : kind === 'near'
+        ? '<span class="sc-map-ico sc-map-ico--near sc-map-ico--inline" aria-hidden="true"></span>'
+        : '<span class="sc-map-ico sc-map-ico--tap sc-map-ico--inline" aria-hidden="true"></span>'
   return `${ico}<span class="sc-geo-field-label-text">${escapeHtml(text)}</span>`
 }
 
@@ -1734,7 +1736,7 @@ function applyGeopickMapPixelHeight(
 /**
  * %新規場所登録用: GPS（固定）＋タップ地点（移動可）の二重ポイント UI。
  * 確定値はタップ地点の緯度・経度・高度＋住所・精度。
- * placeRef: 既存場所の確認（青＝登録地点・場所名表示）。確定で座標等を返す。
+ * placeRef: 既存場所の確認（緑＝登録地点・場所名表示＋POSAC 円）。確定で座標等を返す。
  */
 function askDualPlaceGeo(opts: {
   gps: { lat: number; lng: number; alt: number }
@@ -1743,7 +1745,7 @@ function askDualPlaceGeo(opts: {
   altac?: string
   /** 場所欄の初期値 */
   name?: string
-  /** 既存場所プレビュー（青側・コピーボタンを場所名表示） */
+  /** 既存場所プレビュー（緑側・コピーボタンを場所名表示） */
   placeRef?: { name: string }
 }): Promise<DualPlaceGeoResult> {
   return new Promise((resolve) => {
@@ -1762,7 +1764,11 @@ function askDualPlaceGeo(opts: {
       ? PLACE_REVIEW_CONFIRM_LINE
       : PLACE_NEW_CONFIRM_LINE
     const refTitleLabel = isPlaceReview ? placeWrapped : '現在地(GPS)'
-    // プレビュー: 青＝場所(名前) / 橙＝タップ地点を戻す（従来どおり）
+    const refIcoKind = isPlaceReview ? 'near' : 'gps'
+    const refIcoClass = isPlaceReview
+      ? 'sc-map-ico sc-map-ico--near sc-map-ico--inline'
+      : 'sc-map-ico sc-map-ico--gps sc-map-ico--inline'
+    // プレビュー: 緑＝場所(名前) / 橙＝タップ地点を戻す
     const refBtnLabel = isPlaceReview
       ? ellipsizeText(placeWrapped, 12)
       : '現在地(GPS)'
@@ -1775,20 +1781,20 @@ function askDualPlaceGeo(opts: {
     const titleNearestHtml = isPlaceReview
       ? ''
       : `<span class="sc-geopick-title-line sc-geopick-title-line--near" id="sc-title-nearest"><span class="sc-geopick-title-ico" aria-hidden="true"><span class="sc-map-ico sc-map-ico--near sc-map-ico--inline"></span></span><span class="sc-geopick-title-near-text">最寄場所(<span class="sc-geopick-title-near-name" id="sc-title-nearest-name">${escapeHtml(nearestTitleInit.name)}</span>)</span><span class="sc-geopick-title-dist" id="sc-title-nearest-dist">${escapeHtml(nearestTitleInit.distPart)}</span></span>`
-    const titleHtml = `<span class="sc-geopick-title-stack"><span class="sc-geopick-title-line sc-geopick-title-line--main">${escapeHtml(titleLine1)}</span><span class="sc-geopick-title-line sc-geopick-title-line--gps-tap"><span class="sc-geopick-title-ico" aria-hidden="true"><span class="sc-map-ico sc-map-ico--gps sc-map-ico--inline"></span></span><span class="sc-geopick-title-label">${escapeHtml(refTitleLabel)}</span><span class="sc-geopick-title-pair sc-geopick-title-pair--tap"><span class="sc-map-ico sc-map-ico--tap sc-map-ico--inline" aria-hidden="true"></span>タップ地点</span></span>${titleNearestHtml}</span>`
+    const titleHtml = `<span class="sc-geopick-title-stack"><span class="sc-geopick-title-line sc-geopick-title-line--main">${escapeHtml(titleLine1)}</span><span class="sc-geopick-title-line sc-geopick-title-line--gps-tap"><span class="sc-geopick-title-ico" aria-hidden="true"><span class="${refIcoClass}"></span></span><span class="sc-geopick-title-label">${escapeHtml(refTitleLabel)}</span><span class="sc-geopick-title-pair sc-geopick-title-pair--tap"><span class="sc-map-ico sc-map-ico--tap sc-map-ico--inline" aria-hidden="true"></span>タップ地点</span></span>${titleNearestHtml}</span>`
 
     const gpsNums = [
       geoFieldHtml('sc-gps-lat', GPS_LABEL_LAT, String(gps.lat), {
         fill: true,
-        labelHtml: dualGeoLabelHtml('gps', GPS_LABEL_LAT),
+        labelHtml: dualGeoLabelHtml(refIcoKind, GPS_LABEL_LAT),
       }),
       geoFieldHtml('sc-gps-lng', GPS_LABEL_LNG, String(gps.lng), {
         fill: true,
-        labelHtml: dualGeoLabelHtml('gps', GPS_LABEL_LNG),
+        labelHtml: dualGeoLabelHtml(refIcoKind, GPS_LABEL_LNG),
       }),
       geoFieldHtml('sc-gps-alt', GPS_LABEL_ALT, String(gps.alt), {
         fill: true,
-        labelHtml: dualGeoLabelHtml('gps', GPS_LABEL_ALT),
+        labelHtml: dualGeoLabelHtml(refIcoKind, GPS_LABEL_ALT),
       }),
     ].join('')
     const ptNums = [
@@ -1806,11 +1812,14 @@ function askDualPlaceGeo(opts: {
       }),
     ].join('')
     const initialName = String(opts.name ?? '').trim() || placeNamePrefill(opts.adrs ?? '')
+    const refCopyBtnClass = isPlaceReview
+      ? 'sc-btn-gps-copy sc-btn-gps-copy--near'
+      : 'sc-btn-gps-copy'
     const fieldsHtml = `<div class="sc-geo-fields--geopick">
       <div class="sc-geo-fields--geopick-nums">${gpsNums}</div>
       <div class="sc-geo-fields--geopick-nums">${ptNums}</div>
       <div class="sc-geo-dual-btns">
-        <button type="button" class="sc-btn-gps-copy" id="sc-gps-to-pt" aria-label="${escapeHtml(refBtnAria)}"><span class="sc-map-ico sc-map-ico--gps sc-map-ico--inline" aria-hidden="true"></span><span class="sc-btn-gps-copy-label">${escapeHtml(refBtnLabel)}</span></button>
+        <button type="button" class="${refCopyBtnClass}" id="sc-gps-to-pt" aria-label="${escapeHtml(refBtnAria)}"><span class="${refIcoClass}" aria-hidden="true"></span><span class="sc-btn-gps-copy-label">${escapeHtml(refBtnLabel)}</span></button>
         <button type="button" class="sc-btn-pt-undo" id="sc-pt-undo" aria-label="${escapeHtml(undoBtnAria)}" disabled><span class="sc-map-ico sc-map-ico--tap sc-map-ico--inline" aria-hidden="true"></span><span class="sc-btn-gps-copy-label">${escapeHtml(undoBtnLabel)}</span></button>
       </div>
       <div class="sc-geo-fields--geopick-acc">
@@ -1822,7 +1831,7 @@ function askDualPlaceGeo(opts: {
     </div>`
 
     const defaultMapHint = isPlaceReview
-      ? `タップで地点を移動（青＝${ellipsizeText(placeWrapped, 8)}／橙＝タップ地点）`
+      ? `タップで地点を移動（緑＝${ellipsizeText(placeWrapped, 8)}＋精度円／橙＝タップ地点）`
       : 'タップで地点を移動（青＝GPS／橙＝登録点／緑＝最寄り＋精度円）'
 
     root.innerHTML = `
@@ -1929,7 +1938,7 @@ function askDualPlaceGeo(opts: {
     }
 
     const setNearOverlay = (lat: number, lng: number, posacM: number) => {
-      if (!map || isPlaceReview) return
+      if (!map) return
       const radius = Number.isFinite(posacM) && posacM > 0 ? posacM : Number(PLACE_DEFAULT_POSAC)
       nearCenter = L.latLng(lat, lng)
       if (!nearRenderer) {
@@ -1961,6 +1970,15 @@ function askDualPlaceGeo(opts: {
         nearMarker.setZIndexOffset(650)
       }
       redrawNearCircle()
+    }
+
+    /** 場所修正: 登録地点の POSAC 円をフォーム値で更新 */
+    const syncPlaceReviewOverlay = () => {
+      if (!isPlaceReview) return
+      const posac = parseField(posacEl)
+      const posacM =
+        posac != null && posac > 0 ? posac : Number(PLACE_DEFAULT_POSAC)
+      setNearOverlay(gps.lat, gps.lng, posacM)
     }
 
     /** タップ地点（橙）更新のたび、キャッシュ上で ECEF 3D 最短を再検出 */
@@ -2154,18 +2172,24 @@ function askDualPlaceGeo(opts: {
       bounceAtZoomLimits: false,
     }).setView([gps.lat, gps.lng], JP_MAP_VIEW_ZOOM)
     mountGsiLayers(map, mapTiles)
-    L.marker([gps.lat, gps.lng], {
-      icon: leafletDivIcon('gps'),
-      interactive: false,
-      zIndexOffset: 400,
-    }).addTo(map)
+    if (isPlaceReview) {
+      syncPlaceReviewOverlay()
+    } else {
+      L.marker([gps.lat, gps.lng], {
+        icon: leafletDivIcon('gps'),
+        interactive: false,
+        zIndexOffset: 400,
+      }).addTo(map)
+    }
     setPtMarker(gps.lat, gps.lng, false)
     map.on('moveend', redrawNearCircle)
     map.on('zoomend', redrawNearCircle)
-    void listPlaces().then((rows) => {
-      placesCache = rows
-      refreshNearest()
-    })
+    if (!isPlaceReview) {
+      void listPlaces().then((rows) => {
+        placesCache = rows
+        refreshNearest()
+      })
+    }
 
     map.on('click', (e: L.LeafletMouseEvent) => {
       rememberUndoFrom(readPtSnap())
@@ -2258,6 +2282,10 @@ function askDualPlaceGeo(opts: {
         }
       })
       el.addEventListener('change', () => {
+        if (el === posacEl && isPlaceReview) {
+          syncPlaceReviewOverlay()
+          return
+        }
         if (el !== latEl && el !== lngEl && el !== altEl) return
         const lat = parseField(latEl)
         const lng = parseField(lngEl)

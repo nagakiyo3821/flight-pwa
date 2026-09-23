@@ -1959,11 +1959,11 @@ function askDualPlaceGeo(opts: {
       }
       nearCircle = L.circle(nearCenter, {
         radius,
-        color: '#2a7a3a',
+        color: '#2ecc71',
         weight: 2,
-        opacity: 0.75,
-        fillColor: '#2a7a3a',
-        fillOpacity: 0.22,
+        opacity: 0.8,
+        fillColor: '#2ecc71',
+        fillOpacity: 0.2,
         interactive: false,
         renderer: nearRenderer,
       }).addTo(map)
@@ -1993,11 +1993,11 @@ function askDualPlaceGeo(opts: {
       }
       ptCircle = L.circle([lat, lng], {
         radius,
-        color: '#c45c26',
+        color: '#ff7a3d',
         weight: 2,
-        opacity: 0.75,
-        fillColor: '#c45c26',
-        fillOpacity: 0.18,
+        opacity: 0.8,
+        fillColor: '#ff7a3d',
+        fillOpacity: 0.16,
         interactive: false,
         renderer: nearRenderer,
       }).addTo(map)

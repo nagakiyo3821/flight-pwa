@@ -945,10 +945,10 @@ code { font-size: 0.85em; }
   color: var(--muted);
 }
 .sc-geo-dual-row--gps .sc-geo-dual-label {
-  color: #0b6bcb;
+  color: #2b9bff;
 }
 .sc-geo-dual-row--pt .sc-geo-dual-label {
-  color: #c45c26;
+  color: #ff7a3d;
 }
 .sc-geopick-title-line {
   display: inline-flex;
@@ -1058,29 +1058,29 @@ code { font-size: 0.85em; }
   min-width: 0;
 }
 .sc-btn-gps-copy {
-  color: #0b6bcb;
-  background: #e8f2fb;
-  border: 1px solid #b7d4ef;
+  color: #1a86e8;
+  background: #e5f4ff;
+  border: 1px solid #9dceff;
 }
 .sc-btn-gps-copy:active {
-  background: #d5e8f7;
+  background: #cfe9ff;
 }
 /* 場所修正: 登録地点コピー（最寄りと同色） */
 .sc-btn-gps-copy--near {
-  color: #2a7a3a;
-  background: #e8f5ea;
-  border: 1px solid #b5d9bc;
+  color: #1aad5a;
+  background: #e6fbef;
+  border: 1px solid #9ae6b8;
 }
 .sc-btn-gps-copy--near:active {
-  background: #d5ebd9;
+  background: #cff5de;
 }
 .sc-btn-pt-undo {
-  color: #c45c26;
-  background: #fdf0e8;
-  border: 1px solid #efc9b0;
+  color: #e86a2e;
+  background: #fff0e8;
+  border: 1px solid #ffc4a3;
 }
 .sc-btn-pt-undo:active:not(:disabled) {
-  background: #f8e0d0;
+  background: #ffe0cc;
 }
 .sc-btn-pt-undo:disabled {
   opacity: 0.45;
@@ -1105,20 +1105,20 @@ code { font-size: 0.85em; }
   box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.9), 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 .sc-map-ico--gps {
-  background: #0b6bcb;
+  background: #2b9bff;
 }
 .sc-map-ico--tap {
-  background: #c45c26;
+  background: #ff7a3d;
 }
 .sc-map-ico--near {
-  background: #2a7a3a;
+  background: #2ecc71;
 }
 .sc-nearest-hint {
   margin: 0.15rem 0 0;
   flex: 0 0 auto;
   font-size: 0.72rem;
   line-height: 1.25;
-  color: #2a7a3a;
+  color: #1aad5a;
   font-weight: 600;
 }
 .sc-map-ico--inline {

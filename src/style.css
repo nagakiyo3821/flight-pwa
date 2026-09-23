@@ -746,7 +746,8 @@ code { font-size: 0.85em; }
   margin: 0;
   padding: 0;
   flex: 0 0 auto;
-  font-size: clamp(0.76rem, 2.4vw, 0.84rem);
+  /* 1行目（新規場所〜）の基準サイズ。2行目以降は一段小さくする */
+  font-size: clamp(0.86rem, 2.7vw, 0.98rem);
   font-weight: 600;
   line-height: 1.2;
   overflow-wrap: anywhere;
@@ -953,11 +954,11 @@ code { font-size: 0.85em; }
   gap: 0.15rem 0.35rem;
 }
 .sc-geopick-title-line--main {
-  font-size: clamp(0.82rem, 2.6vw, 0.92rem);
+  font-size: 1em;
   font-weight: 600;
   line-height: 1.25;
 }
-/* GPS行・最寄行: タイトルより一段小さく、アイコン列と文言列を揃える */
+/* GPS行・最寄行: 先頭タイトルより一段小さく、アイコン列と文言列を揃える */
 .sc-geopick-title-line--gps-tap,
 .sc-geopick-title-line--near {
   display: grid;
@@ -967,7 +968,7 @@ code { font-size: 0.85em; }
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
-  font-size: clamp(0.68rem, 2.1vw, 0.74rem);
+  font-size: 0.82em;
   font-weight: 600;
   line-height: 1.25;
   color: var(--ink);

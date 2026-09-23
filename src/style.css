@@ -943,6 +943,16 @@ code { font-size: 0.85em; }
   align-items: center;
   gap: 0.15rem 0.35rem;
 }
+.sc-geopick-title-line--gps-tap {
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  max-width: 100%;
+  gap: 0.35rem;
+  box-sizing: border-box;
+}
 .sc-geopick-title-pair {
   display: inline-flex;
   align-items: center;
@@ -950,6 +960,10 @@ code { font-size: 0.85em; }
   white-space: nowrap;
   max-width: 100%;
   min-width: 0;
+}
+.sc-geopick-title-pair--tap {
+  margin-left: auto;
+  flex: 0 0 auto;
 }
 .sc-geopick-title-name {
   overflow: hidden;
@@ -1113,8 +1127,8 @@ code { font-size: 0.85em; }
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
   color: var(--ink);
-  /* 数値入力欄ラベル相当に縮小（m単位丸めは JS） */
-  font-size: 0.68rem;
+  /* 緯度・経度・高度の数値入力と同じ字号 */
+  font-size: 16px;
   font-weight: 400;
   line-height: 1.2;
 }

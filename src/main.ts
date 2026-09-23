@@ -1661,6 +1661,7 @@ function ellipsizeText(raw: string, maxChars: number): string {
  * geopick 地図の高さを決める。
  * 余り高さを地図が埋めて確定ボタン直上まで寄せる。
  * キーボード表示で visualViewport が縮んでも、初回確定の高さを維持する。
+ * 画面の向き／サイズが変わったときはロックを破棄して再計測する。
  */
 function fitGeopickMapHeight(
   map: L.Map,
@@ -1670,11 +1671,14 @@ function fitGeopickMapHeight(
   const locked = Number(mapEl.dataset.geopickMapH || 0)
   const vv = window.visualViewport?.height
   const layoutH = window.innerHeight
+  const layoutKey = `${window.innerWidth}x${Math.round(layoutH)}`
+  const prevKey = mapEl.dataset.geopickLayoutKey || ''
+  const layoutChanged = prevKey !== '' && prevKey !== layoutKey
   const keyboardOpen =
     vv != null && Number.isFinite(vv) && vv < layoutH - 72
 
-  // キーボード表示中は高さ再計算せず、確定済みサイズを維持
-  if (keyboardOpen && locked > 0) {
+  // キーボード表示中は高さ再計算せず（向き変更時は除く）
+  if (keyboardOpen && locked > 0 && !layoutChanged) {
     applyGeopickMapPixelHeight(map, mapEl, locked)
     return
   }
@@ -1683,7 +1687,7 @@ function fitGeopickMapHeight(
   const hint = root.querySelector<HTMLElement>(
     '.sc-geopick-map-block .sc-map-hint, #sc-map-hint',
   )
-  // 下限のみ。上限は画面の約半分まで広げ、マップ下の空きを無くす
+  // フロアのみ。上限は画面の約半分まで広げ、マップ下の空きを無くす
   const floor = Math.round(Math.min(120, Math.max(88, layoutH * 0.12)))
   const ceil = Math.round(Math.min(layoutH * 0.52, 480))
   let h = floor
@@ -1692,8 +1696,9 @@ function fitGeopickMapHeight(
     h = Math.floor(block.clientHeight - hintH - 2)
   }
   h = Math.max(floor, Math.min(ceil, h))
-  // 一度決めた高さより縮めない（キーボード閉じ後の再計測では拡大のみ可）
-  if (locked > 0) h = Math.max(h, locked)
+  // 同一レイアウト時のみ拡大ロック。向き変更では縮みも許可
+  if (!layoutChanged && locked > 0) h = Math.max(h, locked)
+  mapEl.dataset.geopickLayoutKey = layoutKey
   mapEl.dataset.geopickMapH = String(h)
   applyGeopickMapPixelHeight(map, mapEl, h)
 }

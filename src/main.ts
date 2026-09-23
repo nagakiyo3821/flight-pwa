@@ -22,6 +22,7 @@ import {
   findNearestPlace,
   closestPlace3dFromList,
   listPlaces,
+  parsePlaceCoord,
   getCurrentPosition,
   getMeta,
   getPlace,
@@ -1876,7 +1877,12 @@ function askDualPlaceGeo(opts: {
 
     const syncNearIconVisibility = () => {
       if (!map || !nearMarker || !nearCenter) return
-      const visible = map.getBounds().contains(nearCenter)
+      // 地理 bounds よりコンテナ座標の方が「画面に見えている」判定に近い
+      const pt = map.latLngToContainerPoint(nearCenter)
+      const size = map.getSize()
+      const pad = 8
+      const visible =
+        pt.x >= -pad && pt.y >= -pad && pt.x <= size.x + pad && pt.y <= size.y + pad
       const el = nearMarker.getElement()
       if (el) el.style.display = visible ? '' : 'none'
       nearMarker.setOpacity(visible ? 1 : 0)
@@ -1887,6 +1893,7 @@ function askDualPlaceGeo(opts: {
         nearCircle.redraw()
         nearCircle.bringToFront()
       }
+      if (nearMarker) nearMarker.setZIndexOffset(650)
       syncNearIconVisibility()
     }
 
@@ -1909,29 +1916,30 @@ function askDualPlaceGeo(opts: {
       if (!nearRenderer) {
         nearRenderer = L.svg({ padding: 1 })
       }
-      if (!nearCircle) {
-        nearCircle = L.circle(nearCenter, {
-          radius,
-          color: '#2a7a3a',
-          weight: 2,
-          opacity: 0.75,
-          fillColor: '#2a7a3a',
-          fillOpacity: 0.22,
-          interactive: false,
-          renderer: nearRenderer,
-        }).addTo(map)
-      } else {
-        nearCircle.setLatLng(nearCenter)
-        nearCircle.setRadius(radius)
+      // setLatLng だけだと SVG クリップ状態が残ることがあるため作り直す
+      if (nearCircle) {
+        nearCircle.remove()
+        nearCircle = undefined
       }
+      nearCircle = L.circle(nearCenter, {
+        radius,
+        color: '#2a7a3a',
+        weight: 2,
+        opacity: 0.75,
+        fillColor: '#2a7a3a',
+        fillOpacity: 0.22,
+        interactive: false,
+        renderer: nearRenderer,
+      }).addTo(map)
       if (!nearMarker) {
         nearMarker = L.marker(nearCenter, {
           icon: leafletDivIcon('near'),
           interactive: false,
-          zIndexOffset: 350,
+          zIndexOffset: 650,
         }).addTo(map)
       } else {
         nearMarker.setLatLng(nearCenter)
+        nearMarker.setZIndexOffset(650)
       }
       redrawNearCircle()
     }
@@ -1950,17 +1958,17 @@ function askDualPlaceGeo(opts: {
       }
       const hit = closestPlace3dFromList(placesCache, lat, lng, alt)
       nearestHint.textContent = placeNearest3dHint(
-        hit ? { name: hit.name, dist3d: hit.dist3d } : null,
+        hit
+          ? { name: hit.name, dist3d: hit.dist3d, distHoriz: hit.distHoriz }
+          : null,
       )
       if (!hit) {
         clearNearOverlay()
         return
       }
-      const plat = Number(hit.place.DATA1)
-      const plng = Number(hit.place.DATA2)
-      const posac = Number(hit.place.POSAC) || Number(PLACE_DEFAULT_POSAC)
-      if (Number.isFinite(plat) && Number.isFinite(plng)) setNearOverlay(plat, plng, posac)
-      else clearNearOverlay()
+      const posac = parsePlaceCoord(hit.place.POSAC)
+      const posacM = Number.isFinite(posac) && posac > 0 ? posac : Number(PLACE_DEFAULT_POSAC)
+      setNearOverlay(hit.plat, hit.plng, posacM)
     }
 
     const readPtSnap = (): PtSnap | null => {

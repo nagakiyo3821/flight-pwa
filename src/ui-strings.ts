@@ -332,10 +332,14 @@ export const PLACE_MENU_MAP_NEW_2 = '%マップ新規場所登録～2'
 export const PLACE_NEW_CONFIRM_LINE = '新規場所データの登録'
 /** タップ地点に対するリスト内最寄り（ECEF 3D） */
 export function placeNearest3dHint(
-  hit: { name: string; dist3d: number } | null,
+  hit: { name: string; dist3d: number; distHoriz?: number } | null,
 ): string {
   if (!hit) return '最寄り: （登録場所なし）'
-  return `最寄り: ${hit.name}（3D ${hit.dist3d.toFixed(1)}m）`
+  const horiz =
+    hit.distHoriz != null && Number.isFinite(hit.distHoriz)
+      ? ` / 水平 ${hit.distHoriz.toFixed(1)}m`
+      : ''
+  return `最寄り: ${hit.name}（3D ${hit.dist3d.toFixed(1)}m${horiz}）`
 }
 /** 場所一覧→既存場所プレビューのタイトル1行目 */
 export const PLACE_REVIEW_CONFIRM_LINE = '選択した場所データの修正、削除'

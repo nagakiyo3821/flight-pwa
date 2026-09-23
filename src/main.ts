@@ -1755,7 +1755,7 @@ function askDualPlaceGeo(opts: {
     const nearestTitleInit = placeNearestTitleLabel(null)
     const titleNearestHtml = isPlaceReview
       ? ''
-      : `<br/><span class="sc-geopick-title-line sc-geopick-title-line--near" id="sc-title-nearest"><span class="sc-geopick-title-pair"><span class="sc-map-ico sc-map-ico--near sc-map-ico--inline" aria-hidden="true"></span><span class="sc-geopick-title-name" id="sc-title-nearest-name">${escapeHtml(nearestTitleInit.namePart)}</span></span><span class="sc-geopick-title-sep">　</span><span class="sc-geopick-title-dist" id="sc-title-nearest-dist">${escapeHtml(nearestTitleInit.distPart)}</span></span>`
+      : `<br/><span class="sc-geopick-title-line sc-geopick-title-line--near" id="sc-title-nearest"><span class="sc-map-ico sc-map-ico--near sc-map-ico--inline" aria-hidden="true"></span><span class="sc-geopick-title-near-text">最寄場所(<span class="sc-geopick-title-near-name" id="sc-title-nearest-name">${escapeHtml(nearestTitleInit.name)}</span>)</span><span class="sc-geopick-title-sep">　</span><span class="sc-geopick-title-dist" id="sc-title-nearest-dist">${escapeHtml(nearestTitleInit.distPart)}</span></span>`
     const titleHtml = `${escapeHtml(titleLine1)}<br/><span class="sc-geopick-title-line"><span class="sc-geopick-title-pair"><span class="sc-map-ico sc-map-ico--gps sc-map-ico--inline" aria-hidden="true"></span><span class="sc-geopick-title-name">${escapeHtml(refTitleLabel)}</span></span><span class="sc-geopick-title-sep">　</span><span class="sc-geopick-title-pair"><span class="sc-map-ico sc-map-ico--tap sc-map-ico--inline" aria-hidden="true"></span>タップ地点</span></span>${titleNearestHtml}`
 
     const gpsNums = [
@@ -1949,7 +1949,7 @@ function askDualPlaceGeo(opts: {
       if (isPlaceReview) return
       const updateTitle = (hit: { name: string; dist3d: number } | null) => {
         const parts = placeNearestTitleLabel(hit)
-        if (titleNearestName) titleNearestName.textContent = parts.namePart
+        if (titleNearestName) titleNearestName.textContent = parts.name
         if (titleNearestDist) titleNearestDist.textContent = parts.distPart
       }
       const lat = parseField(latEl)

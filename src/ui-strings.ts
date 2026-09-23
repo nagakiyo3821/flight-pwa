@@ -342,24 +342,17 @@ export function placeNearest3dHint(
   return `最寄り: ${hit.name}（3D ${hit.dist3d.toFixed(1)}m${horiz}）`
 }
 
-/** タイトル行: 最寄場所(名前)　距離xxm */
+/** タイトル行: 最寄場所(名前)　xxm（m単位丸め） */
 export function placeNearestTitleLabel(
   hit: { name: string; dist3d: number } | null,
-): { namePart: string; distPart: string } {
+): { name: string; distPart: string } {
   if (!hit) {
-    return { namePart: '最寄場所(—)', distPart: '距離—' }
+    return { name: '—', distPart: '—' }
   }
-  const name = ellipsizeForNearestTitle(hit.name, 12)
   return {
-    namePart: `最寄場所(${name})`,
-    distPart: `距離${hit.dist3d.toFixed(1)}m`,
+    name: String(hit.name ?? '').trim() || '—',
+    distPart: `${Math.round(hit.dist3d)}m`,
   }
-}
-
-function ellipsizeForNearestTitle(s: string, maxChars: number): string {
-  const chars = [...String(s ?? '')]
-  if (chars.length <= maxChars) return chars.join('')
-  return `${chars.slice(0, Math.max(1, maxChars - 1)).join('')}…`
 }
 /** 場所一覧→既存場所プレビューのタイトル1行目 */
 export const PLACE_REVIEW_CONFIRM_LINE = '選択した場所データの修正、削除'

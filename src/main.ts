@@ -1661,7 +1661,7 @@ function ellipsizeText(raw: string, maxChars: number): string {
  * geopick 地図の高さを決める。
  * 余り高さを地図が埋めて確定ボタン直上まで寄せる。
  * キーボード表示で visualViewport が縮んでも、初回確定の高さを維持する。
- * 画面の向き／サイズが変わったときはロックを破棄して再計測する。
+ * 横画面では縦で決めたマップ高さを維持（画面はスクロール可）。
  */
 function fitGeopickMapHeight(
   map: L.Map,
@@ -1671,7 +1671,9 @@ function fitGeopickMapHeight(
   const locked = Number(mapEl.dataset.geopickMapH || 0)
   const vv = window.visualViewport?.height
   const layoutH = window.innerHeight
-  const layoutKey = `${window.innerWidth}x${Math.round(layoutH)}`
+  const layoutW = window.innerWidth
+  const isLandscape = layoutW > layoutH
+  const layoutKey = `${layoutW}x${Math.round(layoutH)}`
   const prevKey = mapEl.dataset.geopickLayoutKey || ''
   const layoutChanged = prevKey !== '' && prevKey !== layoutKey
   const keyboardOpen =
@@ -1696,8 +1698,20 @@ function fitGeopickMapHeight(
     h = Math.floor(block.clientHeight - hintH - 2)
   }
   h = Math.max(floor, Math.min(ceil, h))
-  // 同一レイアウト時のみ拡大ロック。向き変更では縮みも許可
-  if (!layoutChanged && locked > 0) h = Math.max(h, locked)
+
+  if (isLandscape && locked > 0) {
+    // 横画面: 縦表示で確保した高さを維持（低くしない）
+    h = locked
+  } else if (isLandscape) {
+    // 横で開いた場合も短辺基準にしない（長い辺の約45%）
+    const longSide = Math.max(layoutW, layoutH)
+    const landscapeTarget = Math.round(Math.min(longSide * 0.45, 480))
+    h = Math.max(h, landscapeTarget)
+  } else if (!layoutChanged && locked > 0) {
+    // 縦・同一レイアウト: キーボード対策で拡大のみ
+    h = Math.max(h, locked)
+  }
+
   mapEl.dataset.geopickLayoutKey = layoutKey
   mapEl.dataset.geopickMapH = String(h)
   applyGeopickMapPixelHeight(map, mapEl, h)

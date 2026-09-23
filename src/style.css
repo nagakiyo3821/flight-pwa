@@ -1167,10 +1167,11 @@ code { font-size: 0.85em; }
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
   color: var(--ink);
-  /* 緯度・経度・高度の数値入力と同じ字号 */
-  font-size: 16px;
+  /* 緯度・経度・高度の数値入力（geopick-nums）と同じ 14px */
+  font-size: 14px;
   font-weight: 400;
   line-height: 1.2;
+  letter-spacing: -0.03em;
 }
 .sc-map-ico--inline.sc-map-ico--near {
   width: 12px;

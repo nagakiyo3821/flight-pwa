@@ -19,8 +19,9 @@ import {
   exportPos,
   exportSettings,
   exportTmp,
-  findNearestPlace,
   closestPlace3dFromList,
+  findClosestPlace3d,
+  isInsideNearestPosac,
   listPlaces,
   parsePlaceCoord,
   getCurrentPosition,
@@ -93,8 +94,8 @@ import {
   GPS_LABEL_NAME,
   GPS_LABEL_POSAC,
   GPS_LABEL_ALTAC,
-  LANDING_UPDATE_OK,
-  LANDING_UPDATE_PROMPT,
+  LANDING_CANCEL_MSG,
+  LANDING_PLACE_CONFIRM_LINE,
   MAP_DONE,
   MAP_PROMPT,
   ITEM_BACK,
@@ -107,10 +108,6 @@ import {
   NET_FAIL_ADDRESS_TIMEOUT,
   NET_FAIL_ELEVATION,
   NET_FAIL_WEATHER,
-  PLACE_CHOICE_HIT,
-  PLACE_CHOICE_LIST,
-  PLACE_CHOICE_NEW,
-  PLACE_CHOICE_SKIP,
   PLACE_NAME_PROMPT,
   PLACE_DEL_BACK,
   PLACE_DEL_OK,
@@ -122,6 +119,8 @@ import {
   PLACE_MENU_BACK,
   PLACE_MENU_NEW,
   PLACE_NEW_CONFIRM_LINE,
+  TAKEOFF_CANCEL_MSG,
+  TAKEOFF_PLACE_CONFIRM_LINE,
   placeNearestTitleLabel,
   PLACE_GPS_TO_POINT,
   PLACE_PT_UNDO,
@@ -137,7 +136,6 @@ import {
   PLACE_REVIEW_DEL_DONE_PREFIX,
   PLACE_REVIEW_UPDATE_MSG_PREFIX,
   PLACE_NEW_DONE_MSG_PREFIX,
-  PLACE_UPDATE_BACK,
   REC_DEL_BACK,
   REC_DEL_OK,
   REC_DEL_PROMPT,
@@ -159,8 +157,6 @@ import {
   GOOGLE_PUSH,
   GOOGLE_SYNC,
   SYS_DATA_TITLE,
-  TAKEOFF_UPDATE_OK,
-  TAKEOFF_UPDATE_PROMPT,
   TIMER_RESET_LATER,
   TIMER_RESET_OK,
   TIMER_RESET_PROMPT,
@@ -177,7 +173,6 @@ import {
   newaPrompt,
   newbPrompt,
   parenData,
-  placeDecisionCopy,
   placeEditCopyCmd,
   targetDataLine,
 } from './ui-strings'
@@ -617,55 +612,6 @@ function chooseFromList(
         e.stopPropagation()
         const i = Number(btn.dataset.choice)
         finish(choices[i] ?? '')
-      })
-    })
-    root.querySelector('#sc-back')?.addEventListener('click', (e) => {
-      e.preventDefault()
-      e.stopPropagation()
-      finish(null)
-    })
-  })
-}
-
-/** id 付きリスト選択（離着陸の場所決定など文言依存を避ける） */
-function chooseFromListIds(
-  prompt: string,
-  choices: { id: string; label: string }[],
-  opts: { withBackButton?: boolean; detail?: string } = { withBackButton: true },
-): Promise<string | null> {
-  return new Promise((resolve) => {
-    const root = openDialogRoot()
-    const promptHtml = escapeHtml(prompt).replace(/\n/g, '<br/>')
-    const detailHtml = opts.detail
-      ? escapeHtml(opts.detail).replace(/\n/g, '<br/>')
-      : ''
-    const withBack = opts.withBackButton !== false
-    const listHtml = `
-      <div class="menu sc-choice-list">
-        ${choices
-          .map(
-            (c) =>
-              `<button type="button" class="menu-btn" data-id="${escapeHtml(c.id)}">${escapeHtml(c.label)}</button>`,
-          )
-          .join('')}
-      </div>`
-    root.innerHTML = dialogShell(
-      promptHtml,
-      listHtml,
-      withBack ? dialogActions({ back: true }) : '',
-      detailHtml,
-    )
-    let done = false
-    const finish = (value: string | null) => {
-      if (done) return
-      done = true
-      closeDialogSafely(root, () => resolve(value))
-    }
-    root.querySelectorAll<HTMLButtonElement>('[data-id]').forEach((btn) => {
-      btn.addEventListener('click', (e) => {
-        e.preventDefault()
-        e.stopPropagation()
-        finish(btn.dataset.id ?? '')
       })
     })
     root.querySelector('#sc-back')?.addEventListener('click', (e) => {
@@ -1146,6 +1092,8 @@ function askMissingGeo(
     extraPrefill?: { adrs?: string; posac?: string; altac?: string }
     /** 地図タイル: classic=従来 / detail=詳細縮小（既定 classic） */
     mapTiles?: GsiTileMode
+    /** 見出し差し替え（離陸／着陸）。未指定は位置入力の従来文言 */
+    titleLine?: string
   },
 ): Promise<LatLngAlt | null> {
   return new Promise((resolve) => {
@@ -1154,7 +1102,8 @@ function askMissingGeo(
     const gpsReview = !!opts?.gpsReview
     const geopick = mapReg || gpsReview
     const mapTiles: GsiTileMode = opts?.mapTiles ?? 'classic'
-    const promptHtml = escapeHtml(gpsMissingPrompt(need, opts)).replace(/\n/g, '<br/>')
+    const promptText = String(opts?.titleLine ?? '').trim() || gpsMissingPrompt(need, opts)
+    const promptHtml = escapeHtml(promptText).replace(/\n/g, '<br/>')
     const showMap = need.lat && need.lng
     const fieldPrefill = mapReg ? {} : prefill
     const parts: string[] = []
@@ -1739,6 +1688,8 @@ function askDualPlaceGeo(opts: {
   name?: string
   /** 既存場所プレビュー（緑側・コピーボタンを場所名表示） */
   placeRef?: { name: string }
+  /** 新規登録時のタイトル1行目。未指定は「新規場所データの登録」 */
+  titleLine?: string
 }): Promise<DualPlaceGeoResult> {
   return new Promise((resolve) => {
     const root = openDialogRoot()
@@ -1754,7 +1705,7 @@ function askDualPlaceGeo(opts: {
     const placeWrapped = isPlaceReview ? `場所(${placeRefName})` : ''
     const titleLine1 = isPlaceReview
       ? PLACE_REVIEW_CONFIRM_LINE
-      : PLACE_NEW_CONFIRM_LINE
+      : String(opts.titleLine ?? '').trim() || PLACE_NEW_CONFIRM_LINE
     const refTitleLabel = isPlaceReview ? placeWrapped : '現在地(GPS)'
     const refIcoKind = isPlaceReview ? 'near' : 'gps'
     const refIcoClass = isPlaceReview
@@ -2020,13 +1971,7 @@ function askDualPlaceGeo(opts: {
     ) => {
       if (nameTouched || isPlaceReview) return
       const req = ++autoPlaceNameReq
-      let inside = false
-      if (hit) {
-        const posac = parsePlaceCoord(hit.place.POSAC)
-        const posacM =
-          Number.isFinite(posac) && posac > 0 ? posac : Number(PLACE_DEFAULT_POSAC)
-        inside = hit.distHoriz < posacM
-      }
+      const inside = !!hit && isInsideNearestPosac(hit, Number(PLACE_DEFAULT_POSAC))
       if (inside && hit) {
         const stem = String(hit.name).replace(/_\d+$/, '').trim() || '新規'
         const cur = String(nameEl.value ?? '').trim()
@@ -2904,148 +2849,69 @@ async function askNewPlaceName(initial: string): Promise<string | null> {
 
 async function runTakeoffLanding(action: 'takeoff' | 'landing'): Promise<void> {
   const msg = () => app.querySelector('#msg')
+  const cancelMsg = action === 'takeoff' ? TAKEOFF_CANCEL_MSG : LANDING_CANCEL_MSG
+  const titleLine =
+    action === 'takeoff' ? TAKEOFF_PLACE_CONFIRM_LINE : LANDING_PLACE_CONFIRM_LINE
   try {
-    const meta = await getMeta()
-    const flag = action === 'takeoff' ? meta.tmp.DATA2 : meta.tmp.DATA3
-    // FLAG=1（場所のみ更新）は確認ダイアログ
-    if (flag === '1') {
-      const prompt = action === 'takeoff' ? TAKEOFF_UPDATE_PROMPT : LANDING_UPDATE_PROMPT
-      const okLabel = action === 'takeoff' ? TAKEOFF_UPDATE_OK : LANDING_UPDATE_OK
-      const sel = await chooseFromList(prompt, [okLabel, PLACE_UPDATE_BACK], {
-        withBackButton: false,
-      })
-      if (!sel || sel === PLACE_UPDATE_BACK || !sel.includes('更新')) {
-        await render()
-        return
-      }
-    }
-
-    msg()!.textContent = '位置情報を取得中…'
-    const { rec } = await getWorking()
-    const initial =
-      action === 'takeoff'
-        ? { lat: rec.A_DATA1, lng: rec.A_DATA2, alt: rec.A_DATA3 }
-        : { lat: rec.B_DATA1, lng: rec.B_DATA2, alt: rec.B_DATA3 }
-    const coords = await resolveLatLngAlt(initial)
+    const coords = await pickPlaceRegistrationGeo({
+      titleLine,
+      status: (text) => {
+        const el = msg()
+        if (el) el.textContent = text
+      },
+    })
     if (!coords) {
-      msg()!.textContent = '位置入力をキャンセルしました'
-      await render()
-      return
-    }
-    const { lat, lng, alt } = coords
-
-    msg()!.textContent = '住所・場所を照合中…'
-    const [geo, hit] = await Promise.all([
-      reverseGeocode(lat, lng),
-      findNearestPlace(lat, lng, alt),
-    ])
-    const addrFetchFailed = !geo.address
-    const curAdrs = geo.address || hit?.place.ADRS || ''
-    const newName = hit
-      ? await nextDerivedPlaceName(hit.name)
-      : curAdrs.trim() || '新規'
-
-    await showMapDialog(lat, lng, alt)
-
-    const copy = placeDecisionCopy({
-      curPos: '',
-      curAdrs,
-      lat,
-      lng,
-      alt,
-      hitName: hit?.name ?? '',
-      hitAdrs: hit?.place.ADRS ?? '',
-      posDif: hit ? hit.dist.toFixed(1) : '',
-      altDif: hit ? hit.altDiff.toFixed(1) : '',
-      newName,
-    })
-    const detail = addrFetchFailed
-      ? `${copy.detail}\n\n${addressFailMessage(geo.status)}`
-      : copy.detail
-    const title = copy.title
-    const choiceItems = hit
-      ? [
-          { id: 'skip', label: PLACE_CHOICE_SKIP },
-          { id: 'hit', label: PLACE_CHOICE_HIT },
-          { id: 'new', label: PLACE_CHOICE_NEW },
-          { id: 'list', label: PLACE_CHOICE_LIST },
-        ]
-      : [
-          { id: 'skip', label: PLACE_CHOICE_SKIP },
-          { id: 'new', label: '2.新規生成の場所名で登録' },
-          { id: 'list', label: '3.場所リストから選択登録' },
-        ]
-
-    const selected = await chooseFromListIds(title, choiceItems, {
-      withBackButton: false,
-      detail,
-    })
-    if (!selected || selected === 'skip') {
-      flashMsg = '場所登録をキャンセルしました'
+      flashMsg = cancelMsg
       await render()
       return
     }
 
-    let posName = ''
-    let adrs = curAdrs
-    let saveToMaster = false
+    const hit = await findClosestPlace3d(coords.lat, coords.lng, coords.alt)
+    const inside = !!hit && isInsideNearestPosac(hit, Number(PLACE_DEFAULT_POSAC))
 
-    if (selected === 'hit' && hit) {
+    let lat = coords.lat
+    let lng = coords.lng
+    let alt = coords.alt
+    let adrs = String(coords.adrs ?? '').trim()
+    let posName = String(coords.name ?? '').trim()
+    let usedNearest = false
+
+    if (inside && hit) {
+      const placeAlt = parsePlaceCoord(hit.place.DATA3)
+      lat = hit.plat
+      lng = hit.plng
+      alt = Number.isFinite(placeAlt) ? roundAltMeters(placeAlt) : coords.alt
+      adrs = String(hit.place.ADRS ?? '').trim()
       posName = hit.name
-      adrs = hit.place.ADRS || curAdrs
-    } else if (selected === 'new') {
-      const entered = await askNewPlaceName(newName)
-      if (!entered) {
-        flashMsg = '場所登録をキャンセルしました'
-        await render()
-        return
-      }
-      posName = entered
-      saveToMaster = true
-    } else if (selected === 'list') {
-      const names = await listPlaceNames()
-      if (!names.length) {
-        flashMsg = '場所リストが空です'
-        await render()
-        return
-      }
-      const picked = await chooseFromList('場所を選択してください。', names)
-      if (!picked) {
-        flashMsg = '場所登録をキャンセルしました'
-        await render()
-        return
-      }
-      posName = picked
-      const listed = await getPlace(picked)
-      adrs = listed?.ADRS || curAdrs
+      usedNearest = true
     } else {
-      flashMsg = '場所登録をキャンセルしました'
-      await render()
-      return
-    }
-
-    if (!posName.trim()) {
-      flashMsg = '場所名を決定できませんでした'
-      await render()
-      return
-    }
-
-    if (saveToMaster) {
-      // ショートカット新規登録は POSAC/ALTAC=1
+      if (!posName) {
+        const entered = await askNewPlaceName(placeNamePrefill(adrs))
+        if (!entered) {
+          flashMsg = cancelMsg
+          await render()
+          return
+        }
+        posName = entered
+      }
       await upsertPlace(posName, {
         lat,
         lng,
         alt,
         adrs,
-        posac: PLACE_DEFAULT_POSAC,
-        altac: PLACE_DEFAULT_ALTAC,
+        posac: String(coords.posac ?? PLACE_DEFAULT_POSAC).trim() || PLACE_DEFAULT_POSAC,
+        altac: String(coords.altac ?? PLACE_DEFAULT_ALTAC).trim() || PLACE_DEFAULT_ALTAC,
       })
     }
 
-    const updateTime = flag === '2'
+    const meta = await getMeta()
+    const { rec } = await getWorking()
+    const flag = action === 'takeoff' ? meta.tmp.DATA2 : meta.tmp.DATA3
+    const storedDate = action === 'takeoff' ? rec.A_DATE : rec.B_DATE
+    const updateTime = flag === '2' || !filled(storedDate)
     const when = formatNow()
     if (action === 'takeoff') {
-      if (updateTime || !rec.A_DATE) {
+      if (updateTime) {
         const synced = syncAfterTakeoffDate(when, rec.B_DATE)
         rec.A_DATE = synced.A_DATE
         rec.B_DATE = synced.B_DATE
@@ -3056,7 +2922,7 @@ async function runTakeoffLanding(action: 'takeoff' | 'landing'): Promise<void> {
       rec.A_ADRS = adrs
       rec.A_POS = posName
     } else {
-      if (updateTime || !rec.B_DATE) {
+      if (updateTime) {
         const synced = syncAfterLandingDate(rec.A_DATE, when)
         rec.A_DATE = synced.A_DATE
         rec.B_DATE = synced.B_DATE
@@ -3069,7 +2935,11 @@ async function runTakeoffLanding(action: 'takeoff' | 'landing'): Promise<void> {
     }
     hydrateFlightDurationCache(rec.A_DATE, rec.B_DATE)
     await saveWorking(rec)
-    flashMsg = `${action === 'takeoff' ? '離陸' : '着陸'}を登録しました（${posName}）`
+    const verb = action === 'takeoff' ? '離陸' : '着陸'
+    const placeNote = usedNearest ? `${posName}・最寄地点` : posName
+    flashMsg = updateTime
+      ? `${verb}を登録しました（${placeNote}）`
+      : `${verb}場所を更新しました（${placeNote}・時間は維持）`
     await render()
   } catch (e) {
     flashMsg = `失敗: ${(e as Error).message}`
@@ -3817,91 +3687,108 @@ async function onPlaceMenu(id: string): Promise<void> {
 }
 
 /**
- * %新規場所登録
+ * %新規場所登録と同じ位置取得。
  * 1) GPS 取得 → 二重ポイント UI（GPS固定＋タップ移動）
- * 2) GPS 不可 → 従来のマップタップのみ（detail タイル）
- * 確定後は名称入力→登録
+ * 2) GPS 不可 → マップタップのみ（detail タイル）
+ * キャンセル・高度入力の中止は null。titleLine は離陸／着陸の見出し差し替え用。
+ */
+async function pickPlaceRegistrationGeo(opts?: {
+  titleLine?: string
+  status?: (text: string) => void
+}): Promise<LatLngAlt | null> {
+  const status = opts?.status ?? (() => {})
+  status('GPS現在地を取得中…')
+  let gpsLat: number | undefined
+  let gpsLng: number | undefined
+  let gpsAlt: number | undefined
+  let gpsAltAcc: number | undefined
+
+  try {
+    const pos = await getCurrentPosition()
+    const c = pos.coords
+    if (isFiniteNum(c.latitude)) gpsLat = c.latitude
+    if (isFiniteNum(c.longitude)) gpsLng = c.longitude
+    if (c.altitude != null && isFiniteNum(c.altitude)) gpsAlt = roundAltMeters(c.altitude)
+    if (c.altitudeAccuracy != null && isFiniteNum(c.altitudeAccuracy)) {
+      gpsAltAcc = c.altitudeAccuracy
+    }
+  } catch {
+    // GPS 失敗 → マップのみ
+  }
+
+  let coords: DualPlaceGeoResult = null
+
+  if (gpsLat != null && gpsLng != null) {
+    const round8 = (n: number) => Math.round(n * 1e8) / 1e8
+    gpsLat = round8(gpsLat)
+    gpsLng = round8(gpsLng)
+    status('標高を確認中…')
+    const resolved = await resolveGpsOrDemAltitude(gpsLat, gpsLng, gpsAlt, gpsAltAcc)
+    if (resolved) gpsAlt = resolved.alt
+    if (gpsAlt == null || !Number.isFinite(gpsAlt)) {
+      status('高度の不足分を入力…')
+      const filledAlt = await resolveLatLngAlt({
+        lat: String(gpsLat),
+        lng: String(gpsLng),
+      })
+      if (!filledAlt) return null
+      gpsLat = filledAlt.lat
+      gpsLng = filledAlt.lng
+      gpsAlt = filledAlt.alt
+    }
+
+    status('住所を取得中…')
+    const geo = await reverseGeocode(gpsLat, gpsLng)
+    const adrs = String(geo.address ?? '').trim()
+
+    status('位置を確認…')
+    coords = await askDualPlaceGeo({
+      gps: { lat: gpsLat, lng: gpsLng, alt: gpsAlt },
+      adrs,
+      posac: PLACE_DEFAULT_POSAC,
+      altac: PLACE_DEFAULT_ALTAC,
+      titleLine: opts?.titleLine,
+    })
+  } else {
+    let mapCenter: { lat: number; lng: number } | undefined
+    const home = await getPlace('自宅')
+    if (home) {
+      const lat = Number(home.DATA1)
+      const lng = Number(home.DATA2)
+      if (Number.isFinite(lat) && Number.isFinite(lng)) mapCenter = { lat, lng }
+    }
+    status('マップで登録点を選択…（GPSなし）')
+    coords = await askMissingGeo(
+      {},
+      { lat: true, lng: true, alt: true },
+      undefined,
+      {
+        mapRegister: true,
+        mapCenter,
+        mapTiles: 'detail',
+        titleLine: opts?.titleLine,
+      },
+    )
+  }
+
+  if (!coords || coords === 'deleted' || coords === 'delete-cancelled') return null
+  return coords
+}
+
+/**
+ * %新規場所登録
+ * 位置画面は pickPlaceRegistrationGeo。確定後は名称があればそのまま、無ければ入力して pos 登録。
  */
 async function runPlaceNewRegister(): Promise<void> {
   const msg = () => app.querySelector('#msg')
   try {
-    msg()!.textContent = 'GPS現在地を取得中…'
-    let gpsLat: number | undefined
-    let gpsLng: number | undefined
-    let gpsAlt: number | undefined
-    let gpsAltAcc: number | undefined
-
-    try {
-      const pos = await getCurrentPosition()
-      const c = pos.coords
-      if (isFiniteNum(c.latitude)) gpsLat = c.latitude
-      if (isFiniteNum(c.longitude)) gpsLng = c.longitude
-      if (c.altitude != null && isFiniteNum(c.altitude)) gpsAlt = roundAltMeters(c.altitude)
-      if (c.altitudeAccuracy != null && isFiniteNum(c.altitudeAccuracy)) {
-        gpsAltAcc = c.altitudeAccuracy
-      }
-    } catch {
-      // GPS 失敗 → マップのみ
-    }
-
-    let coords: DualPlaceGeoResult = null
-
-    if (gpsLat != null && gpsLng != null) {
-      const round8 = (n: number) => Math.round(n * 1e8) / 1e8
-      gpsLat = round8(gpsLat)
-      gpsLng = round8(gpsLng)
-      msg()!.textContent = '標高を確認中…'
-      const resolved = await resolveGpsOrDemAltitude(
-        gpsLat,
-        gpsLng,
-        gpsAlt,
-        gpsAltAcc,
-      )
-      if (resolved) gpsAlt = resolved.alt
-      if (gpsAlt == null || !Number.isFinite(gpsAlt)) {
-        msg()!.textContent = '高度の不足分を入力…'
-        const filled = await resolveLatLngAlt({
-          lat: String(gpsLat),
-          lng: String(gpsLng),
-        })
-        if (!filled) {
-          flashMsg = PLACE_NEW_CANCEL_MSG
-          return
-        }
-        gpsLat = filled.lat
-        gpsLng = filled.lng
-        gpsAlt = filled.alt
-      }
-
-      msg()!.textContent = '住所を取得中…'
-      const geo = await reverseGeocode(gpsLat, gpsLng)
-      const adrs = String(geo.address ?? '').trim()
-
-      msg()!.textContent = '位置を確認…'
-      coords = await askDualPlaceGeo({
-        gps: { lat: gpsLat, lng: gpsLng, alt: gpsAlt },
-        adrs,
-        posac: PLACE_DEFAULT_POSAC,
-        altac: PLACE_DEFAULT_ALTAC,
-      })
-    } else {
-      let mapCenter: { lat: number; lng: number } | undefined
-      const home = await getPlace('自宅')
-      if (home) {
-        const lat = Number(home.DATA1)
-        const lng = Number(home.DATA2)
-        if (Number.isFinite(lat) && Number.isFinite(lng)) mapCenter = { lat, lng }
-      }
-      msg()!.textContent = 'マップで登録点を選択…（GPSなし）'
-      coords = await askMissingGeo(
-        {},
-        { lat: true, lng: true, alt: true },
-        undefined,
-        { mapRegister: true, mapCenter, mapTiles: 'detail' },
-      )
-    }
-
-    if (!coords || coords === 'deleted' || coords === 'delete-cancelled') {
+    const coords = await pickPlaceRegistrationGeo({
+      status: (text) => {
+        const el = msg()
+        if (el) el.textContent = text
+      },
+    })
+    if (!coords) {
       flashMsg = PLACE_NEW_CANCEL_MSG
       return
     }

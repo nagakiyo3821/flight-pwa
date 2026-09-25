@@ -634,6 +634,20 @@ export function closestPlace3dFromList(
   return best
 }
 
+/**
+ * タップ地点が最寄場所の水平位置精度円の内側か。
+ * 画面の自動場所名と同じ（半径未満。境界上は円外）。
+ * POSAC が空または 0 以下のときは defaultPosac。
+ */
+export function isInsideNearestPosac(
+  hit: { distHoriz: number; place: { POSAC?: string } },
+  defaultPosac = 15,
+): boolean {
+  const posac = parsePlaceCoord(hit.place.POSAC)
+  const posacM = Number.isFinite(posac) && posac > 0 ? posac : defaultPosac
+  return hit.distHoriz < posacM
+}
+
 /** IndexedDB から読み、ECEF 最短1件。タップ連打時は `closestPlace3dFromList`＋キャッシュ推奨。 */
 export async function findClosestPlace3d(
   lat: number,

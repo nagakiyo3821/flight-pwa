@@ -330,6 +330,12 @@ export const PLACE_MENU_MAP_NEW_2 = '%マップ新規場所登録～2'
 
 /** %新規場所登録（GPS＋タップ）タイトル1行目 */
 export const PLACE_NEW_CONFIRM_LINE = '新規場所データの登録'
+/** 離陸登録（新規場所と同じ画面）タイトル1行目 */
+export const TAKEOFF_PLACE_CONFIRM_LINE = '離陸場所データの登録'
+/** 着陸登録（新規場所と同じ画面）タイトル1行目 */
+export const LANDING_PLACE_CONFIRM_LINE = '着陸場所データの登録'
+export const TAKEOFF_CANCEL_MSG = '離陸登録をキャンセルしました'
+export const LANDING_CANCEL_MSG = '着陸登録をキャンセルしました'
 /** タップ地点に対するリスト内最寄り（ECEF 3D）— マップ下用 */
 export function placeNearest3dHint(
   hit: { name: string; dist3d: number; distHoriz?: number } | null,

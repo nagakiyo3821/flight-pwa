@@ -9,7 +9,7 @@ status: wip
 
 # 飛行記録 PWA（本番 Phase 1）
 
-フォルダ: `MainVault/DroneLog/flight-pwa/`
+フォルダ: `C:\Projects\flight-pwa`（iCloud の Vault には置かない）
 
 学習用の [[pwa-demo/README|pwa-demo]] とは別。**現行ショートカット互換の JSON**（log / pos / tmp）を端末内（IndexedDB）で扱い、ファイルとして出し入れする本番向け第1弾。
 
@@ -63,7 +63,7 @@ status: wip
 ### PC だけで開発
 
 ```powershell
-cd "c:\Users\owner\iCloudDrive\iCloud~md~obsidian\Vault\MainVault\DroneLog\flight-pwa"
+cd "C:\Projects\flight-pwa"
 npm run dev
 ```
 

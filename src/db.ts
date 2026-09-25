@@ -725,7 +725,7 @@ export async function renamePlace(oldName: string, newName: string): Promise<voi
   })
 }
 
-function haversineM(lat1: number, lng1: number, lat2: number, lng2: number): number {
+export function haversineM(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6378137
   const toR = (d: number) => (d * Math.PI) / 180
   const dLat = toR(lat2 - lat1)

@@ -336,6 +336,11 @@ export const TAKEOFF_PLACE_CONFIRM_LINE = '離陸場所データの登録'
 export const LANDING_PLACE_CONFIRM_LINE = '着陸場所データの登録'
 export const TAKEOFF_CANCEL_MSG = '離陸登録をキャンセルしました'
 export const LANDING_CANCEL_MSG = '着陸登録をキャンセルしました'
+/** 離陸・着陸画面で、最寄の登録場所をその場で直す */
+export const FLIGHT_NEAR_POSAC = '最寄の位置精度m'
+export const FLIGHT_NEAR_MOVE = '座標をタップへ'
+export const FLIGHT_NEAR_EXPAND = '円を広げる'
+export const FLIGHT_NEAR_RESET = '修正を戻す'
 /** タップ地点に対するリスト内最寄り（ECEF 3D）— マップ下用 */
 export function placeNearest3dHint(
   hit: { name: string; dist3d: number; distHoriz?: number } | null,

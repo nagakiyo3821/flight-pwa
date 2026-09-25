@@ -20,7 +20,7 @@ import {
   exportSettings,
   exportTmp,
   closestPlace3dFromList,
-  findClosestPlace3d,
+  haversineM,
   isInsideNearestPosac,
   listPlaces,
   parsePlaceCoord,
@@ -94,6 +94,10 @@ import {
   GPS_LABEL_NAME,
   GPS_LABEL_POSAC,
   GPS_LABEL_ALTAC,
+  FLIGHT_NEAR_EXPAND,
+  FLIGHT_NEAR_MOVE,
+  FLIGHT_NEAR_POSAC,
+  FLIGHT_NEAR_RESET,
   LANDING_CANCEL_MSG,
   LANDING_PLACE_CONFIRM_LINE,
   MAP_DONE,
@@ -865,6 +869,20 @@ type LatLngAlt = {
   altac?: string
   /** %新規場所登録で同一画面入力した場所名 */
   name?: string
+  /**
+   * 離陸・着陸で、精度円の内側として採用した登録場所。
+   * 座標や精度円を画面上で直した場合は adjusted。
+   */
+  nearestAdopted?: {
+    name: string
+    lat: number
+    lng: number
+    alt: number
+    adrs: string
+    posac: string
+    altac: string
+    adjusted: boolean
+  }
 }
 
 /** askDualPlaceGeo の戻り。deleted / delete-cancelled は既存場所プレビュー */
@@ -1690,6 +1708,8 @@ function askDualPlaceGeo(opts: {
   placeRef?: { name: string }
   /** 新規登録時のタイトル1行目。未指定は「新規場所データの登録」 */
   titleLine?: string
+  /** 離陸・着陸。最寄の座標と精度円を同じ画面で直せる */
+  flightSite?: boolean
 }): Promise<DualPlaceGeoResult> {
   return new Promise((resolve) => {
     const root = openDialogRoot()
@@ -1697,6 +1717,7 @@ function askDualPlaceGeo(opts: {
     const mapTiles: GsiTileMode = 'detail'
     const placeRefName = String(opts.placeRef?.name ?? '').trim()
     const isPlaceReview = !!placeRefName
+    const flightSite = !!opts.flightSite && !isPlaceReview
     const gps = {
       lat: Math.round(opts.gps.lat * 1e8) / 1e8,
       lng: Math.round(opts.gps.lng * 1e8) / 1e8,
@@ -1771,6 +1792,18 @@ function askDualPlaceGeo(opts: {
       </div>
       ${geoFieldHtml('sc-adrs', GPS_LABEL_ADRS, opts.adrs ?? '', { fill: true, text: true, textUndo: true })}
       ${geoFieldHtml('sc-name', GPS_LABEL_NAME, initialName, { fill: true, text: true, textUndo: true })}
+      ${
+        flightSite
+          ? `<div class="sc-geo-near-adjust" id="sc-near-adjust" hidden>
+        ${geoFieldHtml('sc-near-posac', FLIGHT_NEAR_POSAC, '', { fill: true })}
+        <div class="sc-geo-dual-btns">
+          <button type="button" class="sc-btn-gps-copy sc-btn-gps-copy--near" id="sc-near-move">${escapeHtml(FLIGHT_NEAR_MOVE)}</button>
+          <button type="button" class="sc-btn-pt-undo" id="sc-near-expand">${escapeHtml(FLIGHT_NEAR_EXPAND)}</button>
+          <button type="button" class="sc-btn-pt-undo" id="sc-near-reset" disabled>${escapeHtml(FLIGHT_NEAR_RESET)}</button>
+        </div>
+      </div>`
+          : ''
+      }
     </div>`
 
     const defaultMapHint = isPlaceReview
@@ -1972,6 +2005,18 @@ function askDualPlaceGeo(opts: {
       if (nameTouched || isPlaceReview) return
       const req = ++autoPlaceNameReq
       const inside = !!hit && isInsideNearestPosac(hit, Number(PLACE_DEFAULT_POSAC))
+      if (flightSite && inside && hit) {
+        nameEl.value = hit.name
+        autoPlaceNameKind = 'derived'
+        nameEl.readOnly = true
+        nameEl.classList.add('sc-input--locked')
+        refreshClearable()
+        return
+      }
+      if (flightSite && !nameTouched) {
+        nameEl.readOnly = false
+        nameEl.classList.remove('sc-input--locked')
+      }
       if (inside && hit) {
         const stem = String(hit.name).replace(/_\d+$/, '').trim() || '新規'
         const cur = String(nameEl.value ?? '').trim()
@@ -1996,6 +2041,64 @@ function askDualPlaceGeo(opts: {
       refreshClearable()
     }
 
+    /** 離陸・着陸: 画面上だけで直している最寄場所。確定で円内ならマスタへ書く */
+    type NearDraft = {
+      name: string
+      lat: number
+      lng: number
+      alt: number
+      adrs: string
+      posac: number
+      altac: string
+      baseLat: number
+      baseLng: number
+      baseAlt: number
+      basePosac: number
+    }
+    let nearDraft: NearDraft | null = null
+    const nearAdjustEl = root.querySelector<HTMLElement>('#sc-near-adjust')
+    const nearPosacEl = root.querySelector<HTMLInputElement>('#sc-near-posac')
+    const nearMoveBtn = root.querySelector<HTMLButtonElement>('#sc-near-move')
+    const nearExpandBtn = root.querySelector<HTMLButtonElement>('#sc-near-expand')
+    const nearResetBtn = root.querySelector<HTMLButtonElement>('#sc-near-reset')
+
+    const nearDirty = (): boolean => {
+      if (!nearDraft) return false
+      const same = (a: number, b: number, eps: number) => Math.abs(a - b) <= eps
+      return !(
+        same(nearDraft.lat, nearDraft.baseLat, 1e-8) &&
+        same(nearDraft.lng, nearDraft.baseLng, 1e-8) &&
+        same(nearDraft.alt, nearDraft.baseAlt, 0.05) &&
+        same(nearDraft.posac, nearDraft.basePosac, 0.05)
+      )
+    }
+
+    const syncNearButtons = (inside: boolean) => {
+      if (nearAdjustEl) nearAdjustEl.hidden = !nearDraft
+      if (nearMoveBtn) nearMoveBtn.disabled = !nearDraft || inside
+      if (nearExpandBtn) nearExpandBtn.disabled = !nearDraft || inside
+      if (nearResetBtn) nearResetBtn.disabled = !nearDirty()
+    }
+
+    const adoptedFromDraft = (): NonNullable<LatLngAlt['nearestAdopted']> | undefined => {
+      if (!flightSite || !nearDraft) return undefined
+      const lat = parseField(latEl)
+      const lng = parseField(lngEl)
+      if (lat == null || lng == null) return undefined
+      const dist = haversineM(lat, lng, nearDraft.lat, nearDraft.lng)
+      if (!(dist < nearDraft.posac)) return undefined
+      return {
+        name: nearDraft.name,
+        lat: nearDraft.lat,
+        lng: nearDraft.lng,
+        alt: nearDraft.alt,
+        adrs: nearDraft.adrs,
+        posac: String(nearDraft.posac),
+        altac: nearDraft.altac || PLACE_DEFAULT_ALTAC,
+        adjusted: nearDirty(),
+      }
+    }
+
     /** タップ地点（橙）更新のたび、キャッシュ上で ECEF 3D 最短を再検出 */
     const refreshNearest = () => {
       if (isPlaceReview) return
@@ -2010,17 +2113,59 @@ function askDualPlaceGeo(opts: {
       const alt = parseField(altEl) ?? (Number.isFinite(gps.alt) ? gps.alt : undefined)
       if (lat == null || lng == null || alt == null) {
         updateTitle(null)
+        nearDraft = null
+        syncNearButtons(false)
         clearNearOverlay()
         void applyAutoPlaceName(null)
         return
       }
       const hit = closestPlace3dFromList(placesCache, lat, lng, alt)
-      updateTitle(hit ? { name: hit.name, dist3d: hit.dist3d } : null)
       if (!hit) {
+        updateTitle(null)
+        nearDraft = null
+        syncNearButtons(false)
         clearNearOverlay()
         void applyAutoPlaceName(null)
         return
       }
+      if (flightSite) {
+        if (!nearDraft || nearDraft.name !== hit.name) {
+          const posacRaw = parsePlaceCoord(hit.place.POSAC)
+          const posacM =
+            Number.isFinite(posacRaw) && posacRaw > 0 ? posacRaw : Number(PLACE_DEFAULT_POSAC)
+          const palt = parsePlaceCoord(hit.place.DATA3)
+          const altN = Number.isFinite(palt) ? roundAltMeters(palt) : alt
+          nearDraft = {
+            name: hit.name,
+            lat: hit.plat,
+            lng: hit.plng,
+            alt: altN,
+            adrs: String(hit.place.ADRS ?? '').trim(),
+            posac: posacM,
+            altac: String(hit.place.ALTAC ?? '').trim() || PLACE_DEFAULT_ALTAC,
+            baseLat: hit.plat,
+            baseLng: hit.plng,
+            baseAlt: altN,
+            basePosac: posacM,
+          }
+          if (nearPosacEl) {
+            nearPosacEl.value = String(posacM)
+            commitNumericLastGood(nearPosacEl)
+          }
+        }
+        const distHoriz = haversineM(lat, lng, nearDraft.lat, nearDraft.lng)
+        updateTitle({ name: nearDraft.name, dist3d: distHoriz })
+        if (titleNearestDist) titleNearestDist.textContent = `水平${Math.round(distHoriz)}m`
+        setNearOverlay(nearDraft.lat, nearDraft.lng, nearDraft.posac)
+        syncNearButtons(distHoriz < nearDraft.posac)
+        void applyAutoPlaceName({
+          name: nearDraft.name,
+          distHoriz,
+          place: { POSAC: String(nearDraft.posac) },
+        })
+        return
+      }
+      updateTitle(hit ? { name: hit.name, dist3d: hit.dist3d } : null)
       const posac = parsePlaceCoord(hit.place.POSAC)
       const posacM = Number.isFinite(posac) && posac > 0 ? posac : Number(PLACE_DEFAULT_POSAC)
       setNearOverlay(hit.plat, hit.plng, posacM)
@@ -2269,6 +2414,58 @@ function askDualPlaceGeo(opts: {
     undoBtn.addEventListener('click', () => {
       undoPoint()
     })
+    if (flightSite && nearPosacEl) {
+      wireNumericLastGoodRevert(nearPosacEl, () => {
+        refreshClearable()
+        refreshNearest()
+      })
+      nearPosacEl.addEventListener('change', () => {
+        if (!nearDraft) return
+        const v = parseField(nearPosacEl)
+        if (v == null || v <= 0) return
+        nearDraft.posac = v
+        refreshNearest()
+      })
+    }
+    nearMoveBtn?.addEventListener('click', () => {
+      if (!nearDraft) return
+      const lat = parseField(latEl)
+      const lng = parseField(lngEl)
+      const alt = parseField(altEl)
+      if (lat == null || lng == null || alt == null) return
+      nearDraft.lat = lat
+      nearDraft.lng = lng
+      nearDraft.alt = roundAltMeters(alt)
+      refreshNearest()
+    })
+    nearExpandBtn?.addEventListener('click', () => {
+      if (!nearDraft) return
+      const lat = parseField(latEl)
+      const lng = parseField(lngEl)
+      if (lat == null || lng == null) return
+      const dist = haversineM(lat, lng, nearDraft.lat, nearDraft.lng)
+      const need = Math.floor(dist) + 1
+      if (need > nearDraft.posac) {
+        nearDraft.posac = need
+        if (nearPosacEl) {
+          nearPosacEl.value = String(need)
+          commitNumericLastGood(nearPosacEl)
+        }
+      }
+      refreshNearest()
+    })
+    nearResetBtn?.addEventListener('click', () => {
+      if (!nearDraft) return
+      nearDraft.lat = nearDraft.baseLat
+      nearDraft.lng = nearDraft.baseLng
+      nearDraft.alt = nearDraft.baseAlt
+      nearDraft.posac = nearDraft.basePosac
+      if (nearPosacEl) {
+        nearPosacEl.value = String(nearDraft.basePosac)
+        commitNumericLastGood(nearPosacEl)
+      }
+      refreshNearest()
+    })
 
     const syncPtMarkerFromFields = () => {
       const lat = parseField(latEl)
@@ -2337,6 +2534,7 @@ function askDualPlaceGeo(opts: {
       if (e.key === 'Escape') finish(null)
     })
     nameEl.addEventListener('input', () => {
+      if (nameEl.readOnly) return
       nameTouched = true
       nameEl.setCustomValidity('')
       const clipped = [...String(nameEl.value ?? '')].slice(0, 20).join('')
@@ -2390,7 +2588,9 @@ function askDualPlaceGeo(opts: {
       }
       adrsEl.setCustomValidity('')
       const checked = await validatePlaceNameCandidate(nameEl.value, {
-        allowExistingName: isPlaceReview ? placeRefName : undefined,
+        allowExistingName: isPlaceReview
+          ? placeRefName
+          : adoptedFromDraft()?.name,
       })
       if (!checked.ok) {
         nameEl.setCustomValidity(checked.err)
@@ -2405,6 +2605,7 @@ function askDualPlaceGeo(opts: {
         posac: String(posac),
         altac: String(altac),
         name: checked.value,
+        nearestAdopted: adoptedFromDraft(),
       })
     }
 
@@ -2855,6 +3056,7 @@ async function runTakeoffLanding(action: 'takeoff' | 'landing'): Promise<void> {
   try {
     const coords = await pickPlaceRegistrationGeo({
       titleLine,
+      flightSite: true,
       status: (text) => {
         const el = msg()
         if (el) el.textContent = text
@@ -2866,8 +3068,7 @@ async function runTakeoffLanding(action: 'takeoff' | 'landing'): Promise<void> {
       return
     }
 
-    const hit = await findClosestPlace3d(coords.lat, coords.lng, coords.alt)
-    const inside = !!hit && isInsideNearestPosac(hit, Number(PLACE_DEFAULT_POSAC))
+    const adopted = coords.nearestAdopted
 
     let lat = coords.lat
     let lng = coords.lng
@@ -2875,14 +3076,25 @@ async function runTakeoffLanding(action: 'takeoff' | 'landing'): Promise<void> {
     let adrs = String(coords.adrs ?? '').trim()
     let posName = String(coords.name ?? '').trim()
     let usedNearest = false
+    let adjustedPlace = false
 
-    if (inside && hit) {
-      const placeAlt = parsePlaceCoord(hit.place.DATA3)
-      lat = hit.plat
-      lng = hit.plng
-      alt = Number.isFinite(placeAlt) ? roundAltMeters(placeAlt) : coords.alt
-      adrs = String(hit.place.ADRS ?? '').trim()
-      posName = hit.name
+    if (adopted) {
+      if (adopted.adjusted) {
+        await upsertPlace(adopted.name, {
+          lat: adopted.lat,
+          lng: adopted.lng,
+          alt: adopted.alt,
+          adrs: adopted.adrs,
+          posac: adopted.posac,
+          altac: adopted.altac,
+        })
+        adjustedPlace = true
+      }
+      lat = adopted.lat
+      lng = adopted.lng
+      alt = adopted.alt
+      adrs = adopted.adrs
+      posName = adopted.name
       usedNearest = true
     } else {
       if (!posName) {
@@ -2936,7 +3148,11 @@ async function runTakeoffLanding(action: 'takeoff' | 'landing'): Promise<void> {
     hydrateFlightDurationCache(rec.A_DATE, rec.B_DATE)
     await saveWorking(rec)
     const verb = action === 'takeoff' ? '離陸' : '着陸'
-    const placeNote = usedNearest ? `${posName}・最寄地点` : posName
+    const placeNote = adjustedPlace
+      ? `${posName}・登録場所を修正`
+      : usedNearest
+        ? `${posName}・最寄地点`
+        : posName
     flashMsg = updateTime
       ? `${verb}を登録しました（${placeNote}）`
       : `${verb}場所を更新しました（${placeNote}・時間は維持）`
@@ -3694,6 +3910,8 @@ async function onPlaceMenu(id: string): Promise<void> {
  */
 async function pickPlaceRegistrationGeo(opts?: {
   titleLine?: string
+  /** 離陸・着陸。最寄の座標と精度円を同じ画面で直せる */
+  flightSite?: boolean
   status?: (text: string) => void
 }): Promise<LatLngAlt | null> {
   const status = opts?.status ?? (() => {})
@@ -3748,6 +3966,7 @@ async function pickPlaceRegistrationGeo(opts?: {
       posac: PLACE_DEFAULT_POSAC,
       altac: PLACE_DEFAULT_ALTAC,
       titleLine: opts?.titleLine,
+      flightSite: opts?.flightSite,
     })
   } else {
     let mapCenter: { lat: number; lng: number } | undefined

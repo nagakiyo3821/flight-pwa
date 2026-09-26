@@ -1633,6 +1633,36 @@ function ellipsizeText(raw: string, maxChars: number): string {
   return `${chars.slice(0, maxChars - 1).join('')}…`
 }
 
+/** 表示幅に収まるよう、文字列の中央を「…」で抜く */
+function middleEllipsizeToWidth(raw: string, maxPx: number, font: string): string {
+  const chars = [...String(raw ?? '')]
+  if (!chars.length || maxPx <= 0) return chars.join('')
+  const canvas = document.createElement('canvas')
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return chars.join('')
+  ctx.font = font
+  const widthOf = (text: string) => ctx.measureText(text).width
+  const full = chars.join('')
+  if (widthOf(full) <= maxPx) return full
+  const ell = '…'
+  let best = ell
+  let lo = 0
+  let hi = chars.length - 1
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1
+    const leftN = Math.ceil(mid / 2)
+    const rightN = mid - leftN
+    const text = `${chars.slice(0, leftN).join('')}${ell}${chars.slice(chars.length - rightN).join('')}`
+    if (widthOf(text) <= maxPx) {
+      best = text
+      lo = mid + 1
+    } else {
+      hi = mid - 1
+    }
+  }
+  return best
+}
+
 /**
  * geopick 地図の高さを決める。
  * 余り高さを地図が埋めて確定ボタン直上まで寄せる。
@@ -1781,11 +1811,11 @@ function askDualPlaceGeo(opts: {
           <span class="sc-flight-point">${mapIco('gps')}<span>現在地点(GPS)</span></span>
           <span class="sc-flight-point">${mapIco('tap')}<span>タップ地点</span></span>
         </div>
-        ${flightBtn('sc-regps', escapeHtml(FLIGHT_REGPS), FLIGHT_REGPS, 'gps')}
+        <span class="sc-flight-two-dist" id="sc-title-nearest-dist">${mapIco('near')}${mapIco('tap')}<span id="sc-title-nearest-dist-val">—</span></span>
       </div>
       <div class="sc-flight-near-row">
-        <span class="sc-flight-near-name">${mapIco('near')}<span>最寄地点(<span id="sc-title-nearest-name">${escapeHtml(nearestTitleInit.name)}</span>)</span></span>
-        <span class="sc-flight-two-dist" id="sc-title-nearest-dist">${mapIco('near')}${mapIco('tap')}<span id="sc-title-nearest-dist-val">—</span></span>
+        <span class="sc-flight-near-name">${mapIco('near')}<span class="sc-flight-near-label">最寄地点(<span id="sc-title-nearest-name">${escapeHtml(nearestTitleInit.name)}</span>)</span></span>
+        ${flightBtn('sc-regps', `${mapIco('gps')}${escapeHtml(FLIGHT_REGPS)}`, `（青）${FLIGHT_REGPS}`, 'gps')}
       </div>
       <div class="sc-flight-grid">
         ${flightBtn('sc-near-move', `${mapIco('near')}へ${mapIco('tap')}をコピー`, FLIGHT_NEAR_MOVE, 'near')}
@@ -1896,6 +1926,30 @@ function askDualPlaceGeo(opts: {
     const titleNearestName = root.querySelector<HTMLElement>('#sc-title-nearest-name')
     const titleNearestDist = root.querySelector<HTMLElement>('#sc-title-nearest-dist')
     const titleNearestDistVal = root.querySelector<HTMLElement>('#sc-title-nearest-dist-val')
+    const fitFlightNearName = () => {
+      if (!flightSite || !titleNearestName) return
+      const full = titleNearestName.dataset.full ?? titleNearestName.textContent ?? ''
+      const label = titleNearestName.closest('.sc-flight-near-label')
+      if (!(label instanceof HTMLElement) || label.clientWidth <= 0) {
+        titleNearestName.textContent = full
+        return
+      }
+      const style = getComputedStyle(label)
+      const canvas = document.createElement('canvas')
+      const ctx = canvas.getContext('2d')
+      ctx && (ctx.font = style.font)
+      const chrome = ctx ? ctx.measureText('最寄地点()').width : 0
+      const avail = Math.max(0, label.clientWidth - chrome)
+      titleNearestName.textContent = middleEllipsizeToWidth(full, avail, style.font)
+    }
+    if (titleNearestName) {
+      titleNearestName.dataset.full = titleNearestName.textContent ?? ''
+      const nearLabel = titleNearestName.closest('.sc-flight-near-label')
+      if (nearLabel instanceof HTMLElement && typeof ResizeObserver !== 'undefined') {
+        const nearNameObs = new ResizeObserver(() => fitFlightNearName())
+        nearNameObs.observe(nearLabel)
+      }
+    }
     const undoBtn = root.querySelector<HTMLButtonElement>('#sc-pt-undo')!
     let nameTouched = !!(opts.name?.trim() || isPlaceReview)
     /** 自動場所名: 円内=派生_xx / 円外=住所。手編集後は触らない */
@@ -2197,7 +2251,14 @@ function askDualPlaceGeo(opts: {
       if (isPlaceReview) return
       const updateTitle = (hit: { name: string; dist3d: number } | null) => {
         const parts = placeNearestTitleLabel(hit)
-        if (titleNearestName) titleNearestName.textContent = parts.name
+        if (titleNearestName) {
+          if (flightSite) {
+            titleNearestName.dataset.full = parts.name
+            fitFlightNearName()
+          } else {
+            titleNearestName.textContent = parts.name
+          }
+        }
         if (flightSite && titleNearestDistVal) {
           titleNearestDistVal.textContent = hit ? formatTwoPointDistance(hit.dist3d) : '—'
         } else if (titleNearestDist) {

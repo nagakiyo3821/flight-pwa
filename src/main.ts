@@ -1743,7 +1743,7 @@ function applyGeopickMapPixelHeight(
  * placeRef: 既存場所の確認（緑＝登録地点・場所名表示＋POSAC 円）。確定で座標等を返す。
  */
 function askDualPlaceGeo(opts: {
-  gps: { lat: number; lng: number; alt: number }
+  gps: { lat: number; lng: number; alt: number; posac?: number }
   adrs?: string
   posac?: string
   altac?: string
@@ -1767,6 +1767,11 @@ function askDualPlaceGeo(opts: {
       lat: Math.round(opts.gps.lat * 1e8) / 1e8,
       lng: Math.round(opts.gps.lng * 1e8) / 1e8,
       alt: roundAltMeters(opts.gps.alt),
+      /** 端末 GPS の水平精度 (m)。コピー時に橙の位置精度へ入れる */
+      posac:
+        opts.gps.posac != null && Number.isFinite(opts.gps.posac) && opts.gps.posac > 0
+          ? String(Math.round(opts.gps.posac * 10) / 10)
+          : '',
     }
     const placeWrapped = isPlaceReview ? `場所(${placeRefName})` : ''
     const titleLine1 = isPlaceReview
@@ -1811,7 +1816,7 @@ function askDualPlaceGeo(opts: {
           <span class="sc-flight-point">${mapIco('gps')}<span>現在地点(GPS)</span></span>
           <span class="sc-flight-point">${mapIco('tap')}<span>タップ地点</span></span>
         </div>
-        <span class="sc-flight-two-dist" id="sc-title-nearest-dist">${mapIco('near')}${mapIco('tap')}<span id="sc-title-nearest-dist-val">—</span></span>
+        <span class="sc-flight-two-dist" id="sc-title-nearest-dist">${mapIco('near')}${mapIco('tap')}<span class="sc-flight-two-dist-label">距離</span><span id="sc-title-nearest-dist-val">—</span></span>
       </div>
       <div class="sc-flight-near-row">
         <span class="sc-flight-near-name">${mapIco('near')}<span class="sc-flight-near-label">最寄地点(<span id="sc-title-nearest-name">${escapeHtml(nearestTitleInit.name)}</span>)</span></span>
@@ -1968,7 +1973,7 @@ function askDualPlaceGeo(opts: {
       }
     }
 
-    type PtSnap = { lat: number; lng: number; alt: number; adrs: string }
+    type PtSnap = { lat: number; lng: number; alt: number; adrs: string; posac: string }
     let undoSnap: PtSnap | null = null
     let preEditSnap: PtSnap | null = null
     let map: L.Map | undefined
@@ -2333,7 +2338,7 @@ function askDualPlaceGeo(opts: {
       const lng = parseField(lngEl)
       const alt = parseField(altEl)
       if (lat == null || lng == null || alt == null) return null
-      return { lat, lng, alt, adrs: String(adrsEl.value ?? '').trim() }
+      return { lat, lng, alt, adrs: String(adrsEl.value ?? '').trim(), posac: String(posacEl.value ?? '').trim() }
     }
 
     const setUndoEnabled = () => {
@@ -2369,11 +2374,20 @@ function askDualPlaceGeo(opts: {
       commitNumericLastGood(lngEl)
     }
 
+    const applyPosacText = (raw: string) => {
+      const text = String(raw ?? '').trim()
+      if (!text) return
+      posacEl.value = text
+      posacEl.setCustomValidity('')
+      commitNumericLastGood(posacEl)
+    }
+
     const applyPtSnap = (snap: PtSnap, pan: boolean) => {
       applyPtLatLng(snap.lat, snap.lng)
       altEl.value = String(snap.alt)
       altEl.setCustomValidity('')
       commitNumericLastGood(altEl)
+      applyPosacText(snap.posac)
       adrsEl.value = snap.adrs
       setPtMarker(snap.lat, snap.lng, pan)
       refreshClearable()
@@ -2471,6 +2485,7 @@ function askDualPlaceGeo(opts: {
       altEl.value = String(gps.alt)
       altEl.setCustomValidity('')
       commitNumericLastGood(altEl)
+      if (flightSite) applyPosacText(gps.posac)
       setPtMarker(gps.lat, gps.lng, true)
       refreshClearable()
       refreshNearest()
@@ -2487,6 +2502,7 @@ function askDualPlaceGeo(opts: {
         altEl.value = String(snap.alt)
         altEl.setCustomValidity('')
         commitNumericLastGood(altEl)
+        applyPosacText(snap.posac)
         setPtMarker(snap.lat, snap.lng, true)
         refreshClearable()
         refreshNearest()
@@ -2522,6 +2538,9 @@ function askDualPlaceGeo(opts: {
         gps.lng = round8(c.longitude)
         const elev = await fetchGroundElevation(gps.lat, gps.lng)
         if (elev != null) gps.alt = roundAltMeters(elev)
+        if (isFiniteNum(c.accuracy) && c.accuracy > 0) {
+          gps.posac = String(Math.round(c.accuracy * 10) / 10)
+        }
         gpsMarker?.setLatLng([gps.lat, gps.lng])
         copyGpsToPoint()
       } catch {
@@ -2619,6 +2638,7 @@ function askDualPlaceGeo(opts: {
       altEl.value = String(nearDraft.alt)
       altEl.setCustomValidity('')
       commitNumericLastGood(altEl)
+      applyPosacText(String(nearDraft.posac))
       setPtMarker(nearDraft.lat, nearDraft.lng, true)
       refreshClearable()
       refreshNearest()
@@ -4283,6 +4303,7 @@ async function pickPlaceRegistrationGeo(opts?: {
   let gpsLng: number | undefined
   let gpsAlt: number | undefined
   let gpsAltAcc: number | undefined
+  let gpsHorizAcc: number | undefined
 
   try {
     const pos = await getCurrentPosition()
@@ -4293,6 +4314,7 @@ async function pickPlaceRegistrationGeo(opts?: {
     if (c.altitudeAccuracy != null && isFiniteNum(c.altitudeAccuracy)) {
       gpsAltAcc = c.altitudeAccuracy
     }
+    if (isFiniteNum(c.accuracy) && c.accuracy > 0) gpsHorizAcc = c.accuracy
   } catch {
     // GPS 失敗 → マップのみ
   }
@@ -4331,7 +4353,7 @@ async function pickPlaceRegistrationGeo(opts?: {
 
     status('位置を確認…')
     coords = await askDualPlaceGeo({
-      gps: { lat: gpsLat, lng: gpsLng, alt: gpsAlt },
+      gps: { lat: gpsLat, lng: gpsLng, alt: gpsAlt, posac: gpsHorizAcc },
       adrs,
       posac: PLACE_DEFAULT_POSAC,
       altac: PLACE_DEFAULT_ALTAC,

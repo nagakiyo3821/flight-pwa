@@ -862,8 +862,8 @@ code { font-size: 0.85em; }
 .sc-geo-fields--geopick-nums .sc-geo-field .sc-input {
   text-align: right;
   padding: 0.2rem 1.35rem 0.2rem 0.12rem;
-  /* 桁が多い緯度経度向け（iOSズーム回避のため14px以上） */
-  font-size: 14px;
+  /* 16px未満は iOS が入力時に画面全体を拡大し、ピンチするまで戻らない */
+  font-size: 16px;
   letter-spacing: -0.03em;
 }
 .sc-geo-fields--geopick-nums .sc-geo-field > span {
@@ -871,7 +871,7 @@ code { font-size: 0.85em; }
 }
 .sc-geo-fields--geopick-acc .sc-geo-field .sc-input,
 .sc-geo-fields--geopick .sc-geo-field--adrs .sc-input {
-  font-size: 14px;
+  font-size: 16px;
 }
 .sc-geo-fields--geopick .sc-geo-field--adrs .sc-input {
   padding: 0.35rem 3.2rem 0.35rem 0.4rem;
@@ -1303,13 +1303,14 @@ code { font-size: 0.85em; }
   overflow: visible;
 }
 .sc-dialog--geopick .leaflet-control-attribution {
-  font-size: 8px;
-  line-height: 1.1;
-  padding: 0 3px;
-  max-width: 46%;
+  font-size: 11px;
+  line-height: 1.2;
+  padding: 0 4px;
+  max-width: none;
+  white-space: nowrap;
 }
 .sc-dialog--geopick .leaflet-control-attribution a {
-  font-size: 8px;
+  font-size: 11px;
 }
 .sc-dialog .leaflet-control-container {
   max-width: 100%;

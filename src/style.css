@@ -829,8 +829,8 @@ code { font-size: 0.85em; }
 }
 .sc-geo-fields--geopick .sc-geo-field .sc-input {
   padding: 0.3rem 1.55rem 0.3rem 0.25rem;
-  /* iOS: 16px未満だとフォーカス時に画面全体がズームする */
-  font-size: 16px;
+  /* 現在地点・タップ地点・最寄地点のラベル（12.5px）に合わせる */
+  font-size: 12.5px;
   font-variant-numeric: tabular-nums;
   min-width: 0;
   width: 100%;
@@ -862,8 +862,8 @@ code { font-size: 0.85em; }
 .sc-geo-fields--geopick-nums .sc-geo-field .sc-input {
   text-align: right;
   padding: 0.2rem 1.35rem 0.2rem 0.12rem;
-  /* 16px未満は iOS が入力時に画面全体を拡大し、ピンチするまで戻らない */
-  font-size: 16px;
+  /* ラベルと同じ 12.5px。ページ拡大は viewport の maximum-scale で止める */
+  font-size: 12.5px;
   letter-spacing: -0.03em;
 }
 .sc-geo-fields--geopick-nums .sc-geo-field > span {
@@ -871,7 +871,7 @@ code { font-size: 0.85em; }
 }
 .sc-geo-fields--geopick-acc .sc-geo-field .sc-input,
 .sc-geo-fields--geopick .sc-geo-field--adrs .sc-input {
-  font-size: 16px;
+  font-size: 12.5px;
 }
 .sc-geo-fields--geopick .sc-geo-field--adrs .sc-input {
   padding: 0.35rem 3.2rem 0.35rem 0.4rem;

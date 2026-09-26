@@ -2130,20 +2130,18 @@ function askDualPlaceGeo(opts: {
       if (lat == null || lng == null || alt == null) return null
       return ecefDistanceM(lat, lng, alt, nearDraft.lat, nearDraft.lng, nearDraft.alt)
     }
-    const copyLockedByExpand = (): boolean => {
+    const twoPointFar = (): boolean => {
       const dist = twoPointMeters()
-      return dist != null && dist >= 100 && greenEdit === 'expand'
+      return dist != null && dist >= 100
     }
-    const expandLockedByCopy = (): boolean => {
-      const dist = twoPointMeters()
-      return dist != null && dist >= 100 && greenEdit === 'copy'
-    }
+    const copyLocked = (): boolean => twoPointFar() || greenEdit === 'expand'
+    const expandLocked = (): boolean => twoPointFar() || greenEdit === 'copy'
 
     const syncNearButtons = () => {
       if (nearAdjustEl) nearAdjustEl.hidden = !nearDraft
-      if (nearMoveBtn) nearMoveBtn.disabled = !nearDraft || copyLockedByExpand()
-      if (nearExpandBtn) nearExpandBtn.disabled = !nearDraft || expandLockedByCopy()
-      if (nearResetBtn) nearResetBtn.disabled = !nearDraft || greenEdit === 'none'
+      if (nearMoveBtn) nearMoveBtn.disabled = !nearDraft || copyLocked()
+      if (nearExpandBtn) nearExpandBtn.disabled = !nearDraft || expandLocked()
+      if (nearResetBtn) nearResetBtn.disabled = !nearDraft || greenEdit === 'none' || twoPointFar()
       const copyNearBtn = root.querySelector<HTMLButtonElement>('#sc-copy-near')
       if (copyNearBtn) copyNearBtn.disabled = !nearDraft
     }
@@ -2464,6 +2462,7 @@ function askDualPlaceGeo(opts: {
         const elev = await fetchGroundElevation(gps.lat, gps.lng)
         if (elev != null) gps.alt = roundAltMeters(elev)
         gpsMarker?.setLatLng([gps.lat, gps.lng])
+        copyGpsToPoint()
       } catch {
         if (mapHint) {
           mapHint.textContent = 'GPSを取得できません'
@@ -2581,7 +2580,7 @@ function askDualPlaceGeo(opts: {
       })
     }
     nearMoveBtn?.addEventListener('click', () => {
-      if (!nearDraft || copyLockedByExpand()) return
+      if (!nearDraft || copyLocked()) return
       const lat = parseField(latEl)
       const lng = parseField(lngEl)
       const alt = parseField(altEl)
@@ -2593,7 +2592,7 @@ function askDualPlaceGeo(opts: {
       refreshNearest()
     })
     nearExpandBtn?.addEventListener('click', () => {
-      if (!nearDraft || expandLockedByCopy()) return
+      if (!nearDraft || expandLocked()) return
       const lat = parseField(latEl)
       const lng = parseField(lngEl)
       if (lat == null || lng == null) return
@@ -2603,7 +2602,7 @@ function askDualPlaceGeo(opts: {
       refreshNearest()
     })
     nearResetBtn?.addEventListener('click', () => {
-      if (!nearDraft) return
+      if (!nearDraft || greenEdit === 'none' || twoPointFar()) return
       nearDraft.lat = nearDraft.baseLat
       nearDraft.lng = nearDraft.baseLng
       nearDraft.alt = nearDraft.baseAlt

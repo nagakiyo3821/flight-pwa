@@ -1901,12 +1901,12 @@ function askDualPlaceGeo(opts: {
     </div>`
 
     const defaultMapHint = isPlaceReview
-      ? `緑＝場所／橙＝タップ（精度円あり）`
+      ? `緑＝場所（精度円あり）、橙＝タップ（精度円あり）`
       : flightSite
         ? hideGps
           ? '橙＝タップ（精度円あり）、緑＝最寄（精度円あり）'
           : '青＝GPS、橙＝タップ（精度円あり）、緑＝最寄（精度円あり）'
-        : '青＝GPS／橙＝登録／緑＝最寄（精度円あり）'
+        : '青＝GPS、橙＝タップ（精度円あり）、緑＝最寄（精度円あり）'
 
     root.innerHTML = `
       <div class="sc-geopick-stack">

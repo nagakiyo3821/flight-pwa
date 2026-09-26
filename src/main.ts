@@ -3473,8 +3473,11 @@ type FlightSiteSaved = {
   placeNote: string
 }
 
+/** 空欄は未設定。文字の 0 は位置 0 のまま。Number('') は 0 になるので先に空を除く */
 function finiteCoord(v: unknown): number | null {
-  const n = Number(String(v ?? '').trim())
+  const s = String(v ?? '').trim()
+  if (s === '') return null
+  const n = Number(s)
   return Number.isFinite(n) ? n : null
 }
 

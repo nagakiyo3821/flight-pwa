@@ -362,6 +362,18 @@ export function placeNearest3dHint(
   return `最寄り: ${hit.name}（3D ${hit.dist3d.toFixed(1)}m${horiz}）`
 }
 
+/** 最寄地点とタップ地点の ECEF 直線距離。10000m 未満は m、以上は km */
+export function formatTwoPointDistance(meters: number): string {
+  if (!Number.isFinite(meters)) return '—'
+  const roundedM = Math.round(Math.max(0, meters))
+  if (roundedM >= 10000) {
+    const km = roundedM / 1000
+    const rounded = km >= 100 ? Math.round(km) : Math.round(km * 10) / 10
+    return `${rounded}km`
+  }
+  return `${roundedM}m`
+}
+
 /** タイトル行: 最寄場所(名前)　xxm（m単位丸め） */
 export function placeNearestTitleLabel(
   hit: { name: string; dist3d: number } | null,

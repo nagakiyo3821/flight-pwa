@@ -20,6 +20,7 @@ import {
   exportSettings,
   exportTmp,
   closestPlace3dFromList,
+  ecefDistanceM,
   haversineM,
   isInsideNearestPosac,
   listPlaces,
@@ -129,6 +130,7 @@ import {
   TAKEOFF_CANCEL_MSG,
   TAKEOFF_PLACE_CONFIRM_LINE,
   placeNearestTitleLabel,
+  formatTwoPointDistance,
   PLACE_GPS_TO_POINT,
   PLACE_PT_UNDO,
   PLACE_DEFAULT_POSAC,
@@ -1762,39 +1764,38 @@ function askDualPlaceGeo(opts: {
       ? `<span class="sc-geopick-title-stack"><span class="sc-geopick-title-line sc-geopick-title-line--main">${escapeHtml(titleLine1)}</span></span>`
       : `<span class="sc-geopick-title-stack"><span class="sc-geopick-title-line sc-geopick-title-line--main">${escapeHtml(titleLine1)}</span><span class="sc-geopick-title-line sc-geopick-title-line--gps-tap"><span class="sc-geopick-title-ico" aria-hidden="true"><span class="${refIcoClass}"></span></span><span class="sc-geopick-title-label">${escapeHtml(refTitleLabel)}</span><span class="sc-geopick-title-pair sc-geopick-title-pair--tap"><span class="sc-map-ico sc-map-ico--tap sc-map-ico--inline" aria-hidden="true"></span>タップ地点</span></span>${titleNearestHtml}</span>`
 
-    const flightBtn = (id: string, label: string, kind: 'gps' | 'near' | 'tap') => {
+    const mapIco = (kind: 'gps' | 'near' | 'tap') =>
+      `<span class="sc-map-ico sc-map-ico--${kind} sc-map-ico--inline" aria-hidden="true"></span>`
+    const flightBtn = (id: string, html: string, aria: string, kind: 'gps' | 'near' | 'tap') => {
       const cls =
         kind === 'gps'
           ? 'sc-btn-gps-copy'
           : kind === 'near'
             ? 'sc-btn-gps-copy sc-btn-gps-copy--near'
             : 'sc-btn-pt-undo'
-      return `<button type="button" class="${cls}" id="${id}">${escapeHtml(label)}</button>`
+      return `<button type="button" class="${cls} sc-flight-grid-btn" id="${id}" aria-label="${escapeHtml(aria)}">${html}</button>`
     }
     const flightHead = `<div class="sc-flight-head">
-      <div class="sc-flight-line">
-        <span class="sc-map-ico sc-map-ico--gps sc-map-ico--inline" aria-hidden="true"></span>
-        <span class="sc-flight-line-label">現在地点(GPS)</span>
-        ${flightBtn('sc-regps', FLIGHT_REGPS, 'gps')}
-      </div>
-      <div class="sc-flight-line">
-        <span class="sc-map-ico sc-map-ico--near sc-map-ico--inline" aria-hidden="true"></span>
-        <span class="sc-flight-line-label">最寄地点(<span id="sc-title-nearest-name">${escapeHtml(nearestTitleInit.name)}</span>)</span>
-        <span class="sc-geopick-title-dist" id="sc-title-nearest-dist">${escapeHtml(nearestTitleInit.distPart)}</span>
-        <div class="sc-geo-dual-btns sc-flight-btns">
-          ${flightBtn('sc-near-move', FLIGHT_NEAR_MOVE, 'near')}
-          ${flightBtn('sc-near-expand', FLIGHT_NEAR_EXPAND, 'near')}
-          ${flightBtn('sc-near-reset', FLIGHT_NEAR_RESET, 'near')}
+      <div class="sc-flight-top">
+        <div class="sc-flight-points">
+          <span class="sc-flight-point">${mapIco('gps')}<span>現在地点(GPS)</span></span>
+          <span class="sc-flight-point">${mapIco('tap')}<span>タップ地点</span></span>
         </div>
+        ${flightBtn('sc-regps', escapeHtml(FLIGHT_REGPS), FLIGHT_REGPS, 'gps')}
       </div>
-      <div class="sc-flight-line">
-        <span class="sc-map-ico sc-map-ico--tap sc-map-ico--inline" aria-hidden="true"></span>
-        <span class="sc-flight-line-label">タップ地点</span>
-        <div class="sc-geo-dual-btns sc-flight-btns">
-          ${flightBtn('sc-copy-blue', FLIGHT_TAP_FROM_GPS, 'tap')}
-          ${flightBtn('sc-copy-near', FLIGHT_TAP_FROM_NEAR, 'tap')}
-          ${flightBtn('sc-pt-undo', FLIGHT_TAP_UNDO, 'tap')}
-        </div>
+      <div class="sc-flight-near-row">
+        <span class="sc-flight-near-name">${mapIco('near')}<span>最寄地点(<span id="sc-title-nearest-name">${escapeHtml(nearestTitleInit.name)}</span>)</span></span>
+        <span class="sc-flight-two-dist" id="sc-title-nearest-dist">${mapIco('near')}${mapIco('tap')}<span id="sc-title-nearest-dist-val">—</span></span>
+      </div>
+      <div class="sc-flight-grid">
+        ${flightBtn('sc-near-move', `${mapIco('near')}へ${mapIco('tap')}をコピー`, FLIGHT_NEAR_MOVE, 'near')}
+        ${flightBtn('sc-near-expand', `${mapIco('near')}位置精度拡大`, FLIGHT_NEAR_EXPAND, 'near')}
+        ${flightBtn('sc-near-reset', `${mapIco('near')}初期値へ戻す`, FLIGHT_NEAR_RESET, 'near')}
+      </div>
+      <div class="sc-flight-grid">
+        ${flightBtn('sc-copy-blue', `${mapIco('tap')}へ${mapIco('gps')}をコピー`, FLIGHT_TAP_FROM_GPS, 'tap')}
+        ${flightBtn('sc-copy-near', `${mapIco('tap')}へ${mapIco('near')}をコピー`, FLIGHT_TAP_FROM_NEAR, 'tap')}
+        ${flightBtn('sc-pt-undo', `${mapIco('tap')}１つ前へ戻す`, FLIGHT_TAP_UNDO, 'tap')}
       </div>
     </div>`
     const gpsNums = flightSite
@@ -1894,6 +1895,7 @@ function askDualPlaceGeo(opts: {
     const mapHint = root.querySelector<HTMLElement>('#sc-map-hint')
     const titleNearestName = root.querySelector<HTMLElement>('#sc-title-nearest-name')
     const titleNearestDist = root.querySelector<HTMLElement>('#sc-title-nearest-dist')
+    const titleNearestDistVal = root.querySelector<HTMLElement>('#sc-title-nearest-dist-val')
     const undoBtn = root.querySelector<HTMLButtonElement>('#sc-pt-undo')!
     let nameTouched = !!(opts.name?.trim() || isPlaceReview)
     /** 自動場所名: 円内=派生_xx / 円外=住所。手編集後は触らない */
@@ -2120,10 +2122,27 @@ function askDualPlaceGeo(opts: {
       )
     }
 
+    const twoPointMeters = (): number | null => {
+      if (!nearDraft) return null
+      const lat = parseField(latEl)
+      const lng = parseField(lngEl)
+      const alt = parseField(altEl) ?? (Number.isFinite(gps.alt) ? gps.alt : null)
+      if (lat == null || lng == null || alt == null) return null
+      return ecefDistanceM(lat, lng, alt, nearDraft.lat, nearDraft.lng, nearDraft.alt)
+    }
+    const copyLockedByExpand = (): boolean => {
+      const dist = twoPointMeters()
+      return dist != null && dist >= 100 && greenEdit === 'expand'
+    }
+    const expandLockedByCopy = (): boolean => {
+      const dist = twoPointMeters()
+      return dist != null && dist >= 100 && greenEdit === 'copy'
+    }
+
     const syncNearButtons = () => {
       if (nearAdjustEl) nearAdjustEl.hidden = !nearDraft
-      if (nearMoveBtn) nearMoveBtn.disabled = !nearDraft || greenEdit === 'expand'
-      if (nearExpandBtn) nearExpandBtn.disabled = !nearDraft || greenEdit === 'copy'
+      if (nearMoveBtn) nearMoveBtn.disabled = !nearDraft || copyLockedByExpand()
+      if (nearExpandBtn) nearExpandBtn.disabled = !nearDraft || expandLockedByCopy()
       if (nearResetBtn) nearResetBtn.disabled = !nearDraft || greenEdit === 'none'
       const copyNearBtn = root.querySelector<HTMLButtonElement>('#sc-copy-near')
       if (copyNearBtn) copyNearBtn.disabled = !nearDraft
@@ -2181,7 +2200,11 @@ function askDualPlaceGeo(opts: {
       const updateTitle = (hit: { name: string; dist3d: number } | null) => {
         const parts = placeNearestTitleLabel(hit)
         if (titleNearestName) titleNearestName.textContent = parts.name
-        if (titleNearestDist) titleNearestDist.textContent = parts.distPart
+        if (flightSite && titleNearestDistVal) {
+          titleNearestDistVal.textContent = hit ? formatTwoPointDistance(hit.dist3d) : '—'
+        } else if (titleNearestDist) {
+          titleNearestDist.textContent = parts.distPart
+        }
       }
       const lat = parseField(latEl)
       const lng = parseField(lngEl)
@@ -2233,9 +2256,8 @@ function askDualPlaceGeo(opts: {
             baseAdrs: String(hit.place.ADRS ?? '').trim(),
           }
         }
-        const distHoriz = haversineM(lat, lng, nearDraft.lat, nearDraft.lng)
-        updateTitle({ name: nearDraft.name, dist3d: distHoriz })
-        if (titleNearestDist) titleNearestDist.textContent = `水平${Math.round(distHoriz)}m`
+        const dist3d = ecefDistanceM(lat, lng, alt, nearDraft.lat, nearDraft.lng, nearDraft.alt)
+        updateTitle({ name: nearDraft.name, dist3d })
         setNearOverlay(nearDraft.lat, nearDraft.lng, nearDraft.posac)
         void syncFlightFields()
         return
@@ -2559,7 +2581,7 @@ function askDualPlaceGeo(opts: {
       })
     }
     nearMoveBtn?.addEventListener('click', () => {
-      if (!nearDraft || greenEdit === 'expand') return
+      if (!nearDraft || copyLockedByExpand()) return
       const lat = parseField(latEl)
       const lng = parseField(lngEl)
       const alt = parseField(altEl)
@@ -2571,7 +2593,7 @@ function askDualPlaceGeo(opts: {
       refreshNearest()
     })
     nearExpandBtn?.addEventListener('click', () => {
-      if (!nearDraft || greenEdit === 'copy') return
+      if (!nearDraft || expandLockedByCopy()) return
       const lat = parseField(latEl)
       const lng = parseField(lngEl)
       if (lat == null || lng == null) return

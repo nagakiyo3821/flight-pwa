@@ -753,7 +753,7 @@ function wgs84ToEcef(latDeg: number, lngDeg: number, altM: number): [number, num
 }
 
 /** 2点間の ECEF 直線距離 (m) */
-function ecefDistanceM(
+export function ecefDistanceM(
   lat1: number,
   lng1: number,
   alt1: number,

@@ -3571,8 +3571,9 @@ const TOKYO_STATION_LNG = 139.767125
 
 /**
  * 修正画面の初期地点。GPSは使わない。
- * 記録の緯度と経度が両方空のときは場所マスタへ書かず、東京駅にいちばん近い登録場所をマップ表示の仮座標にする。
- * 登録場所が無いときは東京駅を仮座標にする。確定するまで飛行記録の空白は変えない。
+ * 記録の緯度と経度が両方空のときは、相手側（着陸なら離陸、離陸なら着陸）の座標にいちばん近い登録場所をマップの仮位置にする。
+ * 相手側も空のときは東京駅を検索原点にする。登録場所が無いときは東京駅を仮位置にする。
+ * 確定するまで飛行記録の空白は変えない。
  */
 async function resolveReviseSeed(
   action: 'takeoff' | 'landing',
@@ -3597,14 +3598,22 @@ async function resolveReviseSeed(
   let posac = PLACE_DEFAULT_POSAC
   let altac = PLACE_DEFAULT_ALTAC
   if (recordLat == null && recordLng == null) {
-    const originElev = await fetchGroundElevation(TOKYO_STATION_LAT, TOKYO_STATION_LNG)
-    const originAlt = originElev != null ? roundAltMeters(originElev) : 0
-    const hit = closestPlace3dFromList(
-      await listPlaces(),
-      TOKYO_STATION_LAT,
-      TOKYO_STATION_LNG,
-      originAlt,
-    )
+    const otherLat = finiteCoord(takeoff ? rec.B_DATA1 : rec.A_DATA1)
+    const otherLng = finiteCoord(takeoff ? rec.B_DATA2 : rec.A_DATA2)
+    const otherAlt = finiteCoord(takeoff ? rec.B_DATA3 : rec.A_DATA3)
+    const hasOther = otherLat != null && otherLng != null
+    let originLat = hasOther ? otherLat : TOKYO_STATION_LAT
+    let originLng = hasOther ? otherLng : TOKYO_STATION_LNG
+    let originAlt = otherAlt ?? 0
+    if (!hasOther || originAlt === 0) {
+      try {
+        const originElev = await fetchGroundElevation(originLat, originLng)
+        if (originElev != null && otherAlt == null) originAlt = roundAltMeters(originElev)
+      } catch {
+        // 標高が取れなくても最寄の水平位置でマップを開く
+      }
+    }
+    const hit = closestPlace3dFromList(await listPlaces(), originLat, originLng, originAlt)
     if (hit) {
       lat = hit.plat
       lng = hit.plng

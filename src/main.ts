@@ -2191,7 +2191,6 @@ function askDualPlaceGeo(opts: {
       return dist != null && dist >= 100
     }
     const copyLocked = (): boolean => twoPointFar() || greenEdit === 'expand'
-    const expandLocked = (): boolean => twoPointFar() || greenEdit === 'copy'
 
     const syncNearButtons = () => {
       if (nearAdjustEl) nearAdjustEl.hidden = !nearDraft
@@ -2212,6 +2211,9 @@ function askDualPlaceGeo(opts: {
       if (dist <= readPosacM() + nearDraft.posac) return 'touch-out'
       return 'apart'
     }
+    /** 円内（境界は外）では拡大しない。すでに緑へ橙をコピーしたあとも不可 */
+    const expandLocked = (): boolean =>
+      twoPointFar() || greenEdit === 'copy' || flightRelation() === 'inside'
 
     const applyFlightText = (el: HTMLInputElement, value: string) => {
       syncingText = true

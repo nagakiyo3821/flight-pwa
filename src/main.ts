@@ -3565,7 +3565,15 @@ function writeFlightSiteFields(
   rec.B_POS = saved.posName
 }
 
-/** 修正画面の初期地点。記録 → 同名の場所 → 自宅。GPSは使わない */
+/** 緯度・経度がともに空のときのマップ用原点。登録場所が無いとき、この点を仮のタップ地点にする */
+const TOKYO_STATION_LAT = 35.681236
+const TOKYO_STATION_LNG = 139.767125
+
+/**
+ * 修正画面の初期地点。GPSは使わない。
+ * 記録の緯度と経度が両方空のときは場所マスタへ書かず、東京駅にいちばん近い登録場所をマップ表示の仮座標にする。
+ * 登録場所が無いときは東京駅を仮座標にする。確定するまで飛行記録の空白は変えない。
+ */
 async function resolveReviseSeed(
   action: 'takeoff' | 'landing',
   rec: FlightRecord,
@@ -3579,13 +3587,36 @@ async function resolveReviseSeed(
   altac: string
 } | null> {
   const takeoff = action === 'takeoff'
-  let lat = finiteCoord(takeoff ? rec.A_DATA1 : rec.B_DATA1)
-  let lng = finiteCoord(takeoff ? rec.A_DATA2 : rec.B_DATA2)
+  const recordLat = finiteCoord(takeoff ? rec.A_DATA1 : rec.B_DATA1)
+  const recordLng = finiteCoord(takeoff ? rec.A_DATA2 : rec.B_DATA2)
+  let lat = recordLat
+  let lng = recordLng
   let alt = finiteCoord(takeoff ? rec.A_DATA3 : rec.B_DATA3)
   let adrs = String((takeoff ? rec.A_ADRS : rec.B_ADRS) ?? '').trim()
   const name = String((takeoff ? rec.A_POS : rec.B_POS) ?? '').trim()
   let posac = PLACE_DEFAULT_POSAC
   let altac = PLACE_DEFAULT_ALTAC
+  if (recordLat == null && recordLng == null) {
+    const originElev = await fetchGroundElevation(TOKYO_STATION_LAT, TOKYO_STATION_LNG)
+    const originAlt = originElev != null ? roundAltMeters(originElev) : 0
+    const hit = closestPlace3dFromList(
+      await listPlaces(),
+      TOKYO_STATION_LAT,
+      TOKYO_STATION_LNG,
+      originAlt,
+    )
+    if (hit) {
+      lat = hit.plat
+      lng = hit.plng
+      const palt = finiteCoord(hit.place.DATA3)
+      if (alt == null) alt = palt != null ? roundAltMeters(palt) : originAlt
+    } else {
+      lat = TOKYO_STATION_LAT
+      lng = TOKYO_STATION_LNG
+      if (alt == null) alt = originAlt
+    }
+    return { lat, lng, alt, adrs, name, posac, altac }
+  }
   if (name) {
     const place = await getPlace(name)
     if (place) {

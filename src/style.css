@@ -1039,6 +1039,42 @@ code { font-size: 0.85em; }
 .sc-geo-near-adjust[hidden] {
   display: none;
 }
+.sc-btn-gps-copy:disabled,
+.sc-btn-pt-undo:disabled {
+  opacity: 0.45;
+}
+.sc-flight-head {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  width: 100%;
+  min-width: 0;
+}
+.sc-flight-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
+  width: 100%;
+  min-width: 0;
+}
+.sc-flight-line-label {
+  font-size: 0.78rem;
+  line-height: 1.2;
+}
+.sc-flight-btns {
+  flex: 1 1 12rem;
+  margin: 0;
+}
+.sc-flight-btns .sc-btn-gps-copy,
+.sc-flight-btns .sc-btn-pt-undo {
+  flex: 1 1 7rem;
+  font-size: 0.62rem;
+  white-space: normal;
+  line-height: 1.15;
+  text-align: center;
+  padding: 0.25rem 0.3rem;
+}
 .sc-geo-dual-btns {
   display: flex;
   flex-direction: row;

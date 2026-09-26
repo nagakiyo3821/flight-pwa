@@ -338,9 +338,18 @@ export const TAKEOFF_CANCEL_MSG = '離陸登録をキャンセルしました'
 export const LANDING_CANCEL_MSG = '着陸登録をキャンセルしました'
 /** 離陸・着陸画面で、最寄の登録場所をその場で直す */
 export const FLIGHT_NEAR_POSAC = '最寄の位置精度m'
-export const FLIGHT_NEAR_MOVE = '座標をタップへ'
-export const FLIGHT_NEAR_EXPAND = '円を広げる'
-export const FLIGHT_NEAR_RESET = '修正を戻す'
+export const FLIGHT_REGPS = '再GPS計測'
+export const FLIGHT_NEAR_MOVE = '（緑）へ（橙）をコピー'
+export const FLIGHT_NEAR_EXPAND = '（緑）位置精度拡大'
+export const FLIGHT_NEAR_RESET = '（緑）初期値へ戻す'
+export const FLIGHT_TAP_FROM_GPS = '（橙）へ（青）をコピー'
+export const FLIGHT_TAP_FROM_NEAR = '（橙）へ（緑）をコピー'
+export const FLIGHT_TAP_UNDO = '（橙）１つ前へ戻す'
+export const PLACE_OVERWRITE_OK = '1.上書き'
+export const PLACE_OVERWRITE_BACK = '2.キャンセル'
+export function placeOverwritePrompt(name: string): string {
+  return `場所「${name}」は既にあります。上書きしますか？`
+}
 /** タップ地点に対するリスト内最寄り（ECEF 3D）— マップ下用 */
 export function placeNearest3dHint(
   hit: { name: string; dist3d: number; distHoriz?: number } | null,

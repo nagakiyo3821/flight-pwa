@@ -334,6 +334,9 @@ export const PLACE_NEW_CONFIRM_LINE = '新規場所データの登録'
 export const TAKEOFF_PLACE_CONFIRM_LINE = '離陸場所データの登録'
 /** 着陸登録（新規場所と同じ画面）タイトル1行目 */
 export const LANDING_PLACE_CONFIRM_LINE = '着陸場所データの登録'
+/** 項目修正。登録画面から青を外したときの見出し */
+export const TAKEOFF_REVISE_LINE = '離陸地点の修正'
+export const LANDING_REVISE_LINE = '着陸地点の修正'
 export const TAKEOFF_CANCEL_MSG = '離陸登録をキャンセルしました'
 export const LANDING_CANCEL_MSG = '着陸登録をキャンセルしました'
 /** 離陸・着陸画面で、最寄の登録場所をその場で直す */

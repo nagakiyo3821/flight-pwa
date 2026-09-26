@@ -104,6 +104,7 @@ import {
   FLIGHT_TAP_UNDO,
   LANDING_CANCEL_MSG,
   LANDING_PLACE_CONFIRM_LINE,
+  LANDING_REVISE_LINE,
   MAP_DONE,
   MAP_PROMPT,
   ITEM_BACK,
@@ -129,6 +130,7 @@ import {
   PLACE_NEW_CONFIRM_LINE,
   TAKEOFF_CANCEL_MSG,
   TAKEOFF_PLACE_CONFIRM_LINE,
+  TAKEOFF_REVISE_LINE,
   placeNearestTitleLabel,
   formatTwoPointDistance,
   PLACE_GPS_TO_POINT,
@@ -1755,6 +1757,8 @@ function askDualPlaceGeo(opts: {
   titleLine?: string
   /** 離陸・着陸。最寄の座標と精度円を同じ画面で直せる */
   flightSite?: boolean
+  /** 地点の修正。GPSマーカーと青のボタンを出さない */
+  hideGps?: boolean
 }): Promise<DualPlaceGeoResult> {
   return new Promise((resolve) => {
     const root = openDialogRoot()
@@ -1763,6 +1767,7 @@ function askDualPlaceGeo(opts: {
     const placeRefName = String(opts.placeRef?.name ?? '').trim()
     const isPlaceReview = !!placeRefName
     const flightSite = !!opts.flightSite && !isPlaceReview
+    const hideGps = flightSite && !!opts.hideGps
     const gps = {
       lat: Math.round(opts.gps.lat * 1e8) / 1e8,
       lng: Math.round(opts.gps.lng * 1e8) / 1e8,
@@ -1805,17 +1810,26 @@ function askDualPlaceGeo(opts: {
             : 'sc-btn-pt-undo'
       return `<button type="button" class="${cls} sc-flight-grid-btn" id="${id}" aria-label="${escapeHtml(aria)}">${html}</button>`
     }
+    const flightGpsPoint = hideGps
+      ? ''
+      : `<span class="sc-flight-point">${mapIco('gps')}<span>現在地点(GPS)</span></span>`
+    const flightRegps = hideGps
+      ? ''
+      : flightBtn('sc-regps', `${mapIco('gps')}${escapeHtml(FLIGHT_REGPS)}`, `（青）${FLIGHT_REGPS}`, 'gps')
+    const flightCopyBlue = hideGps
+      ? ''
+      : flightBtn('sc-copy-blue', `${mapIco('tap')}へ${mapIco('gps')}をコピー`, FLIGHT_TAP_FROM_GPS, 'tap')
     const flightHead = `<div class="sc-flight-head">
       <div class="sc-flight-top">
         <div class="sc-flight-points">
-          <span class="sc-flight-point">${mapIco('gps')}<span>現在地点(GPS)</span></span>
+          ${flightGpsPoint}
           <span class="sc-flight-point">${mapIco('tap')}<span>タップ地点</span></span>
         </div>
         <span class="sc-flight-two-dist" id="sc-title-nearest-dist">${mapIco('near')}${mapIco('tap')}<span class="sc-flight-two-dist-label">距離</span><span id="sc-title-nearest-dist-val">—</span></span>
       </div>
-      <div class="sc-flight-near-row">
+      <div class="sc-flight-near-row${hideGps ? ' sc-flight-near-row--solo' : ''}">
         <span class="sc-flight-near-name">${mapIco('near')}<span class="sc-flight-near-label">最寄地点(<span id="sc-title-nearest-name">${escapeHtml(nearestTitleInit.name)}</span>)</span></span>
-        ${flightBtn('sc-regps', `${mapIco('gps')}${escapeHtml(FLIGHT_REGPS)}`, `（青）${FLIGHT_REGPS}`, 'gps')}
+        ${flightRegps}
       </div>
       <div class="sc-flight-grid">
         ${flightBtn('sc-near-move', `${mapIco('near')}へ${mapIco('tap')}をコピー`, FLIGHT_NEAR_MOVE, 'near')}
@@ -1823,7 +1837,7 @@ function askDualPlaceGeo(opts: {
         ${flightBtn('sc-near-reset', `${mapIco('near')}初期値へ戻す`, FLIGHT_NEAR_RESET, 'near')}
       </div>
       <div class="sc-flight-grid">
-        ${flightBtn('sc-copy-blue', `${mapIco('tap')}へ${mapIco('gps')}をコピー`, FLIGHT_TAP_FROM_GPS, 'tap')}
+        ${flightCopyBlue}
         ${flightBtn('sc-copy-near', `${mapIco('tap')}へ${mapIco('near')}をコピー`, FLIGHT_TAP_FROM_NEAR, 'tap')}
         ${flightBtn('sc-pt-undo', `${mapIco('tap')}１つ前へ戻す`, FLIGHT_TAP_UNDO, 'tap')}
       </div>
@@ -1889,7 +1903,9 @@ function askDualPlaceGeo(opts: {
     const defaultMapHint = isPlaceReview
       ? `緑＝場所／橙＝タップ（精度円あり）`
       : flightSite
-        ? '青＝GPS、橙＝タップ（精度円あり）、緑＝最寄（精度円あり）'
+        ? hideGps
+          ? '橙＝タップ（精度円あり）、緑＝最寄（精度円あり）'
+          : '青＝GPS、橙＝タップ（精度円あり）、緑＝最寄（精度円あり）'
         : '青＝GPS／橙＝登録／緑＝最寄（精度円あり）'
 
     root.innerHTML = `
@@ -2562,7 +2578,7 @@ function askDualPlaceGeo(opts: {
     }
     if (isPlaceReview) {
       syncPlaceReviewOverlay()
-    } else {
+    } else if (!hideGps) {
       gpsMarker = L.marker([gps.lat, gps.lng], {
         icon: leafletDivIcon('gps'),
         interactive: false,
@@ -3351,13 +3367,33 @@ async function editDroneField(current: string): Promise<string | null> {
   return `${typeSel}_${id}`
 }
 
+const TAKEOFF_SITE_KEYS = new Set(['A_DATA1', 'A_DATA2', 'A_DATA3', 'A_ADRS', 'A_POS'])
+const LANDING_SITE_KEYS = new Set(['B_DATA1', 'B_DATA2', 'B_DATA3', 'B_ADRS', 'B_POS'])
+
+function flightSiteSide(key: string | null | undefined): 'takeoff' | 'landing' | null {
+  if (!key) return null
+  if (TAKEOFF_SITE_KEYS.has(key)) return 'takeoff'
+  if (LANDING_SITE_KEYS.has(key)) return 'landing'
+  return null
+}
+
 /** #全項目 / #?項目 / 個別: 1項目ずつ設定して保存 */
 async function runSequentialFields(fields: FieldDef[]): Promise<'done' | 'abort'> {
   let { rec } = await getWorking()
   hydrateFlightDurationCache(rec.A_DATE, rec.B_DATE)
+  const revisedSite = new Set<'takeoff' | 'landing'>()
   for (const f of fields) {
     if (f.input === 'readonly') continue
     if (!f.key && f.input !== 'flightDuration') continue
+    const side = flightSiteSide(f.key)
+    if (side) {
+      if (revisedSite.has(side)) continue
+      const ok = await reviseFlightSite(side, rec)
+      if (!ok) return 'abort'
+      revisedSite.add(side)
+      ;({ rec } = await getWorking())
+      continue
+    }
     const next = await editOneField(f, rec)
     if (next === null) return 'abort'
 
@@ -3428,6 +3464,189 @@ async function askNewPlaceName(initial: string): Promise<string | null> {
   }
 }
 
+type FlightSiteSaved = {
+  lat: number
+  lng: number
+  alt: number
+  adrs: string
+  posName: string
+  placeNote: string
+}
+
+function finiteCoord(v: unknown): number | null {
+  const n = Number(String(v ?? '').trim())
+  return Number.isFinite(n) ? n : null
+}
+
+/** 確定内容を場所マスタへ書く。名前入力の中止は null。飛行記録は触らない */
+async function applyFlightSiteToPlaces(coords: LatLngAlt): Promise<FlightSiteSaved | null> {
+  const commit = coords.flightCommit
+  const green = commit?.green
+  let lat = coords.lat
+  let lng = coords.lng
+  let alt = coords.alt
+  let adrs = String(coords.adrs ?? '').trim()
+  let posName = String(coords.name ?? '').trim()
+  let usedNearest = false
+  let adjustedPlace = false
+
+  if (green?.write) {
+    const fields = {
+      lat: green.lat,
+      lng: green.lng,
+      alt: green.alt,
+      adrs: green.adrs,
+      posac: green.posac,
+      altac: green.altac,
+    }
+    if (green.name !== green.baseName) {
+      const other = await getPlace(green.name)
+      if (other) {
+        await upsertPlace(green.name, fields)
+      } else {
+        await renamePlace(green.baseName, green.name)
+        await upsertPlace(green.name, fields)
+      }
+    } else {
+      await upsertPlace(green.baseName, fields)
+    }
+    adjustedPlace = true
+  }
+
+  if (commit?.useNearest && green) {
+    lat = green.lat
+    lng = green.lng
+    alt = green.alt
+    adrs = green.adrs
+    posName = green.name
+    usedNearest = true
+  } else {
+    if (!posName) {
+      const entered = await askNewPlaceName(placeNamePrefill(adrs))
+      if (!entered) return null
+      posName = entered
+    }
+    await upsertPlace(posName, {
+      lat,
+      lng,
+      alt,
+      adrs,
+      posac: String(coords.posac ?? PLACE_DEFAULT_POSAC).trim() || PLACE_DEFAULT_POSAC,
+      altac: String(coords.altac ?? PLACE_DEFAULT_ALTAC).trim() || PLACE_DEFAULT_ALTAC,
+    })
+  }
+
+  const placeNote = adjustedPlace
+    ? `${posName}・登録場所を修正`
+    : usedNearest
+      ? `${posName}・最寄地点`
+      : posName
+  return { lat, lng, alt, adrs, posName, placeNote }
+}
+
+function writeFlightSiteFields(
+  rec: FlightRecord,
+  action: 'takeoff' | 'landing',
+  saved: FlightSiteSaved,
+): void {
+  const alt = String(roundAltMeters(saved.alt))
+  if (action === 'takeoff') {
+    rec.A_DATA1 = String(saved.lat)
+    rec.A_DATA2 = String(saved.lng)
+    rec.A_DATA3 = alt
+    rec.A_ADRS = saved.adrs
+    rec.A_POS = saved.posName
+    return
+  }
+  rec.B_DATA1 = String(saved.lat)
+  rec.B_DATA2 = String(saved.lng)
+  rec.B_DATA3 = alt
+  rec.B_ADRS = saved.adrs
+  rec.B_POS = saved.posName
+}
+
+/** 修正画面の初期地点。記録 → 同名の場所 → 自宅。GPSは使わない */
+async function resolveReviseSeed(
+  action: 'takeoff' | 'landing',
+  rec: FlightRecord,
+): Promise<{
+  lat: number
+  lng: number
+  alt: number
+  adrs: string
+  name: string
+  posac: string
+  altac: string
+} | null> {
+  const takeoff = action === 'takeoff'
+  let lat = finiteCoord(takeoff ? rec.A_DATA1 : rec.B_DATA1)
+  let lng = finiteCoord(takeoff ? rec.A_DATA2 : rec.B_DATA2)
+  let alt = finiteCoord(takeoff ? rec.A_DATA3 : rec.B_DATA3)
+  let adrs = String((takeoff ? rec.A_ADRS : rec.B_ADRS) ?? '').trim()
+  const name = String((takeoff ? rec.A_POS : rec.B_POS) ?? '').trim()
+  let posac = PLACE_DEFAULT_POSAC
+  let altac = PLACE_DEFAULT_ALTAC
+  if (name) {
+    const place = await getPlace(name)
+    if (place) {
+      if (lat == null) lat = finiteCoord(place.DATA1)
+      if (lng == null) lng = finiteCoord(place.DATA2)
+      if (alt == null) alt = finiteCoord(place.DATA3)
+      if (!adrs) adrs = String(place.ADRS ?? '').trim()
+      const p = String(place.POSAC ?? '').trim()
+      const a = String(place.ALTAC ?? '').trim()
+      if (p && Number(p) > 0) posac = p
+      if (a) altac = a
+    }
+  }
+  if (lat == null || lng == null) {
+    const home = await getPlace('自宅')
+    if (home) {
+      lat = finiteCoord(home.DATA1)
+      lng = finiteCoord(home.DATA2)
+      if (alt == null) alt = finiteCoord(home.DATA3)
+    }
+  }
+  if (lat == null || lng == null) return null
+  if (alt == null) {
+    const elev = await fetchGroundElevation(lat, lng)
+    if (elev == null) return null
+    alt = roundAltMeters(elev)
+  }
+  return { lat, lng, alt, adrs, name, posac, altac }
+}
+
+/** 項目修正。登録画面から青を外し、緯度・経度・高度・住所・場所をまとめて書く。時刻は変えない */
+async function reviseFlightSite(
+  action: 'takeoff' | 'landing',
+  rec: FlightRecord,
+): Promise<boolean> {
+  const msg = () => app.querySelector('#msg')
+  const verb = action === 'takeoff' ? '離陸' : '着陸'
+  const seed = await resolveReviseSeed(action, rec)
+  if (!seed) {
+    flashMsg = `${verb}地点の座標がないため修正画面を開けません`
+    return false
+  }
+  const coords = await pickPlaceRegistrationGeo({
+    titleLine: action === 'takeoff' ? TAKEOFF_REVISE_LINE : LANDING_REVISE_LINE,
+    flightSite: true,
+    revise: seed,
+    status: (text) => {
+      const el = msg()
+      if (el) el.textContent = text
+    },
+  })
+  if (!coords) return false
+  const saved = await applyFlightSiteToPlaces(coords)
+  if (!saved) return false
+  const { rec: cur } = await getWorking()
+  writeFlightSiteFields(cur, action, saved)
+  await saveWorking(cur)
+  flashMsg = `${verb}地点を修正しました（${saved.placeNote}）`
+  return true
+}
+
 async function runTakeoffLanding(action: 'takeoff' | 'landing'): Promise<void> {
   const msg = () => app.querySelector('#msg')
   const cancelMsg = action === 'takeoff' ? TAKEOFF_CANCEL_MSG : LANDING_CANCEL_MSG
@@ -3448,65 +3667,11 @@ async function runTakeoffLanding(action: 'takeoff' | 'landing'): Promise<void> {
       return
     }
 
-    const commit = coords.flightCommit
-    const green = commit?.green
-
-    let lat = coords.lat
-    let lng = coords.lng
-    let alt = coords.alt
-    let adrs = String(coords.adrs ?? '').trim()
-    let posName = String(coords.name ?? '').trim()
-    let usedNearest = false
-    let adjustedPlace = false
-
-    if (green?.write) {
-      const fields = {
-        lat: green.lat,
-        lng: green.lng,
-        alt: green.alt,
-        adrs: green.adrs,
-        posac: green.posac,
-        altac: green.altac,
-      }
-      if (green.name !== green.baseName) {
-        const other = await getPlace(green.name)
-        if (other) {
-          await upsertPlace(green.name, fields)
-        } else {
-          await renamePlace(green.baseName, green.name)
-          await upsertPlace(green.name, fields)
-        }
-      } else {
-        await upsertPlace(green.baseName, fields)
-      }
-      adjustedPlace = true
-    }
-
-    if (commit?.useNearest && green) {
-      lat = green.lat
-      lng = green.lng
-      alt = green.alt
-      adrs = green.adrs
-      posName = green.name
-      usedNearest = true
-    } else {
-      if (!posName) {
-        const entered = await askNewPlaceName(placeNamePrefill(adrs))
-        if (!entered) {
-          flashMsg = cancelMsg
-          await render()
-          return
-        }
-        posName = entered
-      }
-      await upsertPlace(posName, {
-        lat,
-        lng,
-        alt,
-        adrs,
-        posac: String(coords.posac ?? PLACE_DEFAULT_POSAC).trim() || PLACE_DEFAULT_POSAC,
-        altac: String(coords.altac ?? PLACE_DEFAULT_ALTAC).trim() || PLACE_DEFAULT_ALTAC,
-      })
+    const saved = await applyFlightSiteToPlaces(coords)
+    if (!saved) {
+      flashMsg = cancelMsg
+      await render()
+      return
     }
 
     const meta = await getMeta()
@@ -3521,31 +3686,16 @@ async function runTakeoffLanding(action: 'takeoff' | 'landing'): Promise<void> {
         rec.A_DATE = synced.A_DATE
         rec.B_DATE = synced.B_DATE
       }
-      rec.A_DATA1 = String(lat)
-      rec.A_DATA2 = String(lng)
-      rec.A_DATA3 = String(roundAltMeters(alt))
-      rec.A_ADRS = adrs
-      rec.A_POS = posName
-    } else {
-      if (updateTime) {
-        const synced = syncAfterLandingDate(rec.A_DATE, when)
-        rec.A_DATE = synced.A_DATE
-        rec.B_DATE = synced.B_DATE
-      }
-      rec.B_DATA1 = String(lat)
-      rec.B_DATA2 = String(lng)
-      rec.B_DATA3 = String(roundAltMeters(alt))
-      rec.B_ADRS = adrs
-      rec.B_POS = posName
+    } else if (updateTime) {
+      const synced = syncAfterLandingDate(rec.A_DATE, when)
+      rec.A_DATE = synced.A_DATE
+      rec.B_DATE = synced.B_DATE
     }
+    writeFlightSiteFields(rec, action, saved)
     hydrateFlightDurationCache(rec.A_DATE, rec.B_DATE)
     await saveWorking(rec)
     const verb = action === 'takeoff' ? '離陸' : '着陸'
-    const placeNote = adjustedPlace
-      ? `${posName}・登録場所を修正`
-      : usedNearest
-        ? `${posName}・最寄地点`
-        : posName
+    const placeNote = saved.placeNote
     flashMsg = updateTime
       ? `${verb}を登録しました（${placeNote}）`
       : `${verb}場所を更新しました（${placeNote}・時間は維持）`
@@ -4305,9 +4455,35 @@ async function pickPlaceRegistrationGeo(opts?: {
   titleLine?: string
   /** 離陸・着陸。最寄の座標と精度円を同じ画面で直せる */
   flightSite?: boolean
+  /** 地点修正。GPSは取らず、この座標を橙の初期値にする */
+  revise?: {
+    lat: number
+    lng: number
+    alt: number
+    adrs?: string
+    name?: string
+    posac?: string
+    altac?: string
+  }
   status?: (text: string) => void
 }): Promise<LatLngAlt | null> {
   const status = opts?.status ?? (() => {})
+  if (opts?.revise) {
+    const seed = opts.revise
+    status('位置を確認…')
+    const coords = await askDualPlaceGeo({
+      gps: { lat: seed.lat, lng: seed.lng, alt: seed.alt },
+      adrs: seed.adrs,
+      name: seed.name,
+      posac: seed.posac ?? PLACE_DEFAULT_POSAC,
+      altac: seed.altac ?? PLACE_DEFAULT_ALTAC,
+      titleLine: opts.titleLine,
+      flightSite: true,
+      hideGps: true,
+    })
+    if (!coords || coords === 'deleted' || coords === 'delete-cancelled') return null
+    return coords
+  }
   status('GPS現在地を取得中…')
   let gpsLat: number | undefined
   let gpsLng: number | undefined

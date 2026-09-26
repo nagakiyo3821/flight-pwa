@@ -708,6 +708,9 @@ code { font-size: 0.85em; }
   overflow: hidden;
   background: var(--bg);
   box-sizing: border-box;
+  /* 横回転で一部の文字だけ膨らむのを止める */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 .sc-geopick-stack {
   display: flex;
@@ -747,8 +750,8 @@ code { font-size: 0.85em; }
   padding: 0;
   flex: 0 0 auto;
   /* vw 禁止: 横回転で肥大化し、戻しても戻らない端末がある */
-  /* 他画面の h1.prompt(1.15rem) に揃え、メイン行の基準にする */
-  font-size: 1.15rem;
+  /* 他画面の h1 と同程度。px 固定で横回転の文字サイズ変化を避ける */
+  font-size: 18px;
   font-weight: 600;
   line-height: 1.2;
   overflow-wrap: anywhere;
@@ -821,7 +824,7 @@ code { font-size: 0.85em; }
   box-sizing: border-box;
 }
 .sc-geo-fields--geopick .sc-geo-field span {
-  font-size: 0.68rem;
+  font-size: 11px;
   color: var(--muted);
 }
 .sc-geo-fields--geopick .sc-geo-field .sc-input {
@@ -864,10 +867,13 @@ code { font-size: 0.85em; }
   letter-spacing: -0.03em;
 }
 .sc-geo-fields--geopick-nums .sc-geo-field > span {
-  font-size: 0.62rem;
+  font-size: 10px;
+}
+.sc-geo-fields--geopick-acc .sc-geo-field .sc-input,
+.sc-geo-fields--geopick .sc-geo-field--adrs .sc-input {
+  font-size: 14px;
 }
 .sc-geo-fields--geopick .sc-geo-field--adrs .sc-input {
-  font-size: 16px;
   padding: 0.35rem 3.2rem 0.35rem 0.4rem;
   font-variant-numeric: normal;
   text-align: left;
@@ -913,7 +919,7 @@ code { font-size: 0.85em; }
 .sc-dialog--geopick .sc-map-hint {
   margin: 0;
   flex: 0 0 auto;
-  font-size: 0.68rem;
+  font-size: 11px;
   line-height: 1.2;
   color: var(--muted);
   white-space: nowrap;
@@ -962,8 +968,8 @@ code { font-size: 0.85em; }
 }
 .sc-geopick-title-line--main {
   /* em ではなく rem 固定（親 h1 / 回転後の継承崩れ防止） */
-  /* 「新規場所データの登録」など1行目。他画面タイトルと同程度 */
-  font-size: 1.15rem;
+  /* 「新規場所データの登録」など1行目。px 固定 */
+  font-size: 18px;
   font-weight: 600;
   line-height: 1.25;
 }
@@ -977,7 +983,7 @@ code { font-size: 0.85em; }
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
-  font-size: 0.74rem;
+  font-size: 12px;
   font-weight: 600;
   line-height: 1.25;
   color: var(--ink);
@@ -1059,7 +1065,7 @@ code { font-size: 0.85em; }
   min-width: 0;
 }
 .sc-flight-line-label {
-  font-size: 0.78rem;
+  font-size: 12.5px;
   line-height: 1.2;
 }
 .sc-flight-top,
@@ -1077,7 +1083,7 @@ code { font-size: 0.85em; }
   align-items: center;
   gap: 0.35rem 0.75rem;
   min-width: 0;
-  font-size: 0.78rem;
+  font-size: 12.5px;
 }
 .sc-flight-point {
   display: inline-flex;
@@ -1091,7 +1097,7 @@ code { font-size: 0.85em; }
   display: flex;
   align-items: center;
   gap: 0.2rem;
-  font-size: 0.78rem;
+  font-size: 12.5px;
 }
 .sc-flight-near-label {
   flex: 1 1 auto;
@@ -1107,7 +1113,7 @@ code { font-size: 0.85em; }
   width: 100%;
   min-width: 0;
   white-space: nowrap;
-  font-size: 0.78rem;
+  font-size: 12.5px;
   line-height: 1.2;
   font-variant-numeric: tabular-nums;
 }
@@ -1122,7 +1128,7 @@ code { font-size: 0.85em; }
   min-width: 0;
   flex: none;
   white-space: nowrap;
-  font-size: 0.64rem;
+  font-size: 10px;
   line-height: 1.1;
   padding: 0.28rem 0.12rem;
   gap: 0.06rem;
@@ -1147,7 +1153,7 @@ code { font-size: 0.85em; }
   min-width: 0;
   margin: 0;
   padding: 0.32rem 0.35rem;
-  font-size: 0.68rem;
+  font-size: 11px;
   font-weight: 600;
   line-height: 1.2;
   border-radius: 8px;
@@ -1296,8 +1302,14 @@ code { font-size: 0.85em; }
   max-width: none;
   overflow: visible;
 }
-.sc-dialog--geopick .leaflet-overlay-pane svg {
-  overflow: visible;
+.sc-dialog--geopick .leaflet-control-attribution {
+  font-size: 8px;
+  line-height: 1.1;
+  padding: 0 3px;
+  max-width: 46%;
+}
+.sc-dialog--geopick .leaflet-control-attribution a {
+  font-size: 8px;
 }
 .sc-dialog .leaflet-control-container {
   max-width: 100%;

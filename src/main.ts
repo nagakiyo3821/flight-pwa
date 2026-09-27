@@ -1767,8 +1767,12 @@ function askDualPlaceGeo(opts: {
     const placeRefName = String(opts.placeRef?.name ?? '').trim()
     const isPlaceReview = !!placeRefName
     const flightSite = !!opts.flightSite && !isPlaceReview
-    /** 離陸地点の修正と同じ並び。場所修正は青を出さず、削除だけ残す */
-    const flightChrome = flightSite || isPlaceReview
+    /** 新規場所。離着陸の確定規則は使わず、タップ内容を新しい場所にする */
+    const placeNew = !isPlaceReview && !flightSite
+    /** 新規・離着陸登録・場所修正・地点修正は同じ並び。場所修正は青なし、削除だけ残す */
+    const flightChrome = flightSite || isPlaceReview || placeNew
+    /** 住所と場所名の自動入力。新規は派生名のまま、離着陸と場所修正は円の関係 */
+    const flightText = flightSite || isPlaceReview
     const hideGps = isPlaceReview || (flightSite && !!opts.hideGps)
     const gps = {
       lat: Math.round(opts.gps.lat * 1e8) / 1e8,
@@ -2232,7 +2236,7 @@ function askDualPlaceGeo(opts: {
     }
 
     const syncFlightFields = async () => {
-      if (!flightChrome) return
+      if (!flightText) return
       syncNearButtons()
       const rel = flightRelation()
       if (!adrsManual) {
@@ -2287,7 +2291,7 @@ function askDualPlaceGeo(opts: {
         greenEdit = 'none'
         syncNearButtons()
         clearNearOverlay()
-        if (flightChrome) void syncFlightFields()
+        if (flightText) void syncFlightFields()
         else void applyAutoPlaceName(null)
         return
       }
@@ -2298,7 +2302,7 @@ function askDualPlaceGeo(opts: {
         greenEdit = 'none'
         syncNearButtons()
         clearNearOverlay()
-        if (flightChrome) void syncFlightFields()
+        if (flightText) void syncFlightFields()
         else void applyAutoPlaceName(null)
         return
       }
@@ -2330,7 +2334,8 @@ function askDualPlaceGeo(opts: {
         const dist3d = ecefDistanceM(lat, lng, alt, nearDraft.lat, nearDraft.lng, nearDraft.alt)
         updateTitle({ name: nearDraft.name, dist3d })
         setNearOverlay(nearDraft.lat, nearDraft.lng, nearDraft.posac)
-        void syncFlightFields()
+        if (flightText) void syncFlightFields()
+        else void applyAutoPlaceName(hit)
         return
       }
       updateTitle(hit ? { name: hit.name, dist3d: hit.dist3d } : null)
@@ -2468,7 +2473,7 @@ function askDualPlaceGeo(opts: {
         if (req !== adrsReq) return
         adrsEl.placeholder = ''
         const mapped = String(geo.address ?? '').trim()
-        if (flightChrome) {
+        if (flightText) {
           lastMapAdrs = mapped
           void syncFlightFields()
         } else {
@@ -2479,7 +2484,7 @@ function askDualPlaceGeo(opts: {
           }
           refreshClearable()
         }
-        if (!(flightChrome ? lastMapAdrs : adrsEl.value)) {
+        if (!(flightText ? lastMapAdrs : adrsEl.value)) {
           if (mapHint) {
             mapHint.textContent = addressFailMessage(geo.status)
             mapHint.classList.add('net-fail')
@@ -2506,7 +2511,7 @@ function askDualPlaceGeo(opts: {
       altEl.value = String(gps.alt)
       altEl.setCustomValidity('')
       commitNumericLastGood(altEl)
-      if (flightSite) applyAccuracyText(PLACE_DEFAULT_POSAC, PLACE_DEFAULT_ALTAC)
+      if (!hideGps) applyAccuracyText(PLACE_DEFAULT_POSAC, PLACE_DEFAULT_ALTAC)
       setPtMarker(gps.lat, gps.lng, true)
       refreshClearable()
       refreshNearest()
@@ -2549,7 +2554,7 @@ function askDualPlaceGeo(opts: {
     mountGsiLayers(map, mapTiles)
     let gpsMarker: L.Marker | undefined
     const remeasureGps = async () => {
-      if (!flightSite) return
+      if (hideGps) return
       try {
         const pos = await getCurrentPosition()
         const c = pos.coords
@@ -2744,7 +2749,7 @@ function askDualPlaceGeo(opts: {
           if (lat != null && lng != null && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
             setPtAccuracyCircle(lat, lng)
           }
-          if (flightSite) refreshNearest()
+          if (flightChrome) refreshNearest()
           return
         }
         if (el !== latEl && el !== lngEl && el !== altEl) return
@@ -2835,7 +2840,7 @@ function askDualPlaceGeo(opts: {
         nameTouched = true
       }
     })
-    if (flightChrome) {
+    if (flightText) {
       bindFlightRestore(adrsEl, 'adrs')
       bindFlightRestore(nameEl, 'name')
     }
@@ -2982,7 +2987,7 @@ function askDualPlaceGeo(opts: {
         return
       }
       const greenWrite =
-        isPlaceReview && nearDraft && nearDirty()
+        !flightSite && nearDraft && nearDirty()
           ? {
               relation: 'apart' as const,
               useNearest: false,
@@ -4663,6 +4668,17 @@ async function runPlaceNewRegister(): Promise<void> {
     if (!entered) {
       flashMsg = PLACE_NEW_CANCEL_MSG
       return
+    }
+    const green = coords.flightCommit?.green
+    if (green?.write && green.baseName && green.baseName !== entered) {
+      await upsertPlace(green.baseName, {
+        lat: green.lat,
+        lng: green.lng,
+        alt: green.alt,
+        adrs: green.adrs,
+        posac: green.posac,
+        altac: green.altac,
+      })
     }
     await upsertPlace(entered, {
       lat,

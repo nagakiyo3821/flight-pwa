@@ -1767,7 +1767,9 @@ function askDualPlaceGeo(opts: {
     const placeRefName = String(opts.placeRef?.name ?? '').trim()
     const isPlaceReview = !!placeRefName
     const flightSite = !!opts.flightSite && !isPlaceReview
-    const hideGps = flightSite && !!opts.hideGps
+    /** 離陸地点の修正と同じ並び。場所修正は青を出さず、削除だけ残す */
+    const flightChrome = flightSite || isPlaceReview
+    const hideGps = isPlaceReview || (flightSite && !!opts.hideGps)
     const gps = {
       lat: Math.round(opts.gps.lat * 1e8) / 1e8,
       lng: Math.round(opts.gps.lng * 1e8) / 1e8,
@@ -1795,7 +1797,7 @@ function askDualPlaceGeo(opts: {
     const titleNearestHtml = isPlaceReview
       ? ''
       : `<span class="sc-geopick-title-line sc-geopick-title-line--near" id="sc-title-nearest"><span class="sc-geopick-title-ico" aria-hidden="true"><span class="sc-map-ico sc-map-ico--near sc-map-ico--inline"></span></span><span class="sc-geopick-title-near-text">最寄場所(<span class="sc-geopick-title-near-name" id="sc-title-nearest-name">${escapeHtml(nearestTitleInit.name)}</span>)</span><span class="sc-geopick-title-dist" id="sc-title-nearest-dist">${escapeHtml(nearestTitleInit.distPart)}</span></span>`
-    const titleHtml = flightSite
+    const titleHtml = flightChrome
       ? `<span class="sc-geopick-title-stack"><span class="sc-geopick-title-line sc-geopick-title-line--main">${escapeHtml(titleLine1)}</span></span>`
       : `<span class="sc-geopick-title-stack"><span class="sc-geopick-title-line sc-geopick-title-line--main">${escapeHtml(titleLine1)}</span><span class="sc-geopick-title-line sc-geopick-title-line--gps-tap"><span class="sc-geopick-title-ico" aria-hidden="true"><span class="${refIcoClass}"></span></span><span class="sc-geopick-title-label">${escapeHtml(refTitleLabel)}</span><span class="sc-geopick-title-pair sc-geopick-title-pair--tap"><span class="sc-map-ico sc-map-ico--tap sc-map-ico--inline" aria-hidden="true"></span>タップ地点</span></span>${titleNearestHtml}</span>`
 
@@ -1842,7 +1844,7 @@ function askDualPlaceGeo(opts: {
         ${flightBtn('sc-pt-undo', `${mapIco('tap')}１つ前へ戻す`, FLIGHT_TAP_UNDO, 'tap')}
       </div>
     </div>`
-    const gpsNums = flightSite
+    const gpsNums = flightChrome
       ? ''
       : [
       geoFieldHtml('sc-gps-lat', GPS_LABEL_LAT, String(gps.lat), {
@@ -1877,12 +1879,12 @@ function askDualPlaceGeo(opts: {
       ? 'sc-btn-gps-copy sc-btn-gps-copy--near'
       : 'sc-btn-gps-copy'
     const accHtml = `<div class="sc-geo-fields--geopick-acc">
-        ${geoFieldHtml('sc-posac', flightSite ? '位置精度m' : GPS_LABEL_POSAC, opts.posac ?? PLACE_DEFAULT_POSAC, { fill: true, undo: true, undoMode: 'committed', labelHtml: flightSite ? dualGeoLabelHtml('tap', '位置精度m') : undefined })}
-        ${geoFieldHtml('sc-altac', flightSite ? '高度精度m' : GPS_LABEL_ALTAC, opts.altac ?? PLACE_DEFAULT_ALTAC, { fill: true, undo: true, undoMode: 'committed', labelHtml: flightSite ? dualGeoLabelHtml('tap', '高度精度m') : undefined })}
+        ${geoFieldHtml('sc-posac', flightChrome ? '位置精度m' : GPS_LABEL_POSAC, opts.posac ?? PLACE_DEFAULT_POSAC, { fill: true, undo: true, undoMode: 'committed', labelHtml: flightChrome ? dualGeoLabelHtml('tap', '位置精度m') : undefined })}
+        ${geoFieldHtml('sc-altac', flightChrome ? '高度精度m' : GPS_LABEL_ALTAC, opts.altac ?? PLACE_DEFAULT_ALTAC, { fill: true, undo: true, undoMode: 'committed', labelHtml: flightChrome ? dualGeoLabelHtml('tap', '高度精度m') : undefined })}
       </div>`
-    const textHtml = `${geoFieldHtml('sc-adrs', GPS_LABEL_ADRS, opts.adrs ?? '', { fill: true, text: true, textUndo: true, labelHtml: flightSite ? dualGeoLabelHtml('tap', GPS_LABEL_ADRS) : undefined })}
-      ${geoFieldHtml('sc-name', GPS_LABEL_NAME, initialName, { fill: true, text: true, textUndo: true, labelHtml: flightSite ? dualGeoLabelHtml('tap', GPS_LABEL_NAME) : undefined })}`
-    const fieldsHtml = flightSite
+    const textHtml = `${geoFieldHtml('sc-adrs', GPS_LABEL_ADRS, opts.adrs ?? '', { fill: true, text: true, textUndo: true, labelHtml: flightChrome ? dualGeoLabelHtml('tap', GPS_LABEL_ADRS) : undefined })}
+      ${geoFieldHtml('sc-name', GPS_LABEL_NAME, initialName, { fill: true, text: true, textUndo: true, labelHtml: flightChrome ? dualGeoLabelHtml('tap', GPS_LABEL_NAME) : undefined })}`
+    const fieldsHtml = flightChrome
       ? `<div class="sc-geo-fields--geopick">
       ${flightHead}
       <div class="sc-geo-fields--geopick-nums">${ptNums}</div>
@@ -1900,12 +1902,9 @@ function askDualPlaceGeo(opts: {
       ${textHtml}
     </div>`
 
-    const defaultMapHint = isPlaceReview
-      ? `緑＝場所（精度円あり）、橙＝タップ（精度円あり）`
-      : flightSite
-        ? hideGps
-          ? '橙＝タップ（精度円あり）、緑＝最寄（精度円あり）'
-          : '青＝GPS、橙＝タップ（精度円あり）、緑＝最寄（精度円あり）'
+    const defaultMapHint =
+      flightChrome && hideGps
+        ? '橙＝タップ（精度円あり）、緑＝最寄（精度円あり）'
         : '青＝GPS、橙＝タップ（精度円あり）、緑＝最寄（精度円あり）'
 
     root.innerHTML = `
@@ -1945,7 +1944,7 @@ function askDualPlaceGeo(opts: {
     const titleNearestDist = root.querySelector<HTMLElement>('#sc-title-nearest-dist')
     const titleNearestDistVal = root.querySelector<HTMLElement>('#sc-title-nearest-dist-val')
     const fitFlightNearName = () => {
-      if (!flightSite || !titleNearestName) return
+      if (!flightChrome || !titleNearestName) return
       const full = titleNearestName.dataset.full ?? titleNearestName.textContent ?? ''
       const label = titleNearestName.closest('.sc-flight-near-label')
       if (!(label instanceof HTMLElement) || label.clientWidth <= 0) {
@@ -2109,12 +2108,6 @@ function askDualPlaceGeo(opts: {
       redrawNearCircle()
     }
 
-    /** 場所修正: 登録地点の POSAC 円をフォーム値で更新 */
-    const syncPlaceReviewOverlay = () => {
-      if (!isPlaceReview) return
-      setNearOverlay(gps.lat, gps.lng, readPosacM())
-    }
-
     /**
      * %現在地検索相当の場所名自動入力。
      * 最寄の POSAC 円内 → 派生名（場所_xx）、円外／無ヒット → 住所由来。
@@ -2239,7 +2232,7 @@ function askDualPlaceGeo(opts: {
     }
 
     const syncFlightFields = async () => {
-      if (!flightSite) return
+      if (!flightChrome) return
       syncNearButtons()
       const rel = flightRelation()
       if (!adrsManual) {
@@ -2268,18 +2261,17 @@ function askDualPlaceGeo(opts: {
 
     /** タップ地点（橙）更新のたび、キャッシュ上で ECEF 3D 最短を再検出 */
     const refreshNearest = () => {
-      if (isPlaceReview) return
       const updateTitle = (hit: { name: string; dist3d: number } | null) => {
         const parts = placeNearestTitleLabel(hit)
         if (titleNearestName) {
-          if (flightSite) {
+          if (flightChrome) {
             titleNearestName.dataset.full = parts.name
             fitFlightNearName()
           } else {
             titleNearestName.textContent = parts.name
           }
         }
-        if (flightSite && titleNearestDistVal) {
+        if (flightChrome && titleNearestDistVal) {
           titleNearestDistVal.textContent = hit ? formatTwoPointDistance(hit.dist3d) : '—'
         } else if (titleNearestDist) {
           titleNearestDist.textContent = parts.distPart
@@ -2295,7 +2287,7 @@ function askDualPlaceGeo(opts: {
         greenEdit = 'none'
         syncNearButtons()
         clearNearOverlay()
-        if (flightSite) void syncFlightFields()
+        if (flightChrome) void syncFlightFields()
         else void applyAutoPlaceName(null)
         return
       }
@@ -2306,11 +2298,11 @@ function askDualPlaceGeo(opts: {
         greenEdit = 'none'
         syncNearButtons()
         clearNearOverlay()
-        if (flightSite) void syncFlightFields()
+        if (flightChrome) void syncFlightFields()
         else void applyAutoPlaceName(null)
         return
       }
-      if (flightSite) {
+      if (flightChrome) {
         if (!nearDraft || nearDraft.name !== hit.name) {
           const posacRaw = parsePlaceCoord(hit.place.POSAC)
           const posacM =
@@ -2476,7 +2468,7 @@ function askDualPlaceGeo(opts: {
         if (req !== adrsReq) return
         adrsEl.placeholder = ''
         const mapped = String(geo.address ?? '').trim()
-        if (flightSite) {
+        if (flightChrome) {
           lastMapAdrs = mapped
           void syncFlightFields()
         } else {
@@ -2487,7 +2479,7 @@ function askDualPlaceGeo(opts: {
           }
           refreshClearable()
         }
-        if (!(flightSite ? lastMapAdrs : adrsEl.value)) {
+        if (!(flightChrome ? lastMapAdrs : adrsEl.value)) {
           if (mapHint) {
             mapHint.textContent = addressFailMessage(geo.status)
             mapHint.classList.add('net-fail')
@@ -2526,7 +2518,7 @@ function askDualPlaceGeo(opts: {
       const snap = undoSnap
       undoSnap = null
       setUndoEnabled()
-      if (flightSite) {
+      if (flightChrome) {
         applyPtLatLng(snap.lat, snap.lng)
         altEl.value = String(snap.alt)
         altEl.setCustomValidity('')
@@ -2576,9 +2568,7 @@ function askDualPlaceGeo(opts: {
         }
       }
     }
-    if (isPlaceReview) {
-      syncPlaceReviewOverlay()
-    } else if (!hideGps) {
+    if (!hideGps) {
       gpsMarker = L.marker([gps.lat, gps.lng], {
         icon: leafletDivIcon('gps'),
         interactive: false,
@@ -2588,12 +2578,10 @@ function askDualPlaceGeo(opts: {
     setPtMarker(gps.lat, gps.lng, false)
     map.on('moveend', redrawNearCircle)
     map.on('zoomend', redrawNearCircle)
-    if (!isPlaceReview) {
-      void listPlaces().then((rows) => {
-        placesCache = rows
-        refreshNearest()
-      })
-    }
+    void listPlaces().then((rows) => {
+      placesCache = rows
+      refreshNearest()
+    })
 
     map.on('click', (e: L.LeafletMouseEvent) => {
       rememberUndoFrom(readPtSnap())
@@ -2751,7 +2739,6 @@ function askDualPlaceGeo(opts: {
       })
       el.addEventListener('change', () => {
         if (el === posacEl) {
-          if (isPlaceReview) syncPlaceReviewOverlay()
           const lat = parseField(latEl)
           const lng = parseField(lngEl)
           if (lat != null && lng != null && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
@@ -2826,7 +2813,7 @@ function askDualPlaceGeo(opts: {
       btn?.addEventListener(
         'click',
         (ev) => {
-          if (!flightSite) return
+          if (!flightChrome) return
           ev.stopPropagation()
           ev.preventDefault()
           if (kind === 'adrs') adrsManual = false
@@ -2840,15 +2827,15 @@ function askDualPlaceGeo(opts: {
       )
     }
     adrsEl.addEventListener('input', () => {
-      if (flightSite && !syncingText) adrsManual = true
+      if (flightChrome && !syncingText) adrsManual = true
     })
     nameEl.addEventListener('input', () => {
-      if (flightSite && !syncingText) {
+      if (flightChrome && !syncingText) {
         nameManual = true
         nameTouched = true
       }
     })
-    if (flightSite) {
+    if (flightChrome) {
       bindFlightRestore(adrsEl, 'adrs')
       bindFlightRestore(nameEl, 'name')
     }
@@ -2994,6 +2981,24 @@ function askDualPlaceGeo(opts: {
         nameEl.reportValidity()
         return
       }
+      const greenWrite =
+        isPlaceReview && nearDraft && nearDirty()
+          ? {
+              relation: 'apart' as const,
+              useNearest: false,
+              green: {
+                baseName: nearDraft.name,
+                name: nearDraft.name,
+                lat: nearDraft.lat,
+                lng: nearDraft.lng,
+                alt: nearDraft.alt,
+                adrs: nearDraft.baseAdrs || nearDraft.adrs,
+                posac: String(nearDraft.posac),
+                altac: nearDraft.altac || String(altac),
+                write: true,
+              },
+            }
+          : undefined
       finish({
         lat,
         lng,
@@ -3002,6 +3007,7 @@ function askDualPlaceGeo(opts: {
         posac: String(posac),
         altac: String(altac),
         name: checked.value,
+        flightCommit: greenWrite,
       })
     }
 
@@ -4445,10 +4451,14 @@ async function onPlaceMenu(id: string): Promise<void> {
     }
     const newName = String(coords.name ?? name).trim() || name
     const newAdrs = String(coords.adrs ?? '').trim()
-    const newPosac =
+    let newPosac =
       String(coords.posac ?? PLACE_DEFAULT_POSAC).trim() || PLACE_DEFAULT_POSAC
     const newAltac =
       String(coords.altac ?? PLACE_DEFAULT_ALTAC).trim() || PLACE_DEFAULT_ALTAC
+    const green = coords.flightCommit?.green
+    if (green?.write && (green.baseName === name || green.name === newName)) {
+      newPosac = green.posac
+    }
     const sameNum = (a: number, b: number, eps: number) =>
       Number.isFinite(a) && Number.isFinite(b) && Math.abs(a - b) <= eps
     const unchanged =
@@ -4461,12 +4471,25 @@ async function onPlaceMenu(id: string): Promise<void> {
         newPosac &&
       (String(row.ALTAC || PLACE_DEFAULT_ALTAC).trim() || PLACE_DEFAULT_ALTAC) ===
         newAltac
-    if (unchanged) {
+    if (unchanged && !green?.write) {
       flashMsg = PLACE_REVIEW_NOCHANGE_MSG
       await render()
       return
     }
 
+    if (green?.write && green.baseName !== name && green.baseName !== newName) {
+      await upsertPlace(green.baseName, {
+        lat: green.lat,
+        lng: green.lng,
+        alt: green.alt,
+        adrs: green.adrs,
+        posac: green.posac,
+        altac: green.altac,
+      })
+    }
+    if (green?.write && (green.baseName === name || green.name === newName)) {
+      newPosac = green.posac
+    }
     if (newName !== name) {
       await renamePlace(name, newName)
     }

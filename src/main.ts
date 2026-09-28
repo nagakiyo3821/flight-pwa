@@ -2539,6 +2539,7 @@ function askDualPlaceGeo(opts: {
     }
 
     const copyGpsToPoint = () => {
+      showTapFields()
       viewMode = 'tap'
       rememberUndoFrom(readPtSnap())
       applyPtLatLng(gps.lat, gps.lng)
@@ -2561,6 +2562,7 @@ function askDualPlaceGeo(opts: {
       undoSnap = null
       setUndoEnabled()
       if (flightChrome) {
+        showTapFields()
         viewMode = 'tap'
         paintFieldIcons()
         setOkLabel()
@@ -2630,16 +2632,7 @@ function askDualPlaceGeo(opts: {
     })
 
     map.on('click', (e: L.LeafletMouseEvent) => {
-      if (viewMode === 'green' && nearDraft) {
-        const cur = readFormPoint()
-        nearDraft.lat = cur.lat
-        nearDraft.lng = cur.lng
-        nearDraft.alt = cur.alt
-        const p = Number(cur.posac)
-        if (Number.isFinite(p) && p > 0) nearDraft.posac = p
-        nearDraft.adrs = cur.adrs
-        greenName = cur.name
-      }
+      showTapFields()
       viewMode = 'tap'
       paintFieldIcons()
       setOkLabel()
@@ -2972,6 +2965,24 @@ function askDualPlaceGeo(opts: {
       commitNumericLastGood(altacEl)
       refreshClearable()
     }
+    /** 緑表示の欄を最寄へ戻し、タップ地点の欄を橙に戻す。橙を動かす前に呼ぶ */
+    const commitGreenForm = () => {
+      if (viewMode !== 'green' || !nearDraft) return
+      const cur = readFormPoint()
+      nearDraft.lat = cur.lat
+      nearDraft.lng = cur.lng
+      nearDraft.alt = cur.alt
+      const p = Number(cur.posac)
+      if (Number.isFinite(p) && p > 0) nearDraft.posac = p
+      nearDraft.altac = cur.altac
+      nearDraft.adrs = cur.adrs
+      greenName = cur.name
+    }
+    const showTapFields = () => {
+      if (viewMode !== 'green') return
+      commitGreenForm()
+      writePointToForm(tapHeld)
+    }
     const loadGreenIntoForm = () => {
       if (!nearDraft) return
       writePointToForm({
@@ -2995,17 +3006,7 @@ function askDualPlaceGeo(opts: {
       refreshNearest()
     }
     const enterTapMode = (next?: typeof tapHeld, skipSave = false) => {
-      if (!skipSave && viewMode === 'green' && nearDraft) {
-        const cur = readFormPoint()
-        nearDraft.lat = cur.lat
-        nearDraft.lng = cur.lng
-        nearDraft.alt = cur.alt
-        const p = Number(cur.posac)
-        if (Number.isFinite(p) && p > 0) nearDraft.posac = p
-        nearDraft.altac = cur.altac
-        nearDraft.adrs = cur.adrs
-        greenName = cur.name
-      }
+      if (!skipSave) commitGreenForm()
       viewMode = 'tap'
       if (next) tapHeld = next
       writePointToForm(tapHeld)

@@ -1198,6 +1198,24 @@ code { font-size: 0.85em; }
   opacity: 0.45;
   cursor: default;
 }
+/* 離着陸・場所画面の6ボタン。押せないときは同じ色の薄い面 */
+.sc-flight-head .sc-flight-grid-btn:disabled {
+  opacity: 1;
+  cursor: default;
+}
+.sc-flight-head .sc-btn-gps-copy--near.sc-flight-grid-btn:disabled {
+  color: #b7e4c8;
+  background: #f6fdf8;
+  border-color: #e5f6ec;
+}
+.sc-flight-head .sc-btn-pt-undo.sc-flight-grid-btn:disabled {
+  color: #f0cbb8;
+  background: #fff8f5;
+  border-color: #ffeee6;
+}
+.sc-flight-head .sc-flight-grid-btn:disabled .sc-map-ico {
+  opacity: 0.55;
+}
 
 /* 地図上・タイトル用アイコン（塗り円・色のみで区別） */
 .sc-map-ico {

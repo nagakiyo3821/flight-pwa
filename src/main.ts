@@ -2246,6 +2246,7 @@ function askDualPlaceGeo(opts: {
     /** 円内（境界は外）では拡大しない。すでに緑へ橙をコピーしたあとも不可 */
     const expandLocked = (): boolean =>
       twoPointFar() || greenEdit === 'copy' || flightRelation() === 'inside'
+    syncNearButtons()
 
     const applyFlightText = (el: HTMLInputElement, value: string) => {
       syncingText = true
@@ -2364,6 +2365,7 @@ function askDualPlaceGeo(opts: {
         const dist3d = ecefDistanceM(lat, lng, alt, nearDraft.lat, nearDraft.lng, nearDraft.alt)
         updateTitle({ name: nearDraft.name, dist3d })
         setNearOverlay(nearDraft.lat, nearDraft.lng, nearDraft.posac)
+        syncNearButtons()
         if (flightText) void syncFlightFields()
         else void applyAutoPlaceName(hit)
         return
@@ -2393,6 +2395,7 @@ function askDualPlaceGeo(opts: {
     const setUndoEnabled = () => {
       undoBtn.disabled = !undoSnap
     }
+    setUndoEnabled()
 
     const rememberUndoFrom = (snap: PtSnap | null) => {
       if (!snap) return

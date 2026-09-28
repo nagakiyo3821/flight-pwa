@@ -97,8 +97,8 @@ export const FIELDS: FieldDef[] = [
   { no: 40, key: null, label: '飛行時間', group: 'takeoff', input: 'flightDuration' },
   { no: 41, key: 'A_SR', label: '日の出時間', group: 'takeoff', input: 'time' },
   { no: 42, key: 'A_SS', label: '日の入時間', group: 'takeoff', input: 'time' },
-  { no: 43, key: 'A_DATA2', label: '離陸地点の経度', group: 'takeoff', input: 'number' },
-  { no: 44, key: 'A_DATA1', label: '離陸地点の緯度', group: 'takeoff', input: 'number' },
+  { no: 43, key: 'A_DATA1', label: '離陸地点の緯度', group: 'takeoff', input: 'number' },
+  { no: 44, key: 'A_DATA2', label: '離陸地点の経度', group: 'takeoff', input: 'number' },
   { no: 45, key: 'A_DATA3', label: '離陸地点の高度', group: 'takeoff', input: 'number' },
   { no: 46, key: 'A_ADRS', label: '離陸地点の住所', group: 'takeoff', input: 'text' },
   {
@@ -110,8 +110,8 @@ export const FIELDS: FieldDef[] = [
     allowCustom: true,
     customLabelKey: 'placeCustom',
   },
-  { no: 48, key: 'B_DATA2', label: '着陸地点の経度', group: 'takeoff', input: 'number' },
-  { no: 49, key: 'B_DATA1', label: '着陸地点の緯度', group: 'takeoff', input: 'number' },
+  { no: 48, key: 'B_DATA1', label: '着陸地点の緯度', group: 'takeoff', input: 'number' },
+  { no: 49, key: 'B_DATA2', label: '着陸地点の経度', group: 'takeoff', input: 'number' },
   { no: 50, key: 'B_DATA3', label: '着陸地点の高度', group: 'takeoff', input: 'number' },
   { no: 51, key: 'B_ADRS', label: '着陸地点の住所', group: 'takeoff', input: 'text' },
   {

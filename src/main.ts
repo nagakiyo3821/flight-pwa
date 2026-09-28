@@ -2753,7 +2753,9 @@ function askDualPlaceGeo(opts: {
       if (!nearDraft || expandLocked()) return
       const src = viewMode === 'tap' ? readFormPoint() : tapHeld
       const dist = haversineM(src.lat, src.lng, nearDraft.lat, nearDraft.lng)
-      nearDraft.posac = Math.max(nearDraft.posac, dist)
+      const expanded = Math.ceil(dist)
+      if (!Number.isFinite(expanded) || expanded <= 0) return
+      nearDraft.posac = Math.max(nearDraft.posac, expanded)
       greenEdit = 'expand'
       enterGreenMode()
     })

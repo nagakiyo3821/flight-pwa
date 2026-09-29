@@ -2217,11 +2217,8 @@ function askDualPlaceGeo(opts: {
     let derivedName = ''
     let derivedStem = ''
     let flightReviseSnap = false
-    /** 修正画面を開いたとき、最寄場所とタップ地点が同じ位置だったか。未判定は null */
-    let reviseSamePlace: boolean | null = null
-    let reviseAccuracyReleased = false
-    const reviseOpenLat = gps.lat
-    const reviseOpenLng = gps.lng
+    /** 円外の精度を既定にした座標。同じ位置なら手修正を残す */
+    let outsideAccAt: { lat: number; lng: number } | null = null
     let adrsManual = false
     let nameManual = false
     let syncingText = false
@@ -2448,7 +2445,7 @@ function askDualPlaceGeo(opts: {
         clearNearOverlay()
         if (flightText) void syncFlightFields()
         else void applyAutoPlaceName(null)
-        resetAccuracyIfLeftSamePlace()
+        applyOutsideDefaultAccuracy()
         return
       }
       if (flightChrome) {
@@ -2483,7 +2480,7 @@ function askDualPlaceGeo(opts: {
         if (flightRevise && viewMode === 'tap' && tapCoordsOpen()) void applyFlightReviseTapRule()
         else if (flightText) void syncFlightFields()
         else void applyAutoPlaceName(hit)
-        resetAccuracyIfLeftSamePlace()
+        applyOutsideDefaultAccuracy()
         return
       }
       updateTitle(hit ? { name: hit.name, dist3d: hit.dist3d } : null)
@@ -2560,35 +2557,29 @@ function askDualPlaceGeo(opts: {
       }
     }
 
-    const sameMapPoint = (aLat: number, aLng: number, bLat: number, bLng: number) =>
+    const sameAccPoint = (aLat: number, aLng: number, bLat: number, bLng: number) =>
       Math.abs(aLat - bLat) < 1e-7 && Math.abs(aLng - bLng) < 1e-7
 
-    const noteReviseSamePlace = () => {
-      if (!flightRevise || reviseSamePlace != null) return
-      if (opts.tapUnset) {
-        reviseSamePlace = false
+    /** 円の外は別の場所。精度は既定の 15m と 5m。同じ位置での手修正は残す */
+    const applyOutsideDefaultAccuracy = () => {
+      if (!flightSite || viewMode !== 'tap' || flightReviseSnap) return
+      if (flightRevise && !tapCoordsOpen()) return
+      const rel = flightRelation()
+      if (rel === 'inside') {
+        outsideAccAt = null
         return
       }
-      const alt = Number.isFinite(gps.alt) ? gps.alt : 0
-      const hit0 = closestPlace3dFromList(placesCache, reviseOpenLat, reviseOpenLng, alt)
-      reviseSamePlace =
-        !!hit0 && sameMapPoint(reviseOpenLat, reviseOpenLng, hit0.plat, hit0.plng)
-    }
-
-    /** 開いたとき重なっていたタップを動かしたら、精度は 15m と 5m に戻す */
-    const resetAccuracyIfLeftSamePlace = () => {
-      noteReviseSamePlace()
-      if (!flightRevise || !reviseSamePlace || viewMode !== 'tap' || flightReviseSnap) return
       const lat = parseField(latEl)
       const lng = parseField(lngEl)
       if (lat == null || lng == null) return
-      if (sameMapPoint(lat, lng, reviseOpenLat, reviseOpenLng)) {
-        reviseAccuracyReleased = false
+      if (outsideAccAt && sameAccPoint(lat, lng, outsideAccAt.lat, outsideAccAt.lng)) return
+      outsideAccAt = { lat, lng }
+      if (
+        String(posacEl.value ?? '').trim() === PLACE_DEFAULT_POSAC &&
+        String(altacEl.value ?? '').trim() === PLACE_DEFAULT_ALTAC
+      ) {
         return
       }
-      if (nearDraft && sameMapPoint(lat, lng, nearDraft.lat, nearDraft.lng)) return
-      if (reviseAccuracyReleased) return
-      reviseAccuracyReleased = true
       applyAccuracyText(PLACE_DEFAULT_POSAC, PLACE_DEFAULT_ALTAC)
       tapHeld.posac = PLACE_DEFAULT_POSAC
       tapHeld.altac = PLACE_DEFAULT_ALTAC
@@ -2739,6 +2730,7 @@ function askDualPlaceGeo(opts: {
         altEl.setCustomValidity('')
         commitNumericLastGood(altEl)
         applyAccuracyText(snap.posac, snap.altac)
+        outsideAccAt = { lat: snap.lat, lng: snap.lng }
         setPtMarker(snap.lat, snap.lng, true)
         refreshClearable()
         refreshNearest()

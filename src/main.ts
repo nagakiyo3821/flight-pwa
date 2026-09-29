@@ -3203,6 +3203,29 @@ function askDualPlaceGeo(opts: {
     }
 
     const confirm = async () => {
+      if (flightRevise && viewMode === 'tap') {
+        const nameRaw = String(nameEl.value ?? '').trim()
+        if (!nameRaw) {
+          nameEl.setCustomValidity('場所を入力してください')
+          nameEl.reportValidity()
+          return
+        }
+        nameEl.setCustomValidity('')
+        if (!nearDraft) {
+          window.alert('最寄場所がありません')
+          return
+        }
+        finish({
+          lat: nearDraft.lat,
+          lng: nearDraft.lng,
+          alt: roundAltMeters(nearDraft.alt),
+          adrs: nearDraft.adrs,
+          posac: String(nearDraft.posac),
+          altac: nearDraft.altac || PLACE_DEFAULT_ALTAC,
+          name: nearDraft.name,
+        })
+        return
+      }
       const lat = readRequired(latEl)
       if (lat === null) return
       const lng = readRequired(lngEl)

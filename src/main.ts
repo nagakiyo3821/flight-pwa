@@ -2314,6 +2314,7 @@ function askDualPlaceGeo(opts: {
         if (nameManual) return
         const adrs = String(adrsEl.value ?? '').trim()
         applyFlightText(nameEl, adrs)
+        tapHeld.adrs = adrs
         tapHeld.name = adrs
         return
       }
@@ -2357,12 +2358,14 @@ function askDualPlaceGeo(opts: {
         if (viewMode !== 'tap' || nameManual) return
         applyFlightText(nameEl, derivedName)
         tapHeld.name = derivedName
+        tapHeld.adrs = String(adrsEl.value ?? '').trim()
         return
       }
       derivedStem = ''
       derivedName = ''
       const adrs = String(adrsEl.value ?? '').trim()
       applyFlightText(nameEl, adrs)
+      tapHeld.adrs = adrs
       tapHeld.name = adrs
     }
 
@@ -2617,9 +2620,9 @@ function askDualPlaceGeo(opts: {
         const mapped = String(geo.address ?? '').trim()
         if (flightRevise) {
           if (!adrsManual) {
-            adrsEl.value = mapped
-            if (Number.isFinite(tapHeld.lat)) tapHeld.adrs = mapped
-            refreshClearable()
+            lastMapAdrs = mapped
+            applyFlightText(adrsEl, mapped)
+            tapHeld.adrs = mapped
           }
           void applyFlightReviseTapRule()
         } else if (flightText) {
@@ -2633,7 +2636,8 @@ function askDualPlaceGeo(opts: {
           }
           refreshClearable()
         }
-        if (!(flightText ? lastMapAdrs : adrsEl.value)) {
+        const shownAdrs = String(flightRevise || !flightText ? adrsEl.value : lastMapAdrs).trim()
+        if (!shownAdrs) {
           if (mapHint) {
             mapHint.textContent = addressFailMessage(geo.status)
             mapHint.classList.add('net-fail')
@@ -2650,6 +2654,12 @@ function askDualPlaceGeo(opts: {
     }
 
     const onPointMoved = (lat: number, lng: number, elevMode: 'mapClick' | 'soft') => {
+      if (flightRevise && viewMode === 'tap') {
+        adrsManual = false
+        nameManual = false
+        derivedStem = ''
+        derivedName = ''
+      }
       void fetchElevation(lat, lng, elevMode)
       void fetchAddress(lat, lng)
     }
@@ -3058,6 +3068,13 @@ function askDualPlaceGeo(opts: {
           else {
             nameManual = false
             nameTouched = false
+          }
+          if (flightRevise) {
+            const lat = parseField(latEl)
+            const lng = parseField(lngEl)
+            if (kind === 'adrs' && lat != null && lng != null) void fetchAddress(lat, lng)
+            else void applyFlightReviseTapRule()
+            return
           }
           void syncFlightFields()
         },

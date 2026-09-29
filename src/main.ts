@@ -3228,18 +3228,30 @@ function askDualPlaceGeo(opts: {
           return
         }
         nameEl.setCustomValidity('')
-        if (!nearDraft) {
-          window.alert('最寄場所がありません')
+        const lat = readRequired(latEl)
+        if (lat === null) return
+        const lng = readRequired(lngEl)
+        if (lng === null) return
+        const alt = readRequired(altEl)
+        if (alt === null) return
+        const posac = readRequired(posacEl)
+        if (posac === null) return
+        const altac = readRequired(altacEl)
+        if (altac === null) return
+        const checked = await validatePlaceNameCandidate(nameRaw, { allowExistingName: nameRaw })
+        if (!checked.ok) {
+          nameEl.setCustomValidity(checked.err)
+          nameEl.reportValidity()
           return
         }
         finish({
-          lat: nearDraft.lat,
-          lng: nearDraft.lng,
-          alt: roundAltMeters(nearDraft.alt),
-          adrs: nearDraft.adrs,
-          posac: String(nearDraft.posac),
-          altac: nearDraft.altac || PLACE_DEFAULT_ALTAC,
-          name: nearDraft.name,
+          lat,
+          lng,
+          alt: roundAltMeters(alt),
+          adrs: String(adrsEl.value ?? '').trim(),
+          posac: String(posac),
+          altac: String(altac),
+          name: checked.value,
         })
         return
       }

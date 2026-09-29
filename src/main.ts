@@ -2217,6 +2217,11 @@ function askDualPlaceGeo(opts: {
     let derivedName = ''
     let derivedStem = ''
     let flightReviseSnap = false
+    /** 修正画面を開いたとき、最寄場所とタップ地点が同じ位置だったか。未判定は null */
+    let reviseSamePlace: boolean | null = null
+    let reviseAccuracyReleased = false
+    const reviseOpenLat = gps.lat
+    const reviseOpenLng = gps.lng
     let adrsManual = false
     let nameManual = false
     let syncingText = false
@@ -2443,6 +2448,7 @@ function askDualPlaceGeo(opts: {
         clearNearOverlay()
         if (flightText) void syncFlightFields()
         else void applyAutoPlaceName(null)
+        resetAccuracyIfLeftSamePlace()
         return
       }
       if (flightChrome) {
@@ -2477,6 +2483,7 @@ function askDualPlaceGeo(opts: {
         if (flightRevise && viewMode === 'tap' && tapCoordsOpen()) void applyFlightReviseTapRule()
         else if (flightText) void syncFlightFields()
         else void applyAutoPlaceName(hit)
+        resetAccuracyIfLeftSamePlace()
         return
       }
       updateTitle(hit ? { name: hit.name, dist3d: hit.dist3d } : null)
@@ -2551,6 +2558,41 @@ function askDualPlaceGeo(opts: {
         altacEl.setCustomValidity('')
         commitNumericLastGood(altacEl)
       }
+    }
+
+    const sameMapPoint = (aLat: number, aLng: number, bLat: number, bLng: number) =>
+      Math.abs(aLat - bLat) < 1e-7 && Math.abs(aLng - bLng) < 1e-7
+
+    const noteReviseSamePlace = () => {
+      if (!flightRevise || reviseSamePlace != null) return
+      if (opts.tapUnset) {
+        reviseSamePlace = false
+        return
+      }
+      const alt = Number.isFinite(gps.alt) ? gps.alt : 0
+      const hit0 = closestPlace3dFromList(placesCache, reviseOpenLat, reviseOpenLng, alt)
+      reviseSamePlace =
+        !!hit0 && sameMapPoint(reviseOpenLat, reviseOpenLng, hit0.plat, hit0.plng)
+    }
+
+    /** 開いたとき重なっていたタップを動かしたら、精度は 15m と 5m に戻す */
+    const resetAccuracyIfLeftSamePlace = () => {
+      noteReviseSamePlace()
+      if (!flightRevise || !reviseSamePlace || viewMode !== 'tap' || flightReviseSnap) return
+      const lat = parseField(latEl)
+      const lng = parseField(lngEl)
+      if (lat == null || lng == null) return
+      if (sameMapPoint(lat, lng, reviseOpenLat, reviseOpenLng)) {
+        reviseAccuracyReleased = false
+        return
+      }
+      if (nearDraft && sameMapPoint(lat, lng, nearDraft.lat, nearDraft.lng)) return
+      if (reviseAccuracyReleased) return
+      reviseAccuracyReleased = true
+      applyAccuracyText(PLACE_DEFAULT_POSAC, PLACE_DEFAULT_ALTAC)
+      tapHeld.posac = PLACE_DEFAULT_POSAC
+      tapHeld.altac = PLACE_DEFAULT_ALTAC
+      setPtAccuracyCircle(lat, lng)
     }
 
     const applyPtSnap = (snap: PtSnap, pan: boolean) => {

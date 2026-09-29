@@ -1753,6 +1753,10 @@ function askDualPlaceGeo(opts: {
   titleLine?: string
   /** 離陸・着陸。最寄の座標と精度円を同じ画面で直せる */
   flightSite?: boolean
+  /** ケース4。緯度・経度が空のとき、欄には書かず地図の中心だけ東京駅にする */
+  tapUnset?: boolean
+  /** 緯度・経度はあるが高度が取れないとき、高度欄だけ空にする */
+  blankAlt?: boolean
   /** 地点の修正。GPSマーカーと青のボタンを出さない */
   hideGps?: boolean
 }): Promise<DualPlaceGeoResult> {
@@ -1772,8 +1776,10 @@ function askDualPlaceGeo(opts: {
     const hideGps = isPlaceReview || (flightSite && !!opts.hideGps)
     /** ケース3。離陸・着陸の登録。確定は最寄とタップの二つ */
     const flightReg = flightSite && !hideGps
-    /** 青なしは選択場所。開始は緑表示。青ありは最寄で、開始はタップ表示 */
-    let viewMode: 'tap' | 'green' = hideGps ? 'green' : 'tap'
+    /** ケース4。地点の修正。開始はタップ表示。確定ボタンは表示中の一つ */
+    const flightRevise = flightSite && hideGps
+    /** 青なしの場所修正は選択場所。ケース4と青ありはタップ表示から始める */
+    let viewMode: 'tap' | 'green' = hideGps && !flightRevise ? 'green' : 'tap'
     const gps = {
       lat: Math.round(opts.gps.lat * 1e8) / 1e8,
       lng: Math.round(opts.gps.lng * 1e8) / 1e8,
@@ -1830,9 +1836,9 @@ function askDualPlaceGeo(opts: {
     const initialName =
       seedNameGiven || (hideGps ? '' : placeNamePrefill(opts.adrs ?? ''))
     let tapHeld = {
-      lat: gps.lat,
-      lng: gps.lng,
-      alt: gps.alt,
+      lat: opts.tapUnset ? Number.NaN : gps.lat,
+      lng: opts.tapUnset ? Number.NaN : gps.lng,
+      alt: opts.tapUnset || opts.blankAlt ? Number.NaN : gps.alt,
       posac: String(opts.posac ?? PLACE_DEFAULT_POSAC),
       altac: String(opts.altac ?? PLACE_DEFAULT_ALTAC),
       adrs: String(opts.adrs ?? '').trim(),
@@ -1848,7 +1854,7 @@ function askDualPlaceGeo(opts: {
         <span class="sc-flight-two-dist" id="sc-title-nearest-dist">${mapIco('near')}${mapIco('tap')}<span class="sc-flight-two-dist-label">距離</span><span id="sc-title-nearest-dist-val">—</span></span>
       </div>
       <div class="sc-flight-near-row${hideGps ? ' sc-flight-near-row--solo' : ''}">
-        <span class="sc-flight-near-name">${mapIco('near')}<span class="sc-flight-near-label">${hideGps ? '選択場所' : flightReg ? '最寄場所' : '最寄地点'}(<span id="sc-title-nearest-name">${escapeHtml(hideGps ? greenName : nearestTitleInit.name)}</span>)</span></span>
+        <span class="sc-flight-near-name">${mapIco('near')}<span class="sc-flight-near-label">${flightRevise ? '最寄場所' : hideGps ? '選択場所' : flightReg ? '最寄場所' : '最寄地点'}(<span id="sc-title-nearest-name">${escapeHtml(flightRevise || !hideGps ? nearestTitleInit.name : greenName)}</span>)</span></span>
         ${flightRegps}
       </div>
       <div class="sc-flight-grid">
@@ -1878,16 +1884,17 @@ function askDualPlaceGeo(opts: {
         labelHtml: dualGeoLabelHtml(refIcoKind, GPS_LABEL_ALT),
       }),
     ].join('')
+    const showStoredTap = !opts.tapUnset
     const ptNums = [
-      geoFieldHtml('sc-lat', GPS_LABEL_LAT, String(gps.lat), {
+      geoFieldHtml('sc-lat', GPS_LABEL_LAT, showStoredTap ? String(gps.lat) : '', {
         fill: true,
         labelHtml: dualGeoLabelHtml('tap', GPS_LABEL_LAT),
       }),
-      geoFieldHtml('sc-lng', GPS_LABEL_LNG, String(gps.lng), {
+      geoFieldHtml('sc-lng', GPS_LABEL_LNG, showStoredTap ? String(gps.lng) : '', {
         fill: true,
         labelHtml: dualGeoLabelHtml('tap', GPS_LABEL_LNG),
       }),
-      geoFieldHtml('sc-alt', GPS_LABEL_ALT, String(gps.alt), {
+      geoFieldHtml('sc-alt', GPS_LABEL_ALT, showStoredTap && !opts.blankAlt ? String(gps.alt) : '', {
         fill: true,
         labelHtml: dualGeoLabelHtml('tap', GPS_LABEL_ALT),
       }),
@@ -1934,15 +1941,15 @@ function askDualPlaceGeo(opts: {
             <p class="sc-map-hint" id="sc-map-hint">${escapeHtml(defaultMapHint)}</p>
           </div>
         </div>
-        <div class="sc-actions sc-geopick-actions${hideGps || flightReg ? ' sc-geopick-actions--triple' : ''}">
+        <div class="sc-actions sc-geopick-actions${(hideGps && !flightRevise) || flightReg ? ' sc-geopick-actions--triple' : ''}">
           ${
             flightReg
               ? `<button type="button" class="sc-btn sc-btn-ok" id="sc-ok-near" disabled>最寄地点確定</button>`
               : ''
           }
-          <button type="button" class="sc-btn sc-btn-ok" id="sc-ok">${escapeHtml(hideGps ? '選択場所確定' : 'タップ地点確定')}</button>
+          <button type="button" class="sc-btn sc-btn-ok" id="sc-ok">${escapeHtml(flightRevise ? 'タップ地点確定' : hideGps ? '選択場所確定' : 'タップ地点確定')}</button>
           ${
-            hideGps
+            hideGps && !flightRevise
               ? `<button type="button" class="sc-btn sc-btn-del" id="sc-del">選択場所削除</button>`
               : ''
           }
@@ -1977,7 +1984,7 @@ function askDualPlaceGeo(opts: {
       const canvas = document.createElement('canvas')
       const ctx = canvas.getContext('2d')
       ctx && (ctx.font = style.font)
-      const chromeWord = hideGps ? '選択場所' : flightReg ? '最寄場所' : '最寄地点'
+      const chromeWord = flightRevise ? '最寄場所' : hideGps ? '選択場所' : flightReg ? '最寄場所' : '最寄地点'
       const chrome = ctx ? ctx.measureText(`${chromeWord}()`).width : 0
       const avail = Math.max(0, label.clientWidth - chrome)
       titleNearestName.textContent = middleEllipsizeToWidth(full, avail, style.font)
@@ -2098,11 +2105,11 @@ function askDualPlaceGeo(opts: {
         nearMarker = L.marker(nearCenter, {
           icon: leafletDivIcon('near'),
           interactive: false,
-          zIndexOffset: flightReg ? 700 : 650,
+          zIndexOffset: flightRevise ? 800 : flightReg ? 700 : 650,
         }).addTo(map)
       } else {
         nearMarker.setLatLng(nearCenter)
-        nearMarker.setZIndexOffset(flightReg ? 700 : 650)
+        nearMarker.setZIndexOffset(flightRevise ? 800 : flightReg ? 700 : 650)
       }
       redrawNearCircle()
     }
@@ -2186,7 +2193,7 @@ function askDualPlaceGeo(opts: {
       baseAdrs: string
     }
     let nearDraft: NearDraft | null = null
-    if (hideGps) {
+    if (hideGps && !flightRevise) {
       const posacN = Number(tapHeld.posac)
       const posacM =
         Number.isFinite(posacN) && posacN > 0 ? posacN : Number(PLACE_DEFAULT_POSAC)
@@ -2234,11 +2241,15 @@ function askDualPlaceGeo(opts: {
       return dist != null && dist >= 100
     }
     const copyLocked = (): boolean => twoPointFar() || greenEdit === 'expand'
+    const tapCoordsOpen = (): boolean => {
+      if (!flightRevise) return true
+      return parseField(latEl) != null && parseField(lngEl) != null
+    }
 
     const syncNearButtons = () => {
       if (nearAdjustEl) nearAdjustEl.hidden = !nearDraft
-      if (nearMoveBtn) nearMoveBtn.disabled = !nearDraft || copyLocked()
-      if (nearExpandBtn) nearExpandBtn.disabled = !nearDraft || expandLocked()
+      if (nearMoveBtn) nearMoveBtn.disabled = !nearDraft || copyLocked() || (flightRevise && !tapCoordsOpen())
+      if (nearExpandBtn) nearExpandBtn.disabled = !nearDraft || expandLocked() || (flightRevise && !tapCoordsOpen())
       if (nearResetBtn) nearResetBtn.disabled = !nearDraft || greenEdit === 'none' || twoPointFar()
       const copyNearBtn = root.querySelector<HTMLButtonElement>('#sc-copy-near')
       if (copyNearBtn) copyNearBtn.disabled = !nearDraft
@@ -2273,7 +2284,7 @@ function askDualPlaceGeo(opts: {
     const syncFlightFields = async () => {
       if (!flightText) return
       syncNearButtons()
-      if (viewMode === 'green') return
+      if (flightRevise || viewMode === 'green') return
       if (!adrsManual) applyFlightText(adrsEl, lastMapAdrs)
       if (nameManual) return
       const rel = flightRelation()
@@ -2319,7 +2330,15 @@ function askDualPlaceGeo(opts: {
         lng = tapHeld.lng
         alt = tapHeld.alt
       }
-      if (hideGps && nearDraft) {
+      if (
+        flightRevise &&
+        (lat == null || lng == null || !Number.isFinite(lat) || !Number.isFinite(lng))
+      ) {
+        lat = gps.lat
+        lng = gps.lng
+        alt = Number.isFinite(gps.alt) ? gps.alt : 0
+      }
+      if (hideGps && !flightRevise && nearDraft) {
         const labelName = String(nearDraft.name ?? '').trim()
         if (lat != null && lng != null && alt != null) {
           const dist3d = ecefDistanceM(lat, lng, alt, nearDraft.lat, nearDraft.lng, nearDraft.alt)
@@ -2431,7 +2450,7 @@ function askDualPlaceGeo(opts: {
       if (!ptMarker) {
         ptMarker = L.marker([lat, lng], {
           icon: leafletDivIcon('tap'),
-          zIndexOffset: flightReg ? 500 : 600,
+          zIndexOffset: flightRevise || flightReg ? 500 : 600,
         }).addTo(map)
       } else {
         ptMarker.setLatLng([lat, lng])
@@ -2532,7 +2551,13 @@ function askDualPlaceGeo(opts: {
         if (req !== adrsReq) return
         adrsEl.placeholder = ''
         const mapped = String(geo.address ?? '').trim()
-        if (flightText) {
+        if (flightRevise) {
+          if (!adrsManual) {
+            adrsEl.value = mapped
+            if (Number.isFinite(tapHeld.lat)) tapHeld.adrs = mapped
+            refreshClearable()
+          }
+        } else if (flightText) {
           lastMapAdrs = mapped
           void syncFlightFields()
         } else {
@@ -2649,12 +2674,12 @@ function askDualPlaceGeo(opts: {
         zIndexOffset: flightReg ? 900 : 400,
       }).addTo(map)
     }
-    setPtMarker(gps.lat, gps.lng, false)
+    if (!opts.tapUnset) setPtMarker(gps.lat, gps.lng, false)
     map.on('moveend', redrawNearCircle)
     map.on('zoomend', redrawNearCircle)
     /** ケース4。記録に住所や場所名が無いとき、座標の逆引きと最寄円で緑の欄を埋める */
     const resolveSelectionIdentity = async () => {
-      if (!hideGps || !nearDraft || (seedNameGiven && seedAdrsGiven)) return
+      if (flightRevise || !hideGps || !nearDraft || (seedNameGiven && seedAdrsGiven)) return
       let adrs = seedAdrsGiven || nearDraft.adrs
       if (!seedAdrsGiven && !adrsManual) {
         const geo = await reverseGeocode(nearDraft.lat, nearDraft.lng)
@@ -2994,10 +3019,19 @@ function askDualPlaceGeo(opts: {
     }
     const setOkLabel = () => {
       if (flightReg) return
+      if (flightRevise) {
+        okBtn.textContent = viewMode === 'green' ? '最寄場所確定' : 'タップ地点確定'
+        return
+      }
       okBtn.textContent =
         viewMode === 'green' ? (hideGps ? '選択場所確定' : '最寄地点確定') : 'タップ地点確定'
     }
     const raiseMarkers = () => {
+      if (flightRevise) {
+        nearMarker?.setZIndexOffset(800)
+        ptMarker?.setZIndexOffset(500)
+        return
+      }
       if (flightReg) {
         gpsMarker?.setZIndexOffset(900)
         nearMarker?.setZIndexOffset(700)
@@ -3111,6 +3145,12 @@ function askDualPlaceGeo(opts: {
       const altac = readRequired(altacEl)
       if (altac === null) return
       const adrs = String(adrsEl.value ?? '').trim()
+      const nameRaw = String(nameEl.value ?? '').trim()
+      if (flightRevise && !nameRaw) {
+        nameEl.setCustomValidity('場所を入力してください')
+        nameEl.reportValidity()
+        return
+      }
       const checked = await validatePlaceNameCandidate(nameEl.value, {
         allowExistingName: viewMode === 'green' ? String(nameEl.value ?? '').trim() : undefined,
       })
@@ -3693,86 +3733,49 @@ const TOKYO_STATION_LNG = 139.767125
 
 /**
  * 修正画面の初期地点。GPSは使わない。
- * 記録の緯度と経度が両方空のときは、東京駅を一度だけ仮原点にして最寄の登録場所を探す。
- * 見つかった場所を次の仮位置としてマップに出す。場所が無いときは東京駅のまま。
- * 確定するまで飛行記録の空白は変えない。
+ * 記録の緯度と経度が揃っていれば、その点の標高を地図から取る。
+ * 揃っていなければ欄は空のまま。東京駅は地図の仮中心だけで、欄には書かない。
  */
 async function resolveReviseSeed(
   action: 'takeoff' | 'landing',
   rec: FlightRecord,
 ): Promise<{
-  lat: number
-  lng: number
-  alt: number
+  lat: number | null
+  lng: number | null
+  alt: number | null
   adrs: string
   name: string
   posac: string
   altac: string
-} | null> {
+}> {
   const takeoff = action === 'takeoff'
   const recordLat = finiteCoord(takeoff ? rec.A_DATA1 : rec.B_DATA1)
   const recordLng = finiteCoord(takeoff ? rec.A_DATA2 : rec.B_DATA2)
-  let lat = recordLat
-  let lng = recordLng
-  let alt = finiteCoord(takeoff ? rec.A_DATA3 : rec.B_DATA3)
-  let adrs = String((takeoff ? rec.A_ADRS : rec.B_ADRS) ?? '').trim()
+  const recordAlt = finiteCoord(takeoff ? rec.A_DATA3 : rec.B_DATA3)
+  const adrs = String((takeoff ? rec.A_ADRS : rec.B_ADRS) ?? '').trim()
   const name = String((takeoff ? rec.A_POS : rec.B_POS) ?? '').trim()
   let posac = PLACE_DEFAULT_POSAC
   let altac = PLACE_DEFAULT_ALTAC
-  if (recordLat == null && recordLng == null) {
-    let originAlt = 0
-    try {
-      const originElev = await fetchGroundElevation(TOKYO_STATION_LAT, TOKYO_STATION_LNG)
-      if (originElev != null) originAlt = roundAltMeters(originElev)
-    } catch {
-      // 東京駅の標高が取れなくても、その座標で最寄を探す
-    }
-    const hit = closestPlace3dFromList(
-      await listPlaces(),
-      TOKYO_STATION_LAT,
-      TOKYO_STATION_LNG,
-      originAlt,
-    )
-    if (hit) {
-      lat = hit.plat
-      lng = hit.plng
-      const palt = finiteCoord(hit.place.DATA3)
-      if (alt == null) alt = palt != null ? roundAltMeters(palt) : originAlt
-    } else {
-      lat = TOKYO_STATION_LAT
-      lng = TOKYO_STATION_LNG
-      if (alt == null) alt = originAlt
-    }
-    return { lat, lng, alt, adrs, name, posac, altac }
-  }
   if (name) {
     const place = await getPlace(name)
     if (place) {
-      if (lat == null) lat = finiteCoord(place.DATA1)
-      if (lng == null) lng = finiteCoord(place.DATA2)
-      if (alt == null) alt = finiteCoord(place.DATA3)
-      if (!adrs) adrs = String(place.ADRS ?? '').trim()
       const p = String(place.POSAC ?? '').trim()
       const a = String(place.ALTAC ?? '').trim()
       if (p && Number(p) > 0) posac = p
       if (a) altac = a
     }
   }
-  if (lat == null || lng == null) {
-    const home = await getPlace('自宅')
-    if (home) {
-      lat = finiteCoord(home.DATA1)
-      lng = finiteCoord(home.DATA2)
-      if (alt == null) alt = finiteCoord(home.DATA3)
-    }
+  if (recordLat == null || recordLng == null) {
+    return { lat: null, lng: null, alt: null, adrs, name, posac, altac }
   }
-  if (lat == null || lng == null) return null
-  if (alt == null) {
-    const elev = await fetchGroundElevation(lat, lng)
-    if (elev == null) return null
-    alt = roundAltMeters(elev)
+  let alt = recordAlt
+  try {
+    const elev = await fetchGroundElevation(recordLat, recordLng)
+    if (elev != null) alt = roundAltMeters(elev)
+  } catch {
+    // 標高が取れなければ記録の高度を残す
   }
-  return { lat, lng, alt, adrs, name, posac, altac }
+  return { lat: recordLat, lng: recordLng, alt, adrs, name, posac, altac }
 }
 
 /** 項目修正。登録画面から青を外し、緯度・経度・高度・住所・場所をまとめて書く。時刻は変えない */
@@ -4611,11 +4614,11 @@ async function pickPlaceRegistrationGeo(opts?: {
   titleLine?: string
   /** 離陸・着陸。最寄の座標と精度円を同じ画面で直せる */
   flightSite?: boolean
-  /** 地点修正。GPSは取らず、この座標を橙の初期値にする */
+  /** 地点修正。緯度と経度が空なら欄は空。地図の仮中心は東京駅 */
   revise?: {
-    lat: number
-    lng: number
-    alt: number
+    lat: number | null
+    lng: number | null
+    alt: number | null
     adrs?: string
     name?: string
     posac?: string
@@ -4626,9 +4629,25 @@ async function pickPlaceRegistrationGeo(opts?: {
   const status = opts?.status ?? (() => {})
   if (opts?.revise) {
     const seed = opts.revise
+    const unset = seed.lat == null || seed.lng == null
+    let mapLat = TOKYO_STATION_LAT
+    let mapLng = TOKYO_STATION_LNG
+    let mapAlt = 0
+    if (unset) {
+      try {
+        const elev = await fetchGroundElevation(TOKYO_STATION_LAT, TOKYO_STATION_LNG)
+        if (elev != null) mapAlt = roundAltMeters(elev)
+      } catch {
+        // 仮中心の標高が無くても最寄検索は続ける
+      }
+    } else {
+      mapLat = seed.lat as number
+      mapLng = seed.lng as number
+      mapAlt = seed.alt ?? 0
+    }
     status('位置を確認…')
     const coords = await askDualPlaceGeo({
-      gps: { lat: seed.lat, lng: seed.lng, alt: seed.alt },
+      gps: { lat: mapLat, lng: mapLng, alt: mapAlt },
       adrs: seed.adrs,
       name: seed.name,
       posac: seed.posac ?? PLACE_DEFAULT_POSAC,
@@ -4636,7 +4655,8 @@ async function pickPlaceRegistrationGeo(opts?: {
       titleLine: opts.titleLine,
       flightSite: true,
       hideGps: true,
-      placeRef: seed.name ? { name: seed.name } : undefined,
+      tapUnset: unset,
+      blankAlt: !unset && seed.alt == null,
     })
     if (!coords || coords === 'deleted' || coords === 'delete-cancelled') return null
     return coords

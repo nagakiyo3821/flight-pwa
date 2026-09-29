@@ -1825,7 +1825,10 @@ function askDualPlaceGeo(opts: {
     const flightCopyBlue = hideGps
       ? ''
       : flightBtn('sc-copy-blue', `${mapIco('tap')}へ${mapIco('gps')}をコピー`, FLIGHT_TAP_FROM_GPS, 'tap')
-    const initialName = String(opts.name ?? '').trim() || placeNamePrefill(opts.adrs ?? '')
+    const seedNameGiven = String(opts.name ?? '').trim()
+    const seedAdrsGiven = String(opts.adrs ?? '').trim()
+    const initialName =
+      seedNameGiven || (hideGps ? '' : placeNamePrefill(opts.adrs ?? ''))
     let tapHeld = {
       lat: gps.lat,
       lng: gps.lng,
@@ -1845,7 +1848,7 @@ function askDualPlaceGeo(opts: {
         <span class="sc-flight-two-dist" id="sc-title-nearest-dist">${mapIco('near')}${mapIco('tap')}<span class="sc-flight-two-dist-label">距離</span><span id="sc-title-nearest-dist-val">—</span></span>
       </div>
       <div class="sc-flight-near-row${hideGps ? ' sc-flight-near-row--solo' : ''}">
-        <span class="sc-flight-near-name">${mapIco('near')}<span class="sc-flight-near-label">${hideGps ? '選択場所' : flightReg ? '最寄場所' : '最寄地点'}(<span id="sc-title-nearest-name">${escapeHtml(hideGps ? greenName || nearestTitleInit.name : nearestTitleInit.name)}</span>)</span></span>
+        <span class="sc-flight-near-name">${mapIco('near')}<span class="sc-flight-near-label">${hideGps ? '選択場所' : flightReg ? '最寄場所' : '最寄地点'}(<span id="sc-title-nearest-name">${escapeHtml(hideGps ? greenName : nearestTitleInit.name)}</span>)</span></span>
         ${flightRegps}
       </div>
       <div class="sc-flight-grid">
@@ -2188,7 +2191,7 @@ function askDualPlaceGeo(opts: {
       const posacM =
         Number.isFinite(posacN) && posacN > 0 ? posacN : Number(PLACE_DEFAULT_POSAC)
       nearDraft = {
-        name: greenName || placeRefName || '—',
+        name: greenName || placeRefName,
         lat: gps.lat,
         lng: gps.lng,
         alt: gps.alt,
@@ -2317,12 +2320,20 @@ function askDualPlaceGeo(opts: {
         alt = tapHeld.alt
       }
       if (hideGps && nearDraft) {
+        const labelName = String(nearDraft.name ?? '').trim()
         if (lat != null && lng != null && alt != null) {
           const dist3d = ecefDistanceM(lat, lng, alt, nearDraft.lat, nearDraft.lng, nearDraft.alt)
-          updateTitle({ name: nearDraft.name, dist3d })
+          if (titleNearestName) {
+            titleNearestName.dataset.full = labelName
+            fitFlightNearName()
+          }
+          if (titleNearestDistVal) {
+            titleNearestDistVal.textContent = formatTwoPointDistance(dist3d)
+          }
           setNearOverlay(nearDraft.lat, nearDraft.lng, nearDraft.posac)
-        } else {
-          updateTitle({ name: nearDraft.name, dist3d: 0 })
+        } else if (titleNearestName) {
+          titleNearestName.dataset.full = labelName
+          fitFlightNearName()
         }
         syncNearButtons()
         if (viewMode === 'tap') void syncFlightFields()
@@ -2641,9 +2652,54 @@ function askDualPlaceGeo(opts: {
     setPtMarker(gps.lat, gps.lng, false)
     map.on('moveend', redrawNearCircle)
     map.on('zoomend', redrawNearCircle)
+    /** ケース4。記録に住所や場所名が無いとき、座標の逆引きと最寄円で緑の欄を埋める */
+    const resolveSelectionIdentity = async () => {
+      if (!hideGps || !nearDraft || (seedNameGiven && seedAdrsGiven)) return
+      let adrs = seedAdrsGiven || nearDraft.adrs
+      if (!seedAdrsGiven && !adrsManual) {
+        const geo = await reverseGeocode(nearDraft.lat, nearDraft.lng)
+        adrs = String(geo.address ?? '').trim()
+        if (!nearDraft || adrsManual) return
+        nearDraft.adrs = adrs
+        nearDraft.baseAdrs = adrs
+        lastMapAdrs = adrs
+        if (!tapHeld.adrs) tapHeld.adrs = adrs
+        if (viewMode === 'green') adrsEl.value = adrs
+      }
+      if (!seedNameGiven && !nameManual) {
+        const hit = closestPlace3dFromList(
+          placesCache,
+          nearDraft.lat,
+          nearDraft.lng,
+          nearDraft.alt,
+        )
+        let name = placeNamePrefill(adrs)
+        if (hit) {
+          const dist = haversineM(nearDraft.lat, nearDraft.lng, hit.plat, hit.plng)
+          const posacRaw = parsePlaceCoord(hit.place.POSAC)
+          const nearPos =
+            Number.isFinite(posacRaw) && posacRaw > 0 ? posacRaw : Number(PLACE_DEFAULT_POSAC)
+          const tapPos = readPosacM()
+          const inside = dist < nearPos
+          const touch = !inside && dist <= tapPos + nearPos
+          if (inside || touch) name = await nextDerivedPlaceName(hit.name)
+        }
+        if (!nearDraft || nameManual) return
+        greenName = name
+        nearDraft.name = name
+        if (!tapHeld.name) tapHeld.name = name
+        if (viewMode === 'green') nameEl.value = name
+        if (titleNearestName) {
+          titleNearestName.dataset.full = name
+          fitFlightNearName()
+        }
+      }
+      refreshClearable()
+    }
     void listPlaces().then((rows) => {
       placesCache = rows
       refreshNearest()
+      void resolveSelectionIdentity()
     })
 
     map.on('click', (e: L.LeafletMouseEvent) => {

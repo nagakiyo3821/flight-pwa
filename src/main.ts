@@ -2216,6 +2216,7 @@ function askDualPlaceGeo(opts: {
     let lastMapAdrs = String(opts.adrs ?? '').trim()
     let derivedName = ''
     let derivedStem = ''
+    let flightReviseSnap = false
     let adrsManual = false
     let nameManual = false
     let syncingText = false
@@ -2301,6 +2302,68 @@ function askDualPlaceGeo(opts: {
       derivedStem = ''
       derivedName = ''
       applyFlightText(nameEl, placeNamePrefill(lastMapAdrs))
+    }
+
+    /** ケース4。円内は最寄と同じにする。接触は連番。非接触は住所 */
+    const applyFlightReviseTapRule = async () => {
+      if (!flightRevise || viewMode !== 'tap' || !tapCoordsOpen() || flightReviseSnap) return
+      const lat = parseField(latEl)
+      const lng = parseField(lngEl)
+      if (lat == null || lng == null) return
+      if (!nearDraft) {
+        if (nameManual) return
+        const adrs = String(adrsEl.value ?? '').trim()
+        applyFlightText(nameEl, adrs)
+        tapHeld.name = adrs
+        return
+      }
+      const dist = haversineM(lat, lng, nearDraft.lat, nearDraft.lng)
+      if (dist < nearDraft.posac) {
+        const alt = parseField(altEl)
+        const samePos =
+          Math.abs(lat - nearDraft.lat) < 1e-8 &&
+          Math.abs(lng - nearDraft.lng) < 1e-8 &&
+          alt === nearDraft.alt &&
+          String(posacEl.value ?? '').trim() === String(nearDraft.posac) &&
+          String(altacEl.value ?? '').trim() === (nearDraft.altac || PLACE_DEFAULT_ALTAC) &&
+          String(adrsEl.value ?? '').trim() === nearDraft.adrs &&
+          String(nameEl.value ?? '').trim() === nearDraft.name
+        if (samePos) return
+        const copied = {
+          lat: nearDraft.lat,
+          lng: nearDraft.lng,
+          alt: nearDraft.alt,
+          posac: String(nearDraft.posac),
+          altac: nearDraft.altac || PLACE_DEFAULT_ALTAC,
+          adrs: nearDraft.adrs,
+          name: nearDraft.name,
+        }
+        tapHeld = copied
+        writePointToForm(copied)
+        setPtMarker(copied.lat, copied.lng, false)
+        flightReviseSnap = true
+        refreshNearest()
+        flightReviseSnap = false
+        return
+      }
+      if (nameManual) return
+      const touch = dist <= readPosacM() + nearDraft.posac
+      if (touch) {
+        const stem = nearDraft.name.replace(/_\d+$/, '').trim() || '新規'
+        if (derivedStem !== stem || !derivedName) {
+          derivedStem = stem
+          derivedName = await nextDerivedPlaceName(nearDraft.name)
+        }
+        if (viewMode !== 'tap' || nameManual) return
+        applyFlightText(nameEl, derivedName)
+        tapHeld.name = derivedName
+        return
+      }
+      derivedStem = ''
+      derivedName = ''
+      const adrs = String(adrsEl.value ?? '').trim()
+      applyFlightText(nameEl, adrs)
+      tapHeld.name = adrs
     }
 
     /** タップ地点（橙）更新のたび、キャッシュ上で ECEF 3D 最短を再検出 */
@@ -2408,7 +2471,8 @@ function askDualPlaceGeo(opts: {
         updateTitle({ name: nearDraft.name, dist3d })
         setNearOverlay(nearDraft.lat, nearDraft.lng, nearDraft.posac)
         syncNearButtons()
-        if (flightText) void syncFlightFields()
+        if (flightRevise && viewMode === 'tap' && tapCoordsOpen()) void applyFlightReviseTapRule()
+        else if (flightText) void syncFlightFields()
         else void applyAutoPlaceName(hit)
         return
       }
@@ -2557,6 +2621,7 @@ function askDualPlaceGeo(opts: {
             if (Number.isFinite(tapHeld.lat)) tapHeld.adrs = mapped
             refreshClearable()
           }
+          void applyFlightReviseTapRule()
         } else if (flightText) {
           lastMapAdrs = mapped
           void syncFlightFields()

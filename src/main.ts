@@ -3219,6 +3219,28 @@ function askDualPlaceGeo(opts: {
       setOkLabel()
     }
 
+    /** 最寄場所のマスタ更新は、緑へ橙をコピーしたあとと位置精度を広げたあとだけ */
+    const flightPlaceUpdate = (): LatLngAlt['flightCommit'] | undefined => {
+      if (!flightSite || !nearDraft || greenEdit === 'none') return undefined
+      if (viewMode === 'green') commitGreenForm()
+      const rel = flightRelation()
+      return {
+        relation: rel === 'inside' || rel === 'touch-out' ? rel : 'apart',
+        useNearest: viewMode === 'green',
+        green: {
+          baseName: nearDraft.name,
+          name: nearDraft.name,
+          lat: nearDraft.lat,
+          lng: nearDraft.lng,
+          alt: nearDraft.alt,
+          adrs: nearDraft.adrs,
+          posac: String(nearDraft.posac),
+          altac: nearDraft.altac || PLACE_DEFAULT_ALTAC,
+          write: true,
+        },
+      }
+    }
+
     const confirm = async () => {
       if (flightRevise && viewMode === 'tap') {
         const nameRaw = String(nameEl.value ?? '').trim()
@@ -3252,6 +3274,7 @@ function askDualPlaceGeo(opts: {
           posac: String(posac),
           altac: String(altac),
           name: checked.value,
+          flightCommit: flightPlaceUpdate(),
         })
         return
       }
@@ -3289,6 +3312,7 @@ function askDualPlaceGeo(opts: {
         posac: String(posac),
         altac: String(altac),
         name: checked.value,
+        flightCommit: flightPlaceUpdate(),
       })
     }
 
@@ -3312,6 +3336,7 @@ function askDualPlaceGeo(opts: {
         posac: String(nearDraft.posac),
         altac: nearDraft.altac || PLACE_DEFAULT_ALTAC,
         name: checked.value,
+        flightCommit: flightPlaceUpdate(),
       })
     }
 
@@ -3800,7 +3825,10 @@ function finiteCoord(v: unknown): number | null {
   return Number.isFinite(n) ? n : null
 }
 
-/** 確定内容を場所マスタへ書く。名前入力の中止は null。飛行記録は触らない */
+/**
+ * 飛行記録へ書く内容を返す。場所マスタは、緑へ橙をコピーしたあと、
+ * または位置精度を広げたあとだけ、その最寄場所を直す。
+ */
 async function applyFlightSiteToPlaces(coords: LatLngAlt): Promise<FlightSiteSaved | null> {
   const lat = coords.lat
   const lng = coords.lng
@@ -3808,22 +3836,29 @@ async function applyFlightSiteToPlaces(coords: LatLngAlt): Promise<FlightSiteSav
   const adrs = String(coords.adrs ?? '').trim()
   const posName = String(coords.name ?? '').trim()
   if (!posName) return null
-  const existed = await getPlace(posName)
-  await upsertPlace(posName, {
-    lat,
-    lng,
-    alt,
-    adrs,
-    posac: String(coords.posac ?? PLACE_DEFAULT_POSAC).trim() || PLACE_DEFAULT_POSAC,
-    altac: String(coords.altac ?? PLACE_DEFAULT_ALTAC).trim() || PLACE_DEFAULT_ALTAC,
-  })
+  const green = coords.flightCommit?.green
+  let placeNote = posName
+  if (green?.write) {
+    const target = String(green.baseName || green.name).trim()
+    if (target) {
+      await upsertPlace(target, {
+        lat: green.lat,
+        lng: green.lng,
+        alt: green.alt,
+        adrs: green.adrs,
+        posac: String(green.posac ?? PLACE_DEFAULT_POSAC).trim() || PLACE_DEFAULT_POSAC,
+        altac: String(green.altac ?? PLACE_DEFAULT_ALTAC).trim() || PLACE_DEFAULT_ALTAC,
+      })
+      placeNote = `${target}・修正`
+    }
+  }
   return {
     lat,
     lng,
     alt,
     adrs,
     posName,
-    placeNote: existed ? `${posName}・修正` : posName,
+    placeNote,
   }
 }
 

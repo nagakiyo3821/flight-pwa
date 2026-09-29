@@ -1439,6 +1439,10 @@ code { font-size: 0.85em; }
   background: var(--accent);
   color: #fff;
 }
+.sc-actions .sc-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
 .sc-btn-back {
   background: #fff;
   color: var(--accent);

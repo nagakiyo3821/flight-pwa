@@ -1770,6 +1770,8 @@ function askDualPlaceGeo(opts: {
     /** 住所と場所名の自動入力。新規は派生名のまま、離着陸と場所修正は円の関係 */
     const flightText = flightSite || isPlaceReview
     const hideGps = isPlaceReview || (flightSite && !!opts.hideGps)
+    /** ケース3。離陸・着陸の登録。確定は最寄とタップの二つ */
+    const flightReg = flightSite && !hideGps
     /** 青なしは選択場所。開始は緑表示。青ありは最寄で、開始はタップ表示 */
     let viewMode: 'tap' | 'green' = hideGps ? 'green' : 'tap'
     const gps = {
@@ -1843,7 +1845,7 @@ function askDualPlaceGeo(opts: {
         <span class="sc-flight-two-dist" id="sc-title-nearest-dist">${mapIco('near')}${mapIco('tap')}<span class="sc-flight-two-dist-label">距離</span><span id="sc-title-nearest-dist-val">—</span></span>
       </div>
       <div class="sc-flight-near-row${hideGps ? ' sc-flight-near-row--solo' : ''}">
-        <span class="sc-flight-near-name">${mapIco('near')}<span class="sc-flight-near-label">${hideGps ? '選択場所' : '最寄地点'}(<span id="sc-title-nearest-name">${escapeHtml(hideGps ? greenName || nearestTitleInit.name : nearestTitleInit.name)}</span>)</span></span>
+        <span class="sc-flight-near-name">${mapIco('near')}<span class="sc-flight-near-label">${hideGps ? '選択場所' : flightReg ? '最寄場所' : '最寄地点'}(<span id="sc-title-nearest-name">${escapeHtml(hideGps ? greenName || nearestTitleInit.name : nearestTitleInit.name)}</span>)</span></span>
         ${flightRegps}
       </div>
       <div class="sc-flight-grid">
@@ -1929,7 +1931,12 @@ function askDualPlaceGeo(opts: {
             <p class="sc-map-hint" id="sc-map-hint">${escapeHtml(defaultMapHint)}</p>
           </div>
         </div>
-        <div class="sc-actions sc-geopick-actions${hideGps ? ' sc-geopick-actions--triple' : ''}">
+        <div class="sc-actions sc-geopick-actions${hideGps || flightReg ? ' sc-geopick-actions--triple' : ''}">
+          ${
+            flightReg
+              ? `<button type="button" class="sc-btn sc-btn-ok" id="sc-ok-near" disabled>最寄地点確定</button>`
+              : ''
+          }
           <button type="button" class="sc-btn sc-btn-ok" id="sc-ok">${escapeHtml(hideGps ? '選択場所確定' : 'タップ地点確定')}</button>
           ${
             hideGps
@@ -1967,7 +1974,8 @@ function askDualPlaceGeo(opts: {
       const canvas = document.createElement('canvas')
       const ctx = canvas.getContext('2d')
       ctx && (ctx.font = style.font)
-      const chrome = ctx ? ctx.measureText('最寄地点()').width : 0
+      const chromeWord = hideGps ? '選択場所' : flightReg ? '最寄場所' : '最寄地点'
+      const chrome = ctx ? ctx.measureText(`${chromeWord}()`).width : 0
       const avail = Math.max(0, label.clientWidth - chrome)
       titleNearestName.textContent = middleEllipsizeToWidth(full, avail, style.font)
     }
@@ -2087,11 +2095,11 @@ function askDualPlaceGeo(opts: {
         nearMarker = L.marker(nearCenter, {
           icon: leafletDivIcon('near'),
           interactive: false,
-          zIndexOffset: 650,
+          zIndexOffset: flightReg ? 700 : 650,
         }).addTo(map)
       } else {
         nearMarker.setLatLng(nearCenter)
-        nearMarker.setZIndexOffset(650)
+        nearMarker.setZIndexOffset(flightReg ? 700 : 650)
       }
       redrawNearCircle()
     }
@@ -2231,6 +2239,10 @@ function askDualPlaceGeo(opts: {
       if (nearResetBtn) nearResetBtn.disabled = !nearDraft || greenEdit === 'none' || twoPointFar()
       const copyNearBtn = root.querySelector<HTMLButtonElement>('#sc-copy-near')
       if (copyNearBtn) copyNearBtn.disabled = !nearDraft
+      const nearOk = root.querySelector<HTMLButtonElement>('#sc-ok-near')
+      if (nearOk) nearOk.disabled = !nearDraft
+      const tapOk = root.querySelector<HTMLButtonElement>('#sc-ok')
+      if (flightReg && tapOk) tapOk.disabled = viewMode === 'green'
     }
 
     const flightRelation = (): 'none' | 'inside' | 'touch-out' | 'apart' => {
@@ -2406,7 +2418,10 @@ function askDualPlaceGeo(opts: {
     const setPtMarker = (lat: number, lng: number, pan: boolean) => {
       if (!map) return
       if (!ptMarker) {
-        ptMarker = L.marker([lat, lng], { icon: leafletDivIcon('tap'), zIndexOffset: 600 }).addTo(map)
+        ptMarker = L.marker([lat, lng], {
+          icon: leafletDivIcon('tap'),
+          zIndexOffset: flightReg ? 500 : 600,
+        }).addTo(map)
       } else {
         ptMarker.setLatLng([lat, lng])
       }
@@ -2620,7 +2635,7 @@ function askDualPlaceGeo(opts: {
       gpsMarker = L.marker([gps.lat, gps.lng], {
         icon: leafletDivIcon('gps'),
         interactive: false,
-        zIndexOffset: 400,
+        zIndexOffset: flightReg ? 900 : 400,
       }).addTo(map)
     }
     setPtMarker(gps.lat, gps.lng, false)
@@ -2922,10 +2937,17 @@ function askDualPlaceGeo(opts: {
       })
     }
     const setOkLabel = () => {
+      if (flightReg) return
       okBtn.textContent =
         viewMode === 'green' ? (hideGps ? '選択場所確定' : '最寄地点確定') : 'タップ地点確定'
     }
     const raiseMarkers = () => {
+      if (flightReg) {
+        gpsMarker?.setZIndexOffset(900)
+        nearMarker?.setZIndexOffset(700)
+        ptMarker?.setZIndexOffset(500)
+        return
+      }
       ptMarker?.setZIndexOffset(viewMode === 'tap' ? 800 : 500)
       nearMarker?.setZIndexOffset(viewMode === 'green' ? 900 : 650)
     }
@@ -3053,6 +3075,29 @@ function askDualPlaceGeo(opts: {
       })
     }
 
+    const confirmNearReg = async () => {
+      if (viewMode === 'green') {
+        await confirm()
+        return
+      }
+      if (!nearDraft) return
+      const name = String(greenName || nearDraft.name).trim()
+      const checked = await validatePlaceNameCandidate(name, { allowExistingName: name })
+      if (!checked.ok) {
+        window.alert(checked.err)
+        return
+      }
+      finish({
+        lat: nearDraft.lat,
+        lng: nearDraft.lng,
+        alt: roundAltMeters(nearDraft.alt),
+        adrs: nearDraft.adrs,
+        posac: String(nearDraft.posac),
+        altac: nearDraft.altac || PLACE_DEFAULT_ALTAC,
+        name: checked.value,
+      })
+    }
+
     const confirmDelete = async () => {
       if (!hideGps) return
       if (!placeRefName) {
@@ -3077,6 +3122,9 @@ function askDualPlaceGeo(opts: {
 
     root.querySelector('#sc-ok')!.addEventListener('click', () => {
       void confirm()
+    })
+    root.querySelector('#sc-ok-near')?.addEventListener('click', () => {
+      void confirmNearReg()
     })
     root.querySelector('#sc-del')?.addEventListener('click', () => {
       void confirmDelete()

@@ -2797,6 +2797,10 @@ function askDualPlaceGeo(opts: {
     root.querySelector('#sc-copy-near')?.addEventListener('click', () => {
       if (!nearDraft) return
       rememberUndoFrom(readPtSnap())
+      const tapName =
+        viewMode === 'green'
+          ? String(tapHeld.name ?? '').trim()
+          : String(nameEl.value ?? '').trim()
       enterTapMode(
         {
           lat: nearDraft.lat,
@@ -2805,7 +2809,7 @@ function askDualPlaceGeo(opts: {
           posac: String(nearDraft.posac),
           altac: nearDraft.altac || PLACE_DEFAULT_ALTAC,
           adrs: nearDraft.adrs,
-          name: tapHeld.name,
+          name: tapName || String(greenName || nearDraft.name).trim(),
         },
         true,
       )

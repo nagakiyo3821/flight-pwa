@@ -2105,11 +2105,11 @@ function askDualPlaceGeo(opts: {
         nearMarker = L.marker(nearCenter, {
           icon: leafletDivIcon('near'),
           interactive: false,
-          zIndexOffset: flightRevise ? 800 : flightReg ? 700 : 650,
+          zIndexOffset: flightRevise ? 800 : flightReg || placeNew ? 700 : 650,
         }).addTo(map)
       } else {
         nearMarker.setLatLng(nearCenter)
-        nearMarker.setZIndexOffset(flightRevise ? 800 : flightReg ? 700 : 650)
+        nearMarker.setZIndexOffset(flightRevise ? 800 : flightReg || placeNew ? 700 : 650)
       }
       redrawNearCircle()
     }
@@ -2472,6 +2472,7 @@ function askDualPlaceGeo(opts: {
             basePosac: posacM,
             baseAdrs: String(hit.place.ADRS ?? '').trim(),
           }
+          if (viewMode !== 'green') greenName = hit.name
         }
         const dist3d = ecefDistanceM(lat, lng, alt, nearDraft.lat, nearDraft.lng, nearDraft.alt)
         updateTitle({ name: nearDraft.name, dist3d })
@@ -2521,7 +2522,7 @@ function askDualPlaceGeo(opts: {
       if (!ptMarker) {
         ptMarker = L.marker([lat, lng], {
           icon: leafletDivIcon('tap'),
-          zIndexOffset: flightRevise || flightReg ? 500 : 600,
+          zIndexOffset: flightRevise || flightReg || placeNew ? 500 : 600,
         }).addTo(map)
       } else {
         ptMarker.setLatLng([lat, lng])
@@ -2780,7 +2781,7 @@ function askDualPlaceGeo(opts: {
       gpsMarker = L.marker([gps.lat, gps.lng], {
         icon: leafletDivIcon('gps'),
         interactive: false,
-        zIndexOffset: flightReg ? 900 : 400,
+        zIndexOffset: flightReg || placeNew ? 900 : 400,
       }).addTo(map)
     }
     if (!opts.tapUnset) setPtMarker(gps.lat, gps.lng, false)
@@ -3152,7 +3153,7 @@ function askDualPlaceGeo(opts: {
         ptMarker?.setZIndexOffset(500)
         return
       }
-      if (flightReg) {
+      if (flightReg || placeNew) {
         gpsMarker?.setZIndexOffset(900)
         nearMarker?.setZIndexOffset(700)
         ptMarker?.setZIndexOffset(500)

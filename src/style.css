@@ -1628,14 +1628,20 @@ code { font-size: 0.85em; }
 
 /*
  * ポップオーバー共通（トースト／削除確認シート）
- * 下端・白カード・14px・広い横幅で見た目を揃える
+ * 下端・白カード・14px。幅は文字列に合わせ（画面いっぱい／横画面フル幅は避ける）
  */
 :root {
   --popup-inset: 0.65rem;
   --popup-radius: 14px;
   --popup-shadow: 0 10px 32px rgb(26 42 50 / 22%);
   --popup-font: 14px;
-  --popup-width: calc(100vw - (var(--popup-inset) * 2));
+  --popup-min-width: 12.5rem;
+  --popup-max-width: min(20rem, calc(100vw - (var(--popup-inset) * 2)));
+}
+@media (orientation: landscape) {
+  :root {
+    --popup-max-width: min(18rem, calc(100vw - (var(--popup-inset) * 2)));
+  }
 }
 
 /* スマホ向け削除確認シート（既存ダイアログの上に重ねる） */
@@ -1668,8 +1674,9 @@ code { font-size: 0.85em; }
 .sc-confirm-sheet {
   position: relative;
   z-index: 1;
-  width: var(--popup-width);
-  max-width: 100%;
+  width: fit-content;
+  min-width: var(--popup-min-width);
+  max-width: var(--popup-max-width);
   display: flex;
   flex-direction: column;
   gap: 0.45rem;
@@ -2212,10 +2219,11 @@ html.places-ui-lock body {
 .toast {
   position: relative;
   z-index: 1;
-  width: var(--popup-width);
-  max-width: 100%;
+  width: fit-content;
+  min-width: var(--popup-min-width);
+  max-width: var(--popup-max-width);
   box-sizing: border-box;
-  padding: 0.78rem 1rem;
+  padding: 0.78rem 1.15rem;
   border-radius: var(--popup-radius);
   background: #fff;
   color: var(--ink);

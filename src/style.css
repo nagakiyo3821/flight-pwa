@@ -1841,3 +1841,176 @@ button.ghost.is-busy {
   padding-left: 0;
   padding-right: 0;
 }
+
+/* —— 場所データ管理 UI 試作（メニュー11） —— */
+#app.places-ui-app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+}
+.places-ui-title {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.35rem;
+  width: 100%;
+}
+.places-ui-title-text {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.places-ui-main {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  gap: 0.75rem;
+  margin-top: 0.35rem;
+}
+.places-ui-new {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0.9rem 1.1rem;
+  border: none;
+  border-radius: var(--radius);
+  background: var(--accent);
+  color: #fff;
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.35;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.places-ui-new:active {
+  opacity: 0.88;
+}
+.places-ui-new:focus {
+  outline: none;
+}
+.places-ui-new:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+@media (hover: hover) and (pointer: fine) {
+  .places-ui-new:hover {
+    filter: brightness(1.06);
+  }
+}
+.places-ui-card {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+}
+.places-ui-section {
+  margin: 0;
+  padding: 0.65rem 1.1rem 0.45rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+  border-bottom: 1px solid var(--line);
+}
+.places-ui-list-wrap {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: min(62vh, 32rem);
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.places-ui-list {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  width: 100%;
+}
+.places-ui-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+  margin: 0;
+  padding: 0.95rem 1.1rem;
+  border: none;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  background: #fff;
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1.35;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  min-width: 0;
+}
+.places-ui-row:last-child {
+  border-bottom: none;
+}
+.places-ui-row:active {
+  background: var(--accent-soft);
+}
+.places-ui-row:focus {
+  outline: none;
+}
+.places-ui-row:focus:not(:focus-visible) {
+  background: #fff;
+}
+@media (hover: hover) and (pointer: fine) {
+  .places-ui-row:hover {
+    background: var(--accent-soft);
+  }
+}
+.places-ui-row-name {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow-wrap: anywhere;
+}
+.places-ui-row-chevron {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 1.15rem;
+  line-height: 1;
+  opacity: 0.75;
+}
+.places-ui-empty {
+  margin: 0;
+  padding: 1.25rem 1.1rem;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px));
+  z-index: 2000;
+  max-width: min(22rem, calc(100vw - 2rem));
+  padding: 0.7rem 1rem;
+  border-radius: 10px;
+  background: rgb(26 42 50 / 92%);
+  color: #fff;
+  font-size: 0.92rem;
+  font-weight: 500;
+  line-height: 1.35;
+  text-align: center;
+  box-shadow: 0 8px 24px rgb(26 42 50 / 22%);
+  transform: translate(-50%, 0.4rem);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.toast.toast--show {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}

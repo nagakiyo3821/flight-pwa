@@ -1723,23 +1723,27 @@ function fitGeopickMapHeight(
     '.sc-geopick-map-block .sc-map-hint, #sc-map-hint',
   )
   const hintH = hint?.offsetHeight ?? 0
-  // フロアのみ。上限は画面の約半分まで広げ、マップ下の空きを無くす
+  // 下限のみ。機種差を出さないよう上限キャップはせず、割り当て枠いっぱいまで伸ばす
   const floor = Math.round(Math.min(120, Math.max(88, layoutH * 0.12)))
-  const ceil = Math.round(Math.min(layoutH * 0.52, 480))
   let h = floor
   if (block && block.clientHeight > 0) {
     h = Math.floor(block.clientHeight - hintH - 2)
   }
 
   if (isLandscape) {
-    // 横分割: 右カラムのマップ枠いっぱいに合わせる（縦の固定高は使わない）
+    // 横分割: 右カラムのマップ枠いっぱいに合わせる（機種共通）
     if (block && block.clientHeight > 0) {
       h = Math.max(72, Math.floor(block.clientHeight - hintH - 2))
     } else {
       h = Math.max(72, Math.round(layoutH * 0.85) - hintH)
     }
   } else {
-    h = Math.max(floor, Math.min(ceil, h))
+    // 縦: グリッド map 行（1fr）の高さに合わせる（機種共通。旧 ceil 52%/480 は撤廃）
+    if (block && block.clientHeight > 0) {
+      h = Math.max(floor, Math.floor(block.clientHeight - hintH - 2))
+    } else {
+      h = Math.max(floor, Math.round(layoutH * 0.4) - hintH)
+    }
     if (!layoutChanged && locked > 0) {
       // 縦・同一レイアウト: キーボード対策で拡大のみ
       h = Math.max(h, locked)

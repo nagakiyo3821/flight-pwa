@@ -416,6 +416,9 @@ export const PLACE_EDIT_PROMPT = '削除または更新したい項目1~7を選�
 export const PLACE_DEL_PROMPT = '本当にこの場所データを削除しますか？'
 export const PLACE_DEL_OK = '1.削除'
 export const PLACE_DEL_BACK = '2.キャンセル'
+/** スマホ向け削除確認シート（表示文言・番号なし） */
+export const PLACE_DEL_CONFIRM_OK = '削除'
+export const PLACE_DEL_CONFIRM_CANCEL = 'キャンセル'
 /** 場所一覧→地図プレビューの削除ボタン */
 export const PLACE_REVIEW_DEL = '削除'
 export const PLACE_REVIEW_DEL_PROMPT = '本当に削除しますか？'

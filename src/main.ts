@@ -118,9 +118,9 @@ import {
   NET_FAIL_ELEVATION,
   NET_FAIL_WEATHER,
   PLACE_NAME_PROMPT,
-  PLACE_DEL_BACK,
-  PLACE_DEL_OK,
   PLACE_DEL_PROMPT,
+  PLACE_DEL_CONFIRM_OK,
+  PLACE_DEL_CONFIRM_CANCEL,
   PLACE_EDIT_BACK,
   PLACE_EDIT_DEL,
   PLACE_EDIT_MAP,
@@ -595,6 +595,70 @@ function showNoticeDialog(prompt: string): Promise<void> {
     })
     root.querySelector('.sc-alert')?.addEventListener('click', (e) => {
       e.stopPropagation()
+    })
+  })
+}
+
+/**
+ * スマホ向け確認シート（下から。既存 #sc-dialog の上に重ねる）。
+ * true=確定 / false=キャンセル。背面タップもキャンセル。
+ */
+function showConfirmSheet(opts: {
+  title: string
+  detail?: string
+  confirmLabel?: string
+  cancelLabel?: string
+  destructive?: boolean
+}): Promise<boolean> {
+  return new Promise((resolve) => {
+    document.getElementById('sc-confirm')?.remove()
+    const root = document.createElement('div')
+    root.id = 'sc-confirm'
+    root.className = 'sc-confirm'
+    root.setAttribute('role', 'alertdialog')
+    root.setAttribute('aria-modal', 'true')
+    root.setAttribute('aria-labelledby', 'sc-confirm-title')
+    const detail = String(opts.detail ?? '').trim()
+    const confirmLabel = opts.confirmLabel ?? PLACE_DEL_CONFIRM_OK
+    const cancelLabel = opts.cancelLabel ?? PLACE_DEL_CONFIRM_CANCEL
+    const danger = opts.destructive !== false
+    root.innerHTML = `
+      <div class="sc-confirm-backdrop" data-act="cancel" aria-hidden="true"></div>
+      <div class="sc-confirm-sheet" role="document">
+        <div class="sc-confirm-card">
+          <p class="sc-confirm-title" id="sc-confirm-title">${escapeHtml(opts.title)}</p>
+          ${
+            detail
+              ? `<p class="sc-confirm-detail">${escapeHtml(detail)}</p>`
+              : ''
+          }
+          <button type="button" class="sc-confirm-btn${danger ? ' sc-confirm-btn--danger' : ' sc-confirm-btn--ok'}" data-act="ok">${escapeHtml(confirmLabel)}</button>
+        </div>
+        <button type="button" class="sc-confirm-btn sc-confirm-btn--cancel" data-act="cancel">${escapeHtml(cancelLabel)}</button>
+      </div>`
+    document.body.appendChild(root)
+    requestAnimationFrame(() => root.classList.add('sc-confirm--show'))
+
+    let done = false
+    const finish = (ok: boolean) => {
+      if (done) return
+      done = true
+      root.classList.remove('sc-confirm--show')
+      clearStickyFocus()
+      window.setTimeout(() => {
+        root.remove()
+        clearStickyFocus()
+        resolve(ok)
+      }, 180)
+    }
+    root.addEventListener('click', (e) => {
+      const t = (e.target as HTMLElement | null)?.closest?.('[data-act]') as
+        | HTMLElement
+        | null
+      if (!t) return
+      e.preventDefault()
+      e.stopPropagation()
+      finish(t.dataset.act === 'ok')
     })
   })
 }
@@ -3500,16 +3564,14 @@ function askDualPlaceGeo(opts: {
         nameEl.reportValidity()
         return
       }
-      const sel = await chooseFromList(
-        PLACE_REVIEW_DEL_PROMPT,
-        [PLACE_DEL_OK, PLACE_DEL_BACK],
-        { withBackButton: false },
-      )
-      if (!sel || sel === PLACE_DEL_BACK || !sel.includes('削除')) {
-        // 削除確認をキャンセル → 一覧へ戻りメッセージ表示
-        finish('delete-cancelled')
-        return
-      }
+      const ok = await showConfirmSheet({
+        title: PLACE_REVIEW_DEL_PROMPT,
+        detail: placeRefName,
+        confirmLabel: PLACE_DEL_CONFIRM_OK,
+        cancelLabel: PLACE_DEL_CONFIRM_CANCEL,
+        destructive: true,
+      })
+      if (!ok) return
       await deletePlace(placeRefName)
       flashMsg = `${PLACE_REVIEW_DEL_DONE_PREFIX}(${placeRefName})`
       finish('deleted')
@@ -5293,10 +5355,14 @@ async function onPlaceEdit(id: string, name: string, place: PlaceRecord): Promis
     return
   }
   if (id === 'del') {
-    const sel = await chooseFromList(PLACE_DEL_PROMPT, [PLACE_DEL_OK, PLACE_DEL_BACK], {
-      withBackButton: false,
+    const ok = await showConfirmSheet({
+      title: PLACE_DEL_PROMPT,
+      detail: name,
+      confirmLabel: PLACE_DEL_CONFIRM_OK,
+      cancelLabel: PLACE_DEL_CONFIRM_CANCEL,
+      destructive: true,
     })
-    if (sel === PLACE_DEL_OK) {
+    if (ok) {
       await deletePlace(name)
       flashMsg = `削除しました（${name}）`
       placeEditName = null

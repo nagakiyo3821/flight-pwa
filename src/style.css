@@ -1625,6 +1625,116 @@ code { font-size: 0.85em; }
   padding: 0.55rem 1.4rem;
   font-size: 0.95rem;
 }
+
+/* スマホ向け削除確認シート（既存ダイアログの上に重ねる） */
+.sc-confirm {
+  position: fixed;
+  inset: 0;
+  z-index: 2200;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  padding: 0.65rem;
+  padding-bottom: calc(0.65rem + env(safe-area-inset-bottom, 0px));
+  box-sizing: border-box;
+  pointer-events: none;
+}
+.sc-confirm.sc-confirm--show {
+  pointer-events: auto;
+}
+.sc-confirm-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgb(26 42 50 / 45%);
+  opacity: 0;
+  transition: opacity 0.18s ease;
+}
+.sc-confirm.sc-confirm--show .sc-confirm-backdrop {
+  opacity: 1;
+}
+.sc-confirm-sheet {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 22rem);
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  transform: translateY(110%);
+  transition: transform 0.2s ease;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+.sc-confirm.sc-confirm--show .sc-confirm-sheet {
+  transform: translateY(0);
+}
+.sc-confirm-card {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  border-radius: 14px;
+  background: #fff;
+  overflow: hidden;
+  box-shadow: 0 10px 32px rgb(26 42 50 / 22%);
+}
+.sc-confirm-title {
+  margin: 0;
+  padding: 1rem 1rem 0.35rem;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.35;
+  text-align: center;
+  color: var(--ink);
+}
+.sc-confirm-detail {
+  margin: 0;
+  padding: 0 1rem 0.85rem;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.35;
+  text-align: center;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.sc-confirm-btn {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0.85rem 1rem;
+  border: none;
+  border-top: 1px solid var(--line);
+  background: #fff;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.25;
+  text-align: center;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+.sc-confirm-btn:active {
+  background: #f0f4f6;
+}
+.sc-confirm-btn--danger {
+  color: var(--bad);
+}
+.sc-confirm-btn--ok {
+  color: var(--accent);
+}
+.sc-confirm-btn--cancel {
+  border: none;
+  border-radius: 14px;
+  box-shadow: 0 6px 20px rgb(26 42 50 / 14%);
+  font-weight: 600;
+  color: var(--accent);
+}
+.sc-confirm-btn--cancel:active {
+  background: #f3f7f9;
+}
 .sc-btn {
   flex: 1 1 0;
   min-width: 0;

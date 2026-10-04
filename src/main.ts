@@ -1721,27 +1721,28 @@ function fitGeopickMapHeight(
   const hint = root.querySelector<HTMLElement>(
     '.sc-geopick-map-block .sc-map-hint, #sc-map-hint',
   )
+  const hintH = hint?.offsetHeight ?? 0
   // フロアのみ。上限は画面の約半分まで広げ、マップ下の空きを無くす
   const floor = Math.round(Math.min(120, Math.max(88, layoutH * 0.12)))
   const ceil = Math.round(Math.min(layoutH * 0.52, 480))
   let h = floor
   if (block && block.clientHeight > 0) {
-    const hintH = hint?.offsetHeight ?? 0
     h = Math.floor(block.clientHeight - hintH - 2)
   }
-  h = Math.max(floor, Math.min(ceil, h))
 
-  if (isLandscape && locked > 0) {
-    // 横画面: 縦表示で確保した高さを維持（低くしない）
-    h = locked
-  } else if (isLandscape) {
-    // 横で開いた場合も短辺基準にしない（長い辺の約45%）
-    const longSide = Math.max(layoutW, layoutH)
-    const landscapeTarget = Math.round(Math.min(longSide * 0.45, 480))
-    h = Math.max(h, landscapeTarget)
-  } else if (!layoutChanged && locked > 0) {
-    // 縦・同一レイアウト: キーボード対策で拡大のみ
-    h = Math.max(h, locked)
+  if (isLandscape) {
+    // 横分割: 右カラムのマップ枠いっぱいに合わせる（縦の固定高は使わない）
+    if (block && block.clientHeight > 0) {
+      h = Math.max(72, Math.floor(block.clientHeight - hintH - 2))
+    } else {
+      h = Math.max(72, Math.round(layoutH * 0.85) - hintH)
+    }
+  } else {
+    h = Math.max(floor, Math.min(ceil, h))
+    if (!layoutChanged && locked > 0) {
+      // 縦・同一レイアウト: キーボード対策で拡大のみ
+      h = Math.max(h, locked)
+    }
   }
 
   mapEl.dataset.geopickLayoutKey = layoutKey
@@ -1966,23 +1967,25 @@ function askDualPlaceGeo(opts: {
 
     root.innerHTML = `
       <div class="sc-geopick-stack">
-        <div class="sc-geopick-scroll sc-geopick-scroll--fill">
-          <h1 class="prompt sc-geopick-title">${titleHtml}</h1>
-          ${fieldsHtml}
+        <div class="sc-geopick-body">
+          <div class="sc-geopick-scroll sc-geopick-scroll--fill">
+            <h1 class="prompt sc-geopick-title">${titleHtml}</h1>
+            ${fieldsHtml}
+          </div>
           <div class="sc-geopick-map-block">
             <div id="sc-map-pick" class="sc-map-pick sc-map-pick--geopick" role="application" aria-label="位置選択マップ"></div>
             <p class="sc-map-hint" id="sc-map-hint">${escapeHtml(defaultMapHint)}</p>
           </div>
-        </div>
-        <div class="sc-actions sc-geopick-actions${actionsMod}">
-          <button type="button" class="sc-btn sc-btn-ok" id="sc-ok-near" disabled>${escapeHtml(nearOkLabel)}</button>
-          <button type="button" class="sc-btn sc-btn-ok" id="sc-ok">タップ地点確定</button>
-          ${
-            isPlaceReview
-              ? `<button type="button" class="sc-btn sc-btn-del" id="sc-del">選択場所削除</button>`
-              : ''
-          }
-          <button type="button" class="sc-btn sc-btn-back" id="sc-back">${escapeHtml(ITEM_CANCEL)}</button>
+          <div class="sc-actions sc-geopick-actions${actionsMod}">
+            <button type="button" class="sc-btn sc-btn-ok" id="sc-ok-near" disabled>${escapeHtml(nearOkLabel)}</button>
+            <button type="button" class="sc-btn sc-btn-ok" id="sc-ok">タップ地点確定</button>
+            ${
+              isPlaceReview
+                ? `<button type="button" class="sc-btn sc-btn-del" id="sc-del">削除</button>`
+                : ''
+            }
+            <button type="button" class="sc-btn sc-btn-back" id="sc-back">${escapeHtml(ITEM_CANCEL)}</button>
+          </div>
         </div>
         ${appVersionFoot()}
       </div>`

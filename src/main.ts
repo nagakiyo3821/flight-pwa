@@ -2273,9 +2273,10 @@ function askDualPlaceGeo(opts: {
       if (lat == null || lng == null || alt == null) return null
       return ecefDistanceM(lat, lng, alt, nearDraft.lat, nearDraft.lng, nearDraft.alt)
     }
+    /** 最寄とタップの 3D 距離。50m 以上なら緑の寄せ操作をロック */
     const twoPointFar = (): boolean => {
       const dist = twoPointMeters()
-      return dist != null && dist >= 100
+      return dist != null && dist >= 50
     }
     const copyLocked = (): boolean => twoPointFar() || greenEdit === 'expand'
     const tapCoordsOpen = (): boolean => {

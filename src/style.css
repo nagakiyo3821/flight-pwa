@@ -1737,9 +1737,9 @@ code { font-size: 0.85em; }
 .sc-confirm-btn:active {
   background: #f0f4f6;
 }
-/* 削除は文字色のみ赤（背景は白のまま） */
+/* 削除は文字色のみ赤（背景は白のまま）。--bad は茶寄りなので明確な赤を使う */
 .sc-confirm-btn--danger {
-  color: var(--bad);
+  color: #e53935;
   background: #fff;
 }
 .sc-confirm-btn--danger:active {

@@ -1316,9 +1316,9 @@ function askMissingGeo(
           <div class="sc-geopick-body">
             <h1 class="prompt sc-geopick-title"><span class="sc-geopick-title-stack"><span class="sc-geopick-title-line sc-geopick-title-line--main"><span class="sc-geopick-title-text">${promptHtml}</span><span class="sc-geopick-ver">v${APP_VERSION}</span></span></span></h1>
             ${geopickFormPaneHtml(fieldsHtml)}
+            <p class="sc-map-hint" id="sc-map-hint">${hint}</p>
             <div class="sc-geopick-map-block">
               <div id="sc-map-pick" class="sc-map-pick sc-map-pick--geopick" role="application" aria-label="位置選択マップ"></div>
-              <p class="sc-map-hint" id="sc-map-hint">${hint}</p>
             </div>
             <div class="sc-actions sc-geopick-actions">
               <button type="button" class="sc-btn sc-btn-ok" id="sc-ok">${escapeHtml(ITEM_OK)}</button>
@@ -1858,30 +1858,27 @@ function fitGeopickMapHeight(
   }
 
   const block = root.querySelector<HTMLElement>('.sc-geopick-map-block')
-  const hint = root.querySelector<HTMLElement>(
-    '.sc-geopick-map-block .sc-map-hint, #sc-map-hint',
-  )
-  const hintH = hint?.offsetHeight ?? 0
+  // 凡例はマップ上の別グリッド行。マップ枠は地図専用（hint 分を引かない）
   // 下限のみ。機種差を出さないよう上限キャップはせず、割り当て枠いっぱいまで伸ばす
   const floor = Math.round(Math.min(120, Math.max(88, layoutH * 0.12)))
   let h = floor
   if (block && block.clientHeight > 0) {
-    h = Math.floor(block.clientHeight - hintH - 2)
+    h = Math.floor(block.clientHeight - 2)
   }
 
   if (isLandscape) {
     // 横分割: 右カラムのマップ枠いっぱいに合わせる（機種共通）
     if (block && block.clientHeight > 0) {
-      h = Math.max(72, Math.floor(block.clientHeight - hintH - 2))
+      h = Math.max(72, Math.floor(block.clientHeight - 2))
     } else {
-      h = Math.max(72, Math.round(layoutH * 0.85) - hintH)
+      h = Math.max(72, Math.round(layoutH * 0.85))
     }
   } else {
     // 縦: グリッド map 行（1fr）の高さに合わせる（機種共通。旧 ceil 52%/480 は撤廃）
     if (block && block.clientHeight > 0) {
-      h = Math.max(floor, Math.floor(block.clientHeight - hintH - 2))
+      h = Math.max(floor, Math.floor(block.clientHeight - 2))
     } else {
-      h = Math.max(floor, Math.round(layoutH * 0.4) - hintH)
+      h = Math.max(floor, Math.round(layoutH * 0.4))
     }
     if (!layoutChanged && locked > 0) {
       // 縦・同一レイアウト: キーボード対策で拡大のみ
@@ -2116,9 +2113,9 @@ function askDualPlaceGeo(opts: {
         <div class="sc-geopick-body">
           <h1 class="prompt sc-geopick-title">${titleHtml}</h1>
           ${geopickFormPaneHtml(fieldsHtml)}
+          <p class="sc-map-hint" id="sc-map-hint">${escapeHtml(defaultMapHint)}</p>
           <div class="sc-geopick-map-block">
             <div id="sc-map-pick" class="sc-map-pick sc-map-pick--geopick" role="application" aria-label="位置選択マップ"></div>
-            <p class="sc-map-hint" id="sc-map-hint">${escapeHtml(defaultMapHint)}</p>
           </div>
           <div class="sc-actions sc-geopick-actions${actionsMod}">
             <button type="button" class="sc-btn sc-btn-ok" id="sc-ok-near" disabled>${escapeHtml(nearOkLabel)}</button>

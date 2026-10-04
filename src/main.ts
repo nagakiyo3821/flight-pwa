@@ -1202,9 +1202,7 @@ function askMissingGeo(
         <div class="sc-geopick-stack">
           <div class="sc-geopick-body">
             <h1 class="prompt sc-geopick-title"><span class="sc-geopick-title-stack"><span class="sc-geopick-title-line sc-geopick-title-line--main"><span class="sc-geopick-title-text">${promptHtml}</span><span class="sc-geopick-ver">v${APP_VERSION}</span></span></span></h1>
-            <div class="sc-geopick-scroll sc-geopick-scroll--fill">
-              ${fieldsHtml}
-            </div>
+            ${geopickFormPaneHtml(fieldsHtml)}
             <div class="sc-geopick-map-block">
               <div id="sc-map-pick" class="sc-map-pick sc-map-pick--geopick" role="application" aria-label="位置選択マップ"></div>
               <p class="sc-map-hint" id="sc-map-hint">${hint}</p>
@@ -1698,14 +1696,30 @@ function middleEllipsizeToWidth(raw: string, maxPx: number, font: string): strin
  */
 /** 左カラム等で溢れている／続きがあるかを示し、スクロール要否を画面で判断できるようにする */
 function syncGeopickScrollCue(root: ParentNode): void {
-  const el = root.querySelector<HTMLElement>('.sc-geopick-scroll')
+  const pane = root.querySelector<HTMLElement>('.sc-geopick-form-pane')
+  const el =
+    pane?.querySelector<HTMLElement>('.sc-geopick-scroll') ??
+    root.querySelector<HTMLElement>('.sc-geopick-scroll')
   if (!el) return
   const overflow = el.scrollHeight > el.clientHeight + 1
   const more = overflow && el.scrollTop + el.clientHeight < el.scrollHeight - 2
   const less = overflow && el.scrollTop > 2
   el.classList.toggle('sc-geopick-scroll--overflow', overflow)
-  el.classList.toggle('sc-geopick-scroll--more', more)
-  el.classList.toggle('sc-geopick-scroll--less', less)
+  const host = pane ?? el
+  host.classList.toggle('is-scroll-overflow', overflow)
+  host.classList.toggle('is-scroll-more', more)
+  host.classList.toggle('is-scroll-less', less)
+}
+
+function geopickFormPaneHtml(innerScrollHtml: string): string {
+  return `<div class="sc-geopick-form-pane">
+          <div class="sc-geopick-scroll sc-geopick-scroll--fill">
+            ${innerScrollHtml}
+          </div>
+          <div class="sc-geopick-scroll-fade sc-geopick-scroll-fade--top" aria-hidden="true"></div>
+          <div class="sc-geopick-scroll-fade sc-geopick-scroll-fade--bottom" aria-hidden="true"></div>
+          <div class="sc-geopick-scroll-hint" aria-hidden="true">▼</div>
+        </div>`
 }
 
 function fitGeopickMapHeight(
@@ -1988,9 +2002,7 @@ function askDualPlaceGeo(opts: {
       <div class="sc-geopick-stack">
         <div class="sc-geopick-body">
           <h1 class="prompt sc-geopick-title">${titleHtml}</h1>
-          <div class="sc-geopick-scroll sc-geopick-scroll--fill">
-            ${fieldsHtml}
-          </div>
+          ${geopickFormPaneHtml(fieldsHtml)}
           <div class="sc-geopick-map-block">
             <div id="sc-map-pick" class="sc-map-pick sc-map-pick--geopick" role="application" aria-label="位置選択マップ"></div>
             <p class="sc-map-hint" id="sc-map-hint">${escapeHtml(defaultMapHint)}</p>
@@ -2905,6 +2917,7 @@ function askDualPlaceGeo(opts: {
       }
       redrawNearCircle()
       requestAnimationFrame(() => syncGeopickScrollCue(root))
+      window.setTimeout(() => syncGeopickScrollCue(root), 120)
     }
     const scrollEl = root.querySelector<HTMLElement>('.sc-geopick-scroll')
     const onScrollCue = () => syncGeopickScrollCue(root)
@@ -2923,6 +2936,7 @@ function askDualPlaceGeo(opts: {
         vv != null && Number.isFinite(vv) && vv < window.innerHeight - 72
       if (keyboardOpen && locked > 0 && !layoutChanged) {
         applyGeopickMapPixelHeight(map, mapEl, locked)
+        syncGeopickScrollCue(root)
         return
       }
       fitMap()
@@ -2936,6 +2950,7 @@ function askDualPlaceGeo(opts: {
     requestAnimationFrame(() => fitMap())
     setTimeout(() => fitMap(), 80)
     setTimeout(() => fitMap(), 250)
+    setTimeout(() => syncGeopickScrollCue(root), 400)
     window.addEventListener('resize', onWindowResize)
     window.addEventListener('orientationchange', onOrientation)
     window.visualViewport?.addEventListener('resize', onVisualViewport)

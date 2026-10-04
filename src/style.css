@@ -2084,10 +2084,12 @@ html.places-ui-lock body {
   }
 }
 .places-ui-card {
-  flex: 1 1 auto;
+  /* 件数少: 内容高さのまま（下は画面スペース）。多いときだけ縮めてスクロール */
+  flex: 0 1 auto;
   display: flex;
   flex-direction: column;
   min-height: 0;
+  max-height: 100%;
   padding: 0;
   overflow: hidden;
 }
@@ -2104,7 +2106,7 @@ html.places-ui-lock body {
 }
 .places-ui-list-wrap {
   position: relative;
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
@@ -2112,21 +2114,31 @@ html.places-ui-lock body {
   overscroll-behavior: contain;
 }
 .places-ui-list {
-  display: grid;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: stretch;
+  align-content: flex-start;
   gap: 0;
   margin: 0;
   width: 100%;
+  height: auto;
+  /* 親が高くても行トラックを伸ばさない */
+  flex: 0 0 auto;
 }
 .places-ui-row {
   display: flex;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: space-between;
+  align-self: stretch;
   gap: 0.5rem;
   width: 100%;
   margin: 0;
   /* タップ領域は確保しつつ geopick 系より密な行高 */
   padding: 0.55rem 0.85rem;
   min-height: 2.5rem;
+  height: auto;
   border: none;
   border-bottom: 1px solid var(--line);
   border-radius: 0;
@@ -2144,7 +2156,7 @@ html.places-ui-lock body {
   min-width: 0;
 }
 .places-ui-row:last-child {
-  border-bottom: none;
+  border-bottom: 1px solid var(--line);
 }
 .places-ui-row:active {
   background: var(--accent-soft);

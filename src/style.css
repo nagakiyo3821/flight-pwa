@@ -1867,15 +1867,21 @@ html.places-ui-lock body {
 }
 #app.places-ui-app > .top {
   flex: 0 0 auto;
+  padding: 0.65rem 0 0.35rem;
+}
+#app.places-ui-app > .top.top--with-back {
+  gap: 0.2rem;
+  padding-top: 0.55rem;
 }
 #app.places-ui-app .nav-back {
-  font-size: 15px;
+  font-size: 14px;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
 #app.places-ui-app .sc-geopick-ver {
   font-size: 12px;
 }
+/* タイトルは geopick 1行目と同じ 18px。ボタン／リストは geopick 確定行寄りに密にする */
 .places-ui-title {
   display: flex;
   flex-wrap: nowrap;
@@ -1902,23 +1908,24 @@ html.places-ui-lock body {
   flex-direction: column;
   min-height: 0;
   overflow: hidden;
-  gap: 0.75rem;
-  margin-top: 0.35rem;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
 }
 .places-ui-new {
   display: block;
   flex: 0 0 auto;
   width: 100%;
   margin: 0;
-  padding: 0.9rem 1.1rem;
+  /* .sc-geopick-actions .sc-btn 相当 */
+  padding: 0.5rem 0.75rem;
   border: none;
-  border-radius: var(--radius);
+  border-radius: 8px;
   background: var(--accent);
   color: #fff;
   font: inherit;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 600;
-  line-height: 1.35;
+  line-height: 1.25;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   -webkit-text-size-adjust: 100%;
@@ -1950,8 +1957,8 @@ html.places-ui-lock body {
 .places-ui-section {
   flex: 0 0 auto;
   margin: 0;
-  padding: 0.65rem 1.1rem 0.45rem;
-  font-size: 13px;
+  padding: 0.45rem 0.85rem 0.35rem;
+  font-size: 12px;
   font-weight: 600;
   color: var(--muted);
   border-bottom: 1px solid var(--line);
@@ -1977,19 +1984,21 @@ html.places-ui-lock body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
+  gap: 0.5rem;
   width: 100%;
   margin: 0;
-  padding: 0.95rem 1.1rem;
+  /* タップ領域は確保しつつ geopick 系より密な行高 */
+  padding: 0.55rem 0.85rem;
+  min-height: 2.5rem;
   border: none;
   border-bottom: 1px solid var(--line);
   border-radius: 0;
   background: #fff;
   font: inherit;
   /* rem ではなく px（横回転後の iOS 文字肥大を防ぐ） */
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 400;
-  line-height: 1.35;
+  line-height: 1.25;
   text-align: left;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
@@ -2018,14 +2027,14 @@ html.places-ui-lock body {
   min-width: 0;
   flex: 1 1 auto;
   overflow-wrap: anywhere;
-  font-size: 16px;
+  font-size: 14px;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
 .places-ui-row-chevron {
   flex: 0 0 auto;
   color: var(--muted);
-  font-size: 18px;
+  font-size: 15px;
   line-height: 1;
   opacity: 0.75;
   -webkit-text-size-adjust: 100%;
@@ -2033,9 +2042,9 @@ html.places-ui-lock body {
 }
 .places-ui-empty {
   margin: 0;
-  padding: 1.25rem 1.1rem;
+  padding: 0.9rem 0.85rem;
   color: var(--muted);
-  font-size: 15px;
+  font-size: 13px;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }

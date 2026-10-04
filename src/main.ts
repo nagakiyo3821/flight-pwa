@@ -1200,19 +1200,20 @@ function askMissingGeo(
         : 'タップで緯度・経度・高度・住所をセット'
       root.innerHTML = `
         <div class="sc-geopick-stack">
-          <div class="sc-geopick-scroll sc-geopick-scroll--fill">
-            <h1 class="prompt sc-geopick-title">${promptHtml}</h1>
-            ${fieldsHtml}
+          <div class="sc-geopick-body">
+            <h1 class="prompt sc-geopick-title"><span class="sc-geopick-title-stack"><span class="sc-geopick-title-line sc-geopick-title-line--main"><span class="sc-geopick-title-text">${promptHtml}</span><span class="sc-geopick-ver">v${APP_VERSION}</span></span></span></h1>
+            <div class="sc-geopick-scroll sc-geopick-scroll--fill">
+              ${fieldsHtml}
+            </div>
             <div class="sc-geopick-map-block">
               <div id="sc-map-pick" class="sc-map-pick sc-map-pick--geopick" role="application" aria-label="位置選択マップ"></div>
               <p class="sc-map-hint" id="sc-map-hint">${hint}</p>
             </div>
+            <div class="sc-actions sc-geopick-actions">
+              <button type="button" class="sc-btn sc-btn-ok" id="sc-ok">${escapeHtml(ITEM_OK)}</button>
+              <button type="button" class="sc-btn sc-btn-back" id="sc-back">${escapeHtml(ITEM_BACK)}</button>
+            </div>
           </div>
-          <div class="sc-actions sc-geopick-actions">
-            <button type="button" class="sc-btn sc-btn-ok" id="sc-ok">${escapeHtml(ITEM_OK)}</button>
-            <button type="button" class="sc-btn sc-btn-back" id="sc-back">${escapeHtml(ITEM_BACK)}</button>
-          </div>
-          ${appVersionFoot()}
         </div>`
     } else {
       root.innerHTML = dialogShell(
@@ -1836,9 +1837,11 @@ function askDualPlaceGeo(opts: {
     const titleNearestHtml = isPlaceReview
       ? ''
       : `<span class="sc-geopick-title-line sc-geopick-title-line--near" id="sc-title-nearest"><span class="sc-geopick-title-ico" aria-hidden="true"><span class="sc-map-ico sc-map-ico--near sc-map-ico--inline"></span></span><span class="sc-geopick-title-near-text">最寄場所(<span class="sc-geopick-title-near-name" id="sc-title-nearest-name">${escapeHtml(nearestTitleInit.name)}</span>)</span><span class="sc-geopick-title-dist" id="sc-title-nearest-dist">${escapeHtml(nearestTitleInit.distPart)}</span></span>`
+    const titleVer = `<span class="sc-geopick-ver">v${APP_VERSION}</span>`
+    const titleMain = `<span class="sc-geopick-title-line sc-geopick-title-line--main"><span class="sc-geopick-title-text">${escapeHtml(titleLine1)}</span>${titleVer}</span>`
     const titleHtml = flightChrome
-      ? `<span class="sc-geopick-title-stack"><span class="sc-geopick-title-line sc-geopick-title-line--main">${escapeHtml(titleLine1)}</span></span>`
-      : `<span class="sc-geopick-title-stack"><span class="sc-geopick-title-line sc-geopick-title-line--main">${escapeHtml(titleLine1)}</span><span class="sc-geopick-title-line sc-geopick-title-line--gps-tap"><span class="sc-geopick-title-ico" aria-hidden="true"><span class="${refIcoClass}"></span></span><span class="sc-geopick-title-label">${escapeHtml(refTitleLabel)}</span><span class="sc-geopick-title-pair sc-geopick-title-pair--tap"><span class="sc-map-ico sc-map-ico--tap sc-map-ico--inline" aria-hidden="true"></span>タップ地点</span></span>${titleNearestHtml}</span>`
+      ? `<span class="sc-geopick-title-stack">${titleMain}</span>`
+      : `<span class="sc-geopick-title-stack">${titleMain}<span class="sc-geopick-title-line sc-geopick-title-line--gps-tap"><span class="sc-geopick-title-ico" aria-hidden="true"><span class="${refIcoClass}"></span></span><span class="sc-geopick-title-label">${escapeHtml(refTitleLabel)}</span><span class="sc-geopick-title-pair sc-geopick-title-pair--tap"><span class="sc-map-ico sc-map-ico--tap sc-map-ico--inline" aria-hidden="true"></span>タップ地点</span></span>${titleNearestHtml}</span>`
 
     const mapIco = (kind: 'gps' | 'near' | 'tap') =>
       `<span class="sc-map-ico sc-map-ico--${kind} sc-map-ico--inline" aria-hidden="true"></span>`
@@ -1968,8 +1971,8 @@ function askDualPlaceGeo(opts: {
     root.innerHTML = `
       <div class="sc-geopick-stack">
         <div class="sc-geopick-body">
+          <h1 class="prompt sc-geopick-title">${titleHtml}</h1>
           <div class="sc-geopick-scroll sc-geopick-scroll--fill">
-            <h1 class="prompt sc-geopick-title">${titleHtml}</h1>
             ${fieldsHtml}
           </div>
           <div class="sc-geopick-map-block">
@@ -1987,7 +1990,6 @@ function askDualPlaceGeo(opts: {
             <button type="button" class="sc-btn sc-btn-back" id="sc-back">${escapeHtml(ITEM_CANCEL)}</button>
           </div>
         </div>
-        ${appVersionFoot()}
       </div>`
 
     const refreshClearable = wireClearableInputs(root)

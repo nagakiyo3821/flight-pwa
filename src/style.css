@@ -727,20 +727,24 @@ code { font-size: 0.85em; }
   flex: 1 1 auto;
   height: 100%;
 }
-/* 縦: 上から form → map → actions / 横: 左 form+actions・右 map */
+/* 縦: title → form → map → actions / 横: 左 title+form+actions・右 map（上端は form に揃える） */
 .sc-geopick-body {
   display: grid;
   grid-template-areas:
+    "title"
     "form"
     "map"
     "actions";
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
   grid-template-columns: minmax(0, 1fr);
   flex: 1 1 auto;
   min-width: 0;
   min-height: 0;
   gap: 0.2rem;
   overflow: hidden;
+}
+.sc-geopick-body > .sc-geopick-title {
+  grid-area: title;
 }
 .sc-geopick-body > .sc-geopick-scroll {
   grid-area: form;
@@ -992,11 +996,37 @@ code { font-size: 0.85em; }
   gap: 0.15rem 0.35rem;
 }
 .sc-geopick-title-line--main {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.35rem;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
   /* em ではなく rem 固定（親 h1 / 回転後の継承崩れ防止） */
   /* 「新規場所データの登録」など1行目。px 固定 */
   font-size: 18px;
   font-weight: 600;
   line-height: 1.25;
+}
+.sc-geopick-title-text {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sc-geopick-ver {
+  flex: 0 0 auto;
+  margin-left: auto;
+  font-size: 0.78rem;
+  font-weight: 500;
+  line-height: 1.25;
+  color: var(--muted);
+  white-space: nowrap;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 /* GPS行・最寄行: 先頭より一段小さく。em だと横回転後に肥大化することがある */
 .sc-geopick-title-line--gps-tap,
@@ -1408,31 +1438,28 @@ code { font-size: 0.85em; }
   flex: 0.85 1 0;
 }
 
-/* 場所登録（ケース1〜4）横画面: 左＝入力＋確定、右＝地図を高さいっぱい
-   iPhone: ノッチ／Dynamic Island（横では左右どちらか）とホームインジケータ（底）を避け、
-   使える矩形の中で左右が揃うように safe-area で余白を取る */
+/* 場所登録（ケース1〜4）横画面: 左＝タイトル（版右詰め）＋入力＋確定、右＝地図
+   地図上端はタイトル下のデータ欄（form）に揃える。底は safe-area で避ける */
 @media (orientation: landscape) {
   .sc-dialog--geopick .sc-geopick-stack {
     max-width: none;
     padding-top: max(0.2rem, env(safe-area-inset-top, 0px));
     padding-left: max(0.5rem, env(safe-area-inset-left, 0px));
     padding-right: max(0.5rem, env(safe-area-inset-right, 0px));
-    /* 底は版表示 .foot 側で避ける（二重に下げない） */
-    padding-bottom: 0;
-  }
-  .sc-dialog--geopick .sc-geopick-stack > .foot {
-    padding-top: 0.2rem;
-    padding-left: 0;
-    padding-right: 0;
-    padding-bottom: max(0.28rem, env(safe-area-inset-bottom, 0px));
+    padding-bottom: max(0.2rem, env(safe-area-inset-bottom, 0px));
   }
   .sc-dialog--geopick .sc-geopick-body {
+    /* 右上は空：地図は form 行から開始してタイトル下のデータ高さに揃える */
     grid-template-areas:
+      "title ."
       "form map"
       "actions map";
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    grid-template-rows: minmax(0, 1fr) auto;
+    grid-template-rows: auto minmax(0, 1fr) auto;
     gap: 0.28rem 0.5rem;
+  }
+  .sc-dialog--geopick .sc-geopick-body > .sc-geopick-title {
+    min-width: 0;
   }
   .sc-dialog--geopick .sc-geopick-body > .sc-geopick-scroll {
     align-self: stretch;
@@ -1453,11 +1480,16 @@ code { font-size: 0.85em; }
     min-height: 0;
   }
   .sc-dialog--geopick .sc-actions.sc-geopick-actions {
-    /* 確定は左カラム下だが、端末のホームインジケータ帯には載せない */
     padding-bottom: 0.12rem;
   }
   .sc-dialog--geopick .sc-geopick-title {
     font-size: 15px;
+  }
+  .sc-dialog--geopick .sc-geopick-title-line--main {
+    font-size: 15px;
+  }
+  .sc-dialog--geopick .sc-geopick-ver {
+    font-size: 0.72rem;
   }
   .sc-dialog--geopick .sc-geo-fields--geopick {
     padding: 0.2rem 0.32rem;

@@ -125,14 +125,11 @@ import {
   PLACE_EDIT_DEL,
   PLACE_EDIT_MAP,
   PLACE_EDIT_PROMPT,
-  PLACE_MENU_BACK,
-  PLACE_MENU_NEW,
-  PLACE_UI_PROTO_MENU,
-  PLACE_UI_PROTO_TITLE,
-  PLACE_UI_PROTO_NEW,
-  PLACE_UI_PROTO_BACK,
-  PLACE_UI_PROTO_SECTION,
-  PLACE_UI_PROTO_EMPTY,
+  PLACE_HUB_TITLE,
+  PLACE_HUB_NEW,
+  PLACE_HUB_BACK,
+  PLACE_HUB_SECTION,
+  PLACE_HUB_EMPTY,
   PLACE_NEW_CONFIRM_LINE,
   TAKEOFF_CANCEL_MSG,
   TAKEOFF_PLACE_CONFIRM_LINE,
@@ -245,19 +242,14 @@ type View =
   | 'checklist'
   | 'io'
   | 'places'
-  | 'places-ui'
   | 'place-edit'
-
-/** 場所一覧の戻り先（8=本番 / 11=UI試作） */
-type PlaceHubView = 'places' | 'places-ui'
-let placeHubView: PlaceHubView = 'places'
 
 let view: View = 'menu'
 let placeEditName: string | null = null
 let checklistFilter: 'pre' | 'post' | 'all' = 'pre'
 /** メニュー再描画後に一度だけ出すメッセージ */
 let flashMsg = ''
-/** UI試作向けトースト（描画後に一度だけ） */
+/** 場所一覧向けトースト（描画後に一度だけ） */
 let toastMsg = ''
 let toastTimer: number | undefined
 const app = document.querySelector<HTMLDivElement>('#app')!
@@ -289,8 +281,7 @@ function showToast(text: string, ms = 2500): void {
 }
 
 function notifyPlaceHub(msg: string): void {
-  if (placeHubView === 'places-ui') toastMsg = msg
-  else flashMsg = msg
+  toastMsg = msg
 }
 
 async function render(): Promise<void> {
@@ -306,7 +297,6 @@ async function render(): Promise<void> {
   else if (view === 'records') await renderRecords()
   else if (view === 'checklist') await renderChecklist()
   else if (view === 'places') await renderPlaces()
-  else if (view === 'places-ui') await renderPlacesUiProto()
   else if (view === 'place-edit') await renderPlaceEdit()
   else await renderIO()
   clearStickyFocus()
@@ -417,7 +407,6 @@ async function renderMenu(): Promise<void> {
       text: '10.終了(手動でタブを閉じる)',
       inert: true,
     },
-    { action: 'places-ui', text: PLACE_UI_PROTO_MENU },
   ]
 
   const list = items
@@ -4279,14 +4268,7 @@ async function onMenu(action: string): Promise<void> {
     return
   }
   if (action === 'places') {
-    placeHubView = 'places'
     view = 'places'
-    await render()
-    return
-  }
-  if (action === 'places-ui') {
-    placeHubView = 'places-ui'
-    view = 'places-ui'
     await render()
     return
   }
@@ -4877,46 +4859,8 @@ function fieldRow(f: FieldDef, rec: FlightRecord, places: string[], droneType: s
     ${clearableInputHtml(`cf-${f.key}`, `name="${f.key}" type="text" inputmode="text" placeholder="${ph}"`, rec[f.key] ?? '')}</label>`
 }
 
+/** 8.場所データ管理（L1 一覧＋トースト） */
 async function renderPlaces(): Promise<void> {
-  placeHubView = 'places'
-  const names = await listPlaceNames()
-  const rows = [
-    { id: 'back', text: PLACE_MENU_BACK },
-    { id: 'newplace', text: PLACE_MENU_NEW },
-    ...names.map((n) => ({ id: `p:${n}`, text: n })),
-  ]
-  const list = rows
-    .map(
-      (it) =>
-        `<button type="button" class="menu-btn" data-id="${escapeHtml(it.id)}">${escapeHtml(it.text)}</button>`,
-    )
-    .join('')
-
-  app.innerHTML = shell(
-    '場所データ管理',
-    `
-    <p id="msg" class="msg menu-flash"></p>
-    <section class="card menu-card">
-      <div class="menu">${list}</div>
-    </section>`,
-  )
-  const msgEl = app.querySelector('#msg')!
-  if (flashMsg) {
-    msgEl.textContent = flashMsg
-    flashMsg = ''
-  }
-  app.querySelectorAll<HTMLButtonElement>('[data-id]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      void onPlaceMenu(btn.dataset.id!).catch((e) => {
-        msgEl.textContent = `失敗: ${(e as Error).message}`
-      })
-    })
-  })
-}
-
-/** メニュー11: 場所一覧 UI 試作（L1＋トースト）。本番 8 は変更しない */
-async function renderPlacesUiProto(): Promise<void> {
-  placeHubView = 'places-ui'
   const names = await listPlaceNames()
   const rowsHtml = names.length
     ? names
@@ -4925,27 +4869,27 @@ async function renderPlacesUiProto(): Promise<void> {
             `<button type="button" class="places-ui-row" data-id="p:${escapeHtml(n)}"><span class="places-ui-row-name">${escapeHtml(n)}</span><span class="places-ui-row-chevron" aria-hidden="true">›</span></button>`,
         )
         .join('')
-    : `<p class="places-ui-empty">${escapeHtml(PLACE_UI_PROTO_EMPTY)}</p>`
+    : `<p class="places-ui-empty">${escapeHtml(PLACE_HUB_EMPTY)}</p>`
 
   app.classList.add('places-ui-app')
   document.documentElement.classList.add('places-ui-lock')
   app.innerHTML = `
   <header class="top top--with-back">
-    <button type="button" class="nav-back" id="places-ui-back" aria-label="${escapeHtml(PLACE_UI_PROTO_BACK)}">
+    <button type="button" class="nav-back" id="places-ui-back" aria-label="${escapeHtml(PLACE_HUB_BACK)}">
       <span class="nav-back-chevron" aria-hidden="true"></span>
-      <span>${escapeHtml(PLACE_UI_PROTO_BACK)}</span>
+      <span>${escapeHtml(PLACE_HUB_BACK)}</span>
     </button>
     <div class="top-titles">
       <h1 class="prompt places-ui-title">
-        <span class="places-ui-title-text">${escapeHtml(PLACE_UI_PROTO_TITLE)}</span>
+        <span class="places-ui-title-text">${escapeHtml(PLACE_HUB_TITLE)}</span>
         <span class="sc-geopick-ver">v${APP_VERSION}</span>
       </h1>
     </div>
   </header>
   <main class="places-ui-main">
-    <button type="button" class="places-ui-new" id="places-ui-new">${escapeHtml(PLACE_UI_PROTO_NEW)}</button>
+    <button type="button" class="places-ui-new" id="places-ui-new">${escapeHtml(PLACE_HUB_NEW)}</button>
     <section class="card places-ui-card">
-      <h2 class="places-ui-section">${escapeHtml(PLACE_UI_PROTO_SECTION(names.length))}</h2>
+      <h2 class="places-ui-section">${escapeHtml(PLACE_HUB_SECTION(names.length))}</h2>
       <div class="places-ui-list-wrap">
         <div class="places-ui-list">${rowsHtml}</div>
       </div>
@@ -4979,97 +4923,85 @@ async function renderPlacesUiProto(): Promise<void> {
 }
 
 async function onPlaceMenu(id: string): Promise<void> {
-  if (id === 'back') {
-    view = 'menu'
-    placeEditName = null
+  if (!id.startsWith('p:')) return
+  const name = id.slice(2)
+  const row = await getPlace(name)
+  if (!row) {
+    notifyPlaceHub(`場所が見つかりません: ${name}`)
+    view = 'places'
     await render()
     return
   }
-  if (id === 'newplace') {
-    await runPlaceNewRegister()
+  const lat = Number(row.DATA1)
+  const lng = Number(row.DATA2)
+  const alt = Number(row.DATA3)
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || !Number.isFinite(alt)) {
+    notifyPlaceHub('場所の座標データが不正です')
+    view = 'places'
     await render()
     return
   }
-  if (id.startsWith('p:')) {
-    const name = id.slice(2)
-    const row = await getPlace(name)
-    if (!row) {
-      notifyPlaceHub(`場所が見つかりません: ${name}`)
-      view = placeHubView
-      await render()
-      return
+  const coords = await askDualPlaceGeo({
+    gps: { lat, lng, alt },
+    adrs: row.ADRS ?? '',
+    posac: row.POSAC || PLACE_DEFAULT_POSAC,
+    altac: row.ALTAC || PLACE_DEFAULT_ALTAC,
+    name,
+    placeRef: { name },
+  })
+  if (!coords || coords === 'deleted' || coords === 'delete-cancelled') {
+    if (coords === 'deleted') {
+      notifyPlaceHub(`${PLACE_REVIEW_DEL_DONE_PREFIX}(${name})`)
+    } else if (coords === 'delete-cancelled') {
+      notifyPlaceHub(PLACE_REVIEW_DEL_CANCEL_MSG)
+    } else {
+      notifyPlaceHub(PLACE_REVIEW_CANCEL_MSG)
     }
-    const lat = Number(row.DATA1)
-    const lng = Number(row.DATA2)
-    const alt = Number(row.DATA3)
-    if (!Number.isFinite(lat) || !Number.isFinite(lng) || !Number.isFinite(alt)) {
-      notifyPlaceHub('場所の座標データが不正です')
-      view = placeHubView
-      await render()
-      return
-    }
-    const coords = await askDualPlaceGeo({
-      gps: { lat, lng, alt },
-      adrs: row.ADRS ?? '',
-      posac: row.POSAC || PLACE_DEFAULT_POSAC,
-      altac: row.ALTAC || PLACE_DEFAULT_ALTAC,
-      name,
-      placeRef: { name },
-    })
-    if (!coords || coords === 'deleted' || coords === 'delete-cancelled') {
-      if (coords === 'deleted') {
-        notifyPlaceHub(`${PLACE_REVIEW_DEL_DONE_PREFIX}(${name})`)
-      } else if (coords === 'delete-cancelled') {
-        notifyPlaceHub(PLACE_REVIEW_DEL_CANCEL_MSG)
-      } else {
-        notifyPlaceHub(PLACE_REVIEW_CANCEL_MSG)
-      }
-      view = placeHubView
-      await render()
-      return
-    }
-    const newName = String(coords.name ?? name).trim() || name
-    const newAdrs = String(coords.adrs ?? '').trim()
-    let newPosac =
-      String(coords.posac ?? PLACE_DEFAULT_POSAC).trim() || PLACE_DEFAULT_POSAC
-    const newAltac =
-      String(coords.altac ?? PLACE_DEFAULT_ALTAC).trim() || PLACE_DEFAULT_ALTAC
-    const sameNum = (a: number, b: number, eps: number) =>
-      Number.isFinite(a) && Number.isFinite(b) && Math.abs(a - b) <= eps
-    const unchanged =
-      newName === name &&
-      sameNum(Number(row.DATA1), coords.lat, 1e-10) &&
-      sameNum(Number(row.DATA2), coords.lng, 1e-10) &&
-      sameNum(Number(row.DATA3), coords.alt, 1e-6) &&
-      String(row.ADRS ?? '').trim() === newAdrs &&
-      (String(row.POSAC || PLACE_DEFAULT_POSAC).trim() || PLACE_DEFAULT_POSAC) ===
-        newPosac &&
-      (String(row.ALTAC || PLACE_DEFAULT_ALTAC).trim() || PLACE_DEFAULT_ALTAC) ===
-        newAltac
-    if (unchanged) {
-      notifyPlaceHub(PLACE_REVIEW_NOCHANGE_MSG)
-      view = placeHubView
-      await render()
-      return
-    }
+    view = 'places'
+    await render()
+    return
+  }
+  const newName = String(coords.name ?? name).trim() || name
+  const newAdrs = String(coords.adrs ?? '').trim()
+  let newPosac =
+    String(coords.posac ?? PLACE_DEFAULT_POSAC).trim() || PLACE_DEFAULT_POSAC
+  const newAltac =
+    String(coords.altac ?? PLACE_DEFAULT_ALTAC).trim() || PLACE_DEFAULT_ALTAC
+  const sameNum = (a: number, b: number, eps: number) =>
+    Number.isFinite(a) && Number.isFinite(b) && Math.abs(a - b) <= eps
+  const unchanged =
+    newName === name &&
+    sameNum(Number(row.DATA1), coords.lat, 1e-10) &&
+    sameNum(Number(row.DATA2), coords.lng, 1e-10) &&
+    sameNum(Number(row.DATA3), coords.alt, 1e-6) &&
+    String(row.ADRS ?? '').trim() === newAdrs &&
+    (String(row.POSAC || PLACE_DEFAULT_POSAC).trim() || PLACE_DEFAULT_POSAC) ===
+      newPosac &&
+    (String(row.ALTAC || PLACE_DEFAULT_ALTAC).trim() || PLACE_DEFAULT_ALTAC) ===
+      newAltac
+  if (unchanged) {
+    notifyPlaceHub(PLACE_REVIEW_NOCHANGE_MSG)
+    view = 'places'
+    await render()
+    return
+  }
 
-    await upsertPlace(newName, {
-      lat: coords.lat,
-      lng: coords.lng,
-      alt: coords.alt,
-      adrs: newAdrs,
-      posac: newPosac,
-      altac: newAltac,
-    })
-    placeEditName = null
-    view = placeHubView
-    notifyPlaceHub(
-      newName !== name
-        ? `${PLACE_NEW_DONE_MSG_PREFIX}(${newName})`
-        : `${PLACE_REVIEW_UPDATE_MSG_PREFIX}(${newName})`,
-    )
-    await render()
-  }
+  await upsertPlace(newName, {
+    lat: coords.lat,
+    lng: coords.lng,
+    alt: coords.alt,
+    adrs: newAdrs,
+    posac: newPosac,
+    altac: newAltac,
+  })
+  placeEditName = null
+  view = 'places'
+  notifyPlaceHub(
+    newName !== name
+      ? `${PLACE_NEW_DONE_MSG_PREFIX}(${newName})`
+      : `${PLACE_REVIEW_UPDATE_MSG_PREFIX}(${newName})`,
+  )
+  await render()
 }
 
 /**
@@ -5216,21 +5148,15 @@ async function pickPlaceRegistrationGeo(opts?: {
  * 位置画面は pickPlaceRegistrationGeo。確定後は名称があればそのまま、無ければ入力して pos 登録。
  */
 async function runPlaceNewRegister(): Promise<void> {
-  const msg = () => app.querySelector('#msg')
   try {
     const coords = await pickPlaceRegistrationGeo({
       status: (text) => {
-        if (placeHubView === 'places-ui') {
-          showToast(text, 8000)
-          return
-        }
-        const el = msg()
-        if (el) el.textContent = text
+        showToast(text, 8000)
       },
     })
     if (!coords) {
       notifyPlaceHub(PLACE_NEW_CANCEL_MSG)
-      view = placeHubView
+      view = 'places'
       return
     }
     const { lat, lng, alt } = coords
@@ -5245,7 +5171,7 @@ async function runPlaceNewRegister(): Promise<void> {
       String(coords.name ?? '').trim() || (await askNewPlaceName(nameDefault))
     if (!entered) {
       notifyPlaceHub(PLACE_NEW_CANCEL_MSG)
-      view = placeHubView
+      view = 'places'
       return
     }
     await upsertPlace(entered, {
@@ -5257,7 +5183,7 @@ async function runPlaceNewRegister(): Promise<void> {
       altac,
     })
     placeEditName = null
-    view = placeHubView
+    view = 'places'
     notifyPlaceHub(
       addrFetchFailed
         ? `${PLACE_NEW_DONE_MSG_PREFIX}(${entered})。住所は後から編集できます`
@@ -5265,7 +5191,7 @@ async function runPlaceNewRegister(): Promise<void> {
     )
   } catch (e) {
     notifyPlaceHub(`失敗: ${(e as Error).message}`)
-    view = placeHubView
+    view = 'places'
   }
 }
 

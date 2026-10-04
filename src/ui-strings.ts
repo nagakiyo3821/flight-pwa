@@ -314,19 +314,17 @@ export function placeDecisionPrompt(parts: Parameters<typeof placeDecisionCopy>[
   return `${title}\n${detail}`
 }
 
-/** 8.場所データ管理（直接起動） */
+/** 8.場所データ管理（一覧 UI） */
 export const PLACE_MENU_BACK = '%戻る'
 export const PLACE_MENU_HERE = '%現在地検索'
 /** GPS＋マップタップ統合の新規場所登録 */
 export const PLACE_MENU_NEW = '%新規場所登録'
-
-/** 11.場所データ管理（UI試作）— 表示文言（% なし） */
-export const PLACE_UI_PROTO_MENU = '11.場所データ管理（UI試作）'
-export const PLACE_UI_PROTO_TITLE = '場所データ管理'
-export const PLACE_UI_PROTO_NEW = '新規場所登録'
-export const PLACE_UI_PROTO_BACK = '戻る'
-export const PLACE_UI_PROTO_SECTION = (n: number) => `登録済 ${n}件`
-export const PLACE_UI_PROTO_EMPTY = '登録済の場所はありません'
+/** 一覧画面の表示文言（% なし） */
+export const PLACE_HUB_TITLE = '場所データ管理'
+export const PLACE_HUB_NEW = '新規場所登録'
+export const PLACE_HUB_BACK = '戻る'
+export const PLACE_HUB_SECTION = (n: number) => `登録済 ${n}件`
+export const PLACE_HUB_EMPTY = '登録済の場所はありません'
 /** @deprecated メニューから削除。PLACE_MENU_NEW に統合 */
 export const PLACE_MENU_HERE_NEW = '%現在地検索NEW'
 /** @deprecated PLACE_MENU_NEW に統合 */

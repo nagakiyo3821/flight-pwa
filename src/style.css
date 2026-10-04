@@ -2006,7 +2006,7 @@ button.ghost.is-busy {
   padding-right: 0;
 }
 
-/* —— 場所データ管理 UI 試作（メニュー11） —— */
+/* —— 8.場所データ管理（一覧） —— */
 /* 画面全体スクロール禁止。リスト枠だけが縦スクロール */
 html.places-ui-lock,
 html.places-ui-lock body {

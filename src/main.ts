@@ -450,8 +450,8 @@ function dialogShell(
         <div class="sc-dialog-scroll">${scrollInner}</div>
         ${listPart}
         ${actionsHtml}
-        ${appVersionFoot()}
       </section>
+      ${appVersionFoot()}
     </div>`
 }
 
@@ -3547,8 +3547,8 @@ function showMapDialog(lat: number, lng: number, alt?: number): Promise<void> {
         <section class="card sc-dialog-body sc-dialog-body--map">
           ${body}
           ${actions}
-          ${appVersionFoot()}
         </section>
+        ${appVersionFoot()}
       </div>`
 
     // #マップ表示: 詳細タイル（寄ると classic と同じ）

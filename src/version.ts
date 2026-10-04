@@ -6,4 +6,4 @@
  * - 厳密な変更履歴は Git
  * - データファイル名に Ver は埋め込まない
  */
-export const APP_VERSION = '0.1.170'
+export const APP_VERSION = '0.1.171'

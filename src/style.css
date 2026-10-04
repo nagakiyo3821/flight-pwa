@@ -780,7 +780,8 @@ code { font-size: 0.85em; }
 }
 .sc-geopick-title {
   margin: 0;
-  padding: 0;
+  /* 下端（0.4rem + safe-area）とのバランスでタイトル上下を少し開ける */
+  padding: 0.4rem 0 0.45rem;
   flex: 0 0 auto;
   /* vw 禁止: 横回転で肥大化し、戻しても戻らない端末がある */
   /* 他画面の h1 と同程度。px 固定で横回転の文字サイズ変化を避ける */

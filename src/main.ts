@@ -282,9 +282,9 @@ function wireAutoSync(): void {
   })
 }
 
-function appVersionFoot(extraClass = ''): string {
-  const cls = extraClass ? `foot ${extraClass}` : 'foot'
-  return `<footer class="${cls}">飛行記録 PWA · v${APP_VERSION}</footer>`
+/** 全画面共通の版表示（位置・見た目は .foot で統一） */
+function appVersionFoot(): string {
+  return `<footer class="foot">飛行記録 PWA · v${APP_VERSION}</footer>`
 }
 
 function shell(
@@ -450,7 +450,7 @@ function dialogShell(
         <div class="sc-dialog-scroll">${scrollInner}</div>
         ${listPart}
         ${actionsHtml}
-        ${appVersionFoot('foot--dialog')}
+        ${appVersionFoot()}
       </section>
     </div>`
 }
@@ -477,7 +477,7 @@ function showExportConfirmDialog(filename: string, data: unknown): Promise<void>
       <div class="sc-alert" role="document">
         <p class="sc-alert-msg">${escapeHtml(filename)} を出力します</p>
         <button type="button" class="sc-btn sc-btn-ok" id="sc-ok">OK</button>
-        ${appVersionFoot('foot--dialog')}
+        ${appVersionFoot()}
       </div>`
     let done = false
     const finish = () => {
@@ -536,7 +536,7 @@ function showNoticeDialog(prompt: string): Promise<void> {
       <div class="sc-alert" role="document">
         <p class="sc-alert-msg">${promptHtml}</p>
         <button type="button" class="sc-btn sc-btn-ok" id="sc-ok">OK</button>
-        ${appVersionFoot('foot--dialog')}
+        ${appVersionFoot()}
       </div>`
     let done = false
     const finish = () => {
@@ -1212,7 +1212,7 @@ function askMissingGeo(
             <button type="button" class="sc-btn sc-btn-ok" id="sc-ok">${escapeHtml(ITEM_OK)}</button>
             <button type="button" class="sc-btn sc-btn-back" id="sc-back">${escapeHtml(ITEM_BACK)}</button>
           </div>
-          ${appVersionFoot('foot--dialog')}
+          ${appVersionFoot()}
         </div>`
     } else {
       root.innerHTML = dialogShell(
@@ -1984,7 +1984,7 @@ function askDualPlaceGeo(opts: {
           }
           <button type="button" class="sc-btn sc-btn-back" id="sc-back">${escapeHtml(ITEM_CANCEL)}</button>
         </div>
-        ${appVersionFoot('foot--dialog')}
+        ${appVersionFoot()}
       </div>`
 
     const refreshClearable = wireClearableInputs(root)
@@ -3547,7 +3547,7 @@ function showMapDialog(lat: number, lng: number, alt?: number): Promise<void> {
         <section class="card sc-dialog-body sc-dialog-body--map">
           ${body}
           ${actions}
-          ${appVersionFoot('foot--dialog')}
+          ${appVersionFoot()}
         </section>
       </div>`
 

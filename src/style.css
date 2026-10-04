@@ -766,6 +766,28 @@ code { font-size: 0.85em; }
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   padding-bottom: 0.2rem;
+  /* iOS は標準でバーが消える。出せる環境では細いバーを常時寄りに */
+  scrollbar-width: thin;
+  scrollbar-color: rgb(90 109 120 / 55%) transparent;
+}
+.sc-geopick-scroll::-webkit-scrollbar {
+  width: 5px;
+}
+.sc-geopick-scroll::-webkit-scrollbar-thumb {
+  background: rgb(90 109 120 / 45%);
+  border-radius: 4px;
+}
+/* 溢れ時の目印（iOS でもバー非表示でも「続きあり」が分かる） */
+.sc-geopick-scroll--more {
+  box-shadow: inset 0 -1.1rem 0.85rem -0.75rem rgb(26 42 50 / 18%);
+}
+.sc-geopick-scroll--less {
+  box-shadow: inset 0 1.1rem 0.85rem -0.75rem rgb(26 42 50 / 14%);
+}
+.sc-geopick-scroll--less.sc-geopick-scroll--more {
+  box-shadow:
+    inset 0 1.1rem 0.85rem -0.75rem rgb(26 42 50 / 14%),
+    inset 0 -1.1rem 0.85rem -0.75rem rgb(26 42 50 / 18%);
 }
 /* 二重ポイント: 地図が余り高さを埋め、確定ボタン直上まで寄せる */
 .sc-geopick-scroll--fill {

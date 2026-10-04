@@ -1696,6 +1696,18 @@ function middleEllipsizeToWidth(raw: string, maxPx: number, font: string): strin
  * キーボード表示で visualViewport が縮んでも、初回確定の高さを維持する。
  * 横画面では縦で決めたマップ高さを維持（画面はスクロール可）。
  */
+/** 左カラム等で溢れている／続きがあるかを示し、スクロール要否を画面で判断できるようにする */
+function syncGeopickScrollCue(root: ParentNode): void {
+  const el = root.querySelector<HTMLElement>('.sc-geopick-scroll')
+  if (!el) return
+  const overflow = el.scrollHeight > el.clientHeight + 1
+  const more = overflow && el.scrollTop + el.clientHeight < el.scrollHeight - 2
+  const less = overflow && el.scrollTop > 2
+  el.classList.toggle('sc-geopick-scroll--overflow', overflow)
+  el.classList.toggle('sc-geopick-scroll--more', more)
+  el.classList.toggle('sc-geopick-scroll--less', less)
+}
+
 function fitGeopickMapHeight(
   map: L.Map,
   mapEl: HTMLElement,
@@ -2892,7 +2904,11 @@ function askDualPlaceGeo(opts: {
         map.setView([lat, lng], map.getZoom(), { animate: false })
       }
       redrawNearCircle()
+      requestAnimationFrame(() => syncGeopickScrollCue(root))
     }
+    const scrollEl = root.querySelector<HTMLElement>('.sc-geopick-scroll')
+    const onScrollCue = () => syncGeopickScrollCue(root)
+    scrollEl?.addEventListener('scroll', onScrollCue, { passive: true })
     /** キーボード開閉では高さ固定。向き変更などは window.resize で再計測 */
     const onWindowResize = () => fitMap()
     const onVisualViewport = () => {
@@ -3106,6 +3122,7 @@ function askDualPlaceGeo(opts: {
       window.removeEventListener('resize', onWindowResize)
       window.removeEventListener('orientationchange', onOrientation)
       window.visualViewport?.removeEventListener('resize', onVisualViewport)
+      scrollEl?.removeEventListener('scroll', onScrollCue)
       map?.remove()
       closeDialogSafely(root, () => resolve(value))
     }

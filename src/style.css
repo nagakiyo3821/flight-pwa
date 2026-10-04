@@ -1636,12 +1636,8 @@ code { font-size: 0.85em; }
   --popup-shadow: 0 10px 32px rgb(26 42 50 / 22%);
   --popup-font: 14px;
   --popup-min-width: 12.5rem;
-  --popup-max-width: min(20rem, calc(100vw - (var(--popup-inset) * 2)));
-}
-@media (orientation: landscape) {
-  :root {
-    --popup-max-width: min(18rem, calc(100vw - (var(--popup-inset) * 2)));
-  }
+  /* 余白を除いた画面幅まで。横の方が vw が広いので省略されにくい */
+  --popup-max-width: calc(100vw - (var(--popup-inset) * 2));
 }
 
 /* スマホ向け削除確認シート（既存ダイアログの上に重ねる） */
@@ -2232,9 +2228,10 @@ html.places-ui-lock body {
   line-height: 1.35;
   text-align: center;
   box-shadow: var(--popup-shadow);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  /* 1行優先。画面幅を超えるときだけ折り返す（横で … 省略しない） */
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
   transform: translateY(110%);

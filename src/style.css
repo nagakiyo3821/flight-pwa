@@ -2182,12 +2182,36 @@ html.places-ui-lock body {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
-/* トースト＝確認シートと同じ白カード／幅／字サイズ（下端ポップ） */
-.toast {
+/* トースト＝確認シートと同じ暗転＋白カード／幅／字サイズ（下端ポップ） */
+.toast-root {
   position: fixed;
-  left: 50%;
-  bottom: calc(var(--popup-inset) + env(safe-area-inset-bottom, 0px));
+  inset: 0;
   z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  padding: var(--popup-inset);
+  padding-bottom: calc(var(--popup-inset) + env(safe-area-inset-bottom, 0px));
+  box-sizing: border-box;
+  pointer-events: none;
+}
+.toast-root.toast-root--show {
+  pointer-events: auto;
+}
+.toast-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgb(26 42 50 / 45%);
+  opacity: 0;
+  transition: opacity 0.18s ease;
+}
+.toast-root.toast-root--show .toast-backdrop {
+  opacity: 1;
+}
+.toast {
+  position: relative;
+  z-index: 1;
   width: var(--popup-width);
   max-width: 100%;
   box-sizing: border-box;
@@ -2205,12 +2229,11 @@ html.places-ui-lock body {
   text-overflow: ellipsis;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
-  transform: translate(-50%, 0.4rem);
+  transform: translateY(110%);
   opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  transition: opacity 0.18s ease, transform 0.2s ease;
 }
-.toast.toast--show {
+.toast-root.toast-root--show .toast {
   opacity: 1;
-  transform: translate(-50%, 0);
+  transform: translateY(0);
 }

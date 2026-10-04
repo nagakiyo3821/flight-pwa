@@ -265,19 +265,25 @@ const app = document.querySelector<HTMLDivElement>('#app')!
 function showToast(text: string, ms = 2500): void {
   const msg = String(text ?? '').trim()
   if (!msg) return
-  let el = document.getElementById('app-toast')
-  if (!el) {
-    el = document.createElement('div')
-    el.id = 'app-toast'
-    el.className = 'toast'
-    el.setAttribute('role', 'status')
-    document.body.appendChild(el)
+  let root = document.getElementById('app-toast-root')
+  if (!root) {
+    root = document.createElement('div')
+    root.id = 'app-toast-root'
+    root.className = 'toast-root'
+    root.innerHTML = `
+      <div class="toast-backdrop" aria-hidden="true"></div>
+      <div class="toast" id="app-toast" role="status"></div>`
+    document.body.appendChild(root)
   }
+  const el = root.querySelector('#app-toast') as HTMLElement
   el.textContent = msg
-  el.classList.add('toast--show')
+  // 再表示時にアニメを確実に効かせる
+  root.classList.remove('toast-root--show')
+  void root.offsetWidth
+  root.classList.add('toast-root--show')
   if (toastTimer !== undefined) window.clearTimeout(toastTimer)
   toastTimer = window.setTimeout(() => {
-    el!.classList.remove('toast--show')
+    root!.classList.remove('toast-root--show')
     toastTimer = undefined
   }, ms)
 }

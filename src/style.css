@@ -1352,12 +1352,36 @@ code { font-size: 0.85em; }
   padding: 0.5rem 0.75rem;
   font-size: 0.9rem;
 }
-.sc-actions.sc-geopick-actions--triple {
+.sc-actions.sc-geopick-actions--triple,
+.sc-actions.sc-geopick-actions--quad {
   gap: 0.35rem;
 }
-.sc-actions.sc-geopick-actions--triple .sc-btn {
+.sc-actions.sc-geopick-actions--triple .sc-btn,
+.sc-actions.sc-geopick-actions--quad .sc-btn {
   padding: 0.48rem 0.4rem;
   font-size: 0.85rem;
+}
+.sc-actions.sc-geopick-actions--quad {
+  flex-wrap: wrap;
+}
+.sc-actions.sc-geopick-actions--quad .sc-btn {
+  flex: 1 1 calc(50% - 0.35rem);
+  min-width: 7.5rem;
+  font-size: 0.8rem;
+}
+.foot--dialog {
+  flex: 0 0 auto;
+  margin: 0.2rem 0 0.35rem;
+  padding: 0 0.5rem;
+  text-align: center;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+.sc-dialog--alert .foot--dialog {
+  margin-top: 0.65rem;
+}
+.sc-dialog--geopick .foot--dialog {
+  margin: 0 0 calc(0.2rem + env(safe-area-inset-bottom, 0px));
 }
 .sc-btn.sc-btn-del {
   color: #9b2c2c;

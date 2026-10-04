@@ -282,6 +282,11 @@ function wireAutoSync(): void {
   })
 }
 
+function appVersionFoot(extraClass = ''): string {
+  const cls = extraClass ? `foot ${extraClass}` : 'foot'
+  return `<footer class="${cls}">飛行記録 PWA · v${APP_VERSION}</footer>`
+}
+
 function shell(
   title: string,
   body: string,
@@ -303,7 +308,7 @@ function shell(
     </div>
   </header>
   <main>${body}</main>
-  <footer class="foot">飛行記録 PWA · v${APP_VERSION}</footer>`
+  ${appVersionFoot()}`
 }
 
 function srSsOrQ(v: string | undefined): string {
@@ -445,6 +450,7 @@ function dialogShell(
         <div class="sc-dialog-scroll">${scrollInner}</div>
         ${listPart}
         ${actionsHtml}
+        ${appVersionFoot('foot--dialog')}
       </section>
     </div>`
 }
@@ -471,6 +477,7 @@ function showExportConfirmDialog(filename: string, data: unknown): Promise<void>
       <div class="sc-alert" role="document">
         <p class="sc-alert-msg">${escapeHtml(filename)} を出力します</p>
         <button type="button" class="sc-btn sc-btn-ok" id="sc-ok">OK</button>
+        ${appVersionFoot('foot--dialog')}
       </div>`
     let done = false
     const finish = () => {
@@ -529,6 +536,7 @@ function showNoticeDialog(prompt: string): Promise<void> {
       <div class="sc-alert" role="document">
         <p class="sc-alert-msg">${promptHtml}</p>
         <button type="button" class="sc-btn sc-btn-ok" id="sc-ok">OK</button>
+        ${appVersionFoot('foot--dialog')}
       </div>`
     let done = false
     const finish = () => {
@@ -1204,6 +1212,7 @@ function askMissingGeo(
             <button type="button" class="sc-btn sc-btn-ok" id="sc-ok">${escapeHtml(ITEM_OK)}</button>
             <button type="button" class="sc-btn sc-btn-back" id="sc-back">${escapeHtml(ITEM_BACK)}</button>
           </div>
+          ${appVersionFoot('foot--dialog')}
         </div>`
     } else {
       root.innerHTML = dialogShell(
@@ -1786,19 +1795,19 @@ function askDualPlaceGeo(opts: {
     const placeRefName = String(opts.placeRef?.name ?? '').trim()
     const isPlaceReview = !!placeRefName
     const flightSite = !!opts.flightSite && !isPlaceReview
-    /** 新規場所。離着陸の確定規則は使わず、タップ内容を新しい場所にする */
+    /** ケース1。新規場所 */
     const placeNew = !isPlaceReview && !flightSite
-    /** 新規・離着陸登録・場所修正・地点修正は同じ並び。場所修正は青なし、削除だけ残す */
+    /** 新規・離着陸・場所修正・地点修正は同じ並び。場所修正は青なし、削除だけ残す */
     const flightChrome = flightSite || isPlaceReview || placeNew
-    /** 住所と場所名の自動入力。新規は派生名のまま、離着陸と場所修正は円の関係 */
-    const flightText = flightSite || isPlaceReview
+    /** 4ケース共通。住所・場所名は円の関係で入れる */
+    const flightText = flightChrome
     const hideGps = isPlaceReview || (flightSite && !!opts.hideGps)
-    /** ケース3。離陸・着陸の登録（GPSあり）。確定は最寄とタップの二つ */
+    /** ケース3。離陸・着陸の登録（GPSあり） */
     const flightReg = flightSite && !hideGps
-    /** ケース4。地点の修正（GPSなし）。確定ボタンの規則はケース3と同じ */
+    /** ケース4。地点の修正（GPSなし） */
     const flightRevise = flightSite && hideGps
-    /** 青なしの場所修正は選択場所。ケース3・4はタップ表示から始める */
-    let viewMode: 'tap' | 'green' = hideGps && !flightRevise ? 'green' : 'tap'
+    /** ケース2だけ選択場所で開始。ほかはタップ表示から */
+    let viewMode: 'tap' | 'green' = isPlaceReview ? 'green' : 'tap'
     const gps = {
       lat: Math.round(opts.gps.lat * 1e8) / 1e8,
       lng: Math.round(opts.gps.lng * 1e8) / 1e8,
@@ -1945,10 +1954,15 @@ function askDualPlaceGeo(opts: {
       ${textHtml}
     </div>`
 
-    const defaultMapHint =
-      flightChrome && hideGps
+    const defaultMapHint = isPlaceReview
+      ? '橙＝タップ（精度円あり）、緑＝選択場所（精度円あり）'
+      : hideGps
         ? '橙＝タップ（精度円あり）、緑＝最寄（精度円あり）'
         : '青＝GPS、橙＝タップ（精度円あり）、緑＝最寄（精度円あり）'
+    const nearOkLabel = isPlaceReview ? '選択場所確定' : '最寄地点確定'
+    const actionsMod = isPlaceReview
+      ? ' sc-geopick-actions--quad'
+      : ' sc-geopick-actions--triple'
 
     root.innerHTML = `
       <div class="sc-geopick-stack">
@@ -1960,20 +1974,17 @@ function askDualPlaceGeo(opts: {
             <p class="sc-map-hint" id="sc-map-hint">${escapeHtml(defaultMapHint)}</p>
           </div>
         </div>
-        <div class="sc-actions sc-geopick-actions${(hideGps && !flightRevise) || flightSite ? ' sc-geopick-actions--triple' : ''}">
+        <div class="sc-actions sc-geopick-actions${actionsMod}">
+          <button type="button" class="sc-btn sc-btn-ok" id="sc-ok-near" disabled>${escapeHtml(nearOkLabel)}</button>
+          <button type="button" class="sc-btn sc-btn-ok" id="sc-ok">タップ地点確定</button>
           ${
-            flightSite
-              ? `<button type="button" class="sc-btn sc-btn-ok" id="sc-ok-near" disabled>最寄地点確定</button>`
-              : ''
-          }
-          <button type="button" class="sc-btn sc-btn-ok" id="sc-ok">${escapeHtml(flightSite ? 'タップ地点確定' : hideGps ? '選択場所確定' : 'タップ地点確定')}</button>
-          ${
-            hideGps && !flightRevise
+            isPlaceReview
               ? `<button type="button" class="sc-btn sc-btn-del" id="sc-del">選択場所削除</button>`
               : ''
           }
           <button type="button" class="sc-btn sc-btn-back" id="sc-back">${escapeHtml(ITEM_CANCEL)}</button>
         </div>
+        ${appVersionFoot('foot--dialog')}
       </div>`
 
     const refreshClearable = wireClearableInputs(root)
@@ -2196,7 +2207,7 @@ function askDualPlaceGeo(opts: {
       refreshClearable()
     }
 
-    /** 離陸・着陸: 画面上だけで直している最寄場所。確定で円内ならマスタへ書く */
+    /** 画面上の緑（最寄／選択場所）。緑側確定でマスタ更新 */
     type NearDraft = {
       name: string
       lat: number
@@ -2210,12 +2221,14 @@ function askDualPlaceGeo(opts: {
       baseAlt: number
       basePosac: number
       baseAdrs: string
+      baseAltac: string
     }
     let nearDraft: NearDraft | null = null
-    if (hideGps && !flightRevise) {
+    if (isPlaceReview) {
       const posacN = Number(tapHeld.posac)
       const posacM =
         Number.isFinite(posacN) && posacN > 0 ? posacN : Number(PLACE_DEFAULT_POSAC)
+      const altac0 = tapHeld.altac || PLACE_DEFAULT_ALTAC
       nearDraft = {
         name: greenName || placeRefName,
         lat: gps.lat,
@@ -2223,12 +2236,13 @@ function askDualPlaceGeo(opts: {
         alt: gps.alt,
         adrs: tapHeld.adrs,
         posac: posacM,
-        altac: tapHeld.altac || PLACE_DEFAULT_ALTAC,
+        altac: altac0,
         baseLat: gps.lat,
         baseLng: gps.lng,
         baseAlt: gps.alt,
         basePosac: posacM,
         baseAdrs: tapHeld.adrs,
+        baseAltac: altac0,
       }
     }
     let greenEdit: 'none' | 'copy' | 'expand' = 'none'
@@ -2269,22 +2283,6 @@ function askDualPlaceGeo(opts: {
       return parseField(latEl) != null && parseField(lngEl) != null
     }
 
-    const syncNearButtons = () => {
-      if (nearAdjustEl) nearAdjustEl.hidden = !nearDraft
-      if (nearMoveBtn) nearMoveBtn.disabled = !nearDraft || copyLocked() || (flightRevise && !tapCoordsOpen())
-      if (nearExpandBtn) nearExpandBtn.disabled = !nearDraft || expandLocked() || (flightRevise && !tapCoordsOpen())
-      if (nearResetBtn) nearResetBtn.disabled = !nearDraft || greenEdit === 'none' || twoPointFar()
-      const copyNearBtn = root.querySelector<HTMLButtonElement>('#sc-copy-near')
-      if (copyNearBtn) copyNearBtn.disabled = !nearDraft
-      const nearOk = root.querySelector<HTMLButtonElement>('#sc-ok-near')
-      if (nearOk) {
-        const rel = nearDraft ? flightRelation() : 'none'
-        nearOk.disabled = !nearDraft || (rel !== 'inside' && rel !== 'touch-out')
-      }
-      const tapOk = root.querySelector<HTMLButtonElement>('#sc-ok')
-      if (flightSite && tapOk) tapOk.disabled = flightRevise && !tapCoordsOpen()
-    }
-
     const flightRelation = (): 'none' | 'inside' | 'touch-out' | 'apart' => {
       if (!nearDraft) return 'none'
       const lat = viewMode === 'green' ? tapHeld.lat : parseField(latEl)
@@ -2298,6 +2296,55 @@ function askDualPlaceGeo(opts: {
     /** 円内（境界は外）では拡大しない。すでに緑へ橙をコピーしたあとも不可 */
     const expandLocked = (): boolean =>
       twoPointFar() || greenEdit === 'copy' || flightRelation() === 'inside'
+
+    /** ケース1・2。緑がマスタと同じなら緑側確定は不可（終わりはキャンセル） */
+    const greenMasterUnchanged = (): boolean => {
+      if (!nearDraft || flightSite) return false
+      let lat = nearDraft.lat
+      let lng = nearDraft.lng
+      let alt = nearDraft.alt
+      let posac = nearDraft.posac
+      let altac = nearDraft.altac || PLACE_DEFAULT_ALTAC
+      let adrs = nearDraft.adrs
+      let name = String(greenName || nearDraft.name).trim()
+      if (viewMode === 'green') {
+        lat = parseField(latEl) ?? lat
+        lng = parseField(lngEl) ?? lng
+        alt = parseField(altEl) ?? alt
+        const p = parseField(posacEl)
+        if (p != null && p > 0) posac = p
+        altac = String(altacEl.value ?? '').trim() || altac
+        adrs = String(adrsEl.value ?? '').trim()
+        name = String(nameEl.value ?? '').trim()
+      }
+      const baseName = isPlaceReview ? placeRefName : nearDraft.name
+      return (
+        name === baseName &&
+        Math.abs(lat - nearDraft.baseLat) < 1e-8 &&
+        Math.abs(lng - nearDraft.baseLng) < 1e-8 &&
+        Math.abs(alt - nearDraft.baseAlt) < 1e-6 &&
+        posac === nearDraft.basePosac &&
+        adrs === nearDraft.baseAdrs &&
+        altac === nearDraft.baseAltac
+      )
+    }
+
+    const syncNearButtons = () => {
+      if (nearAdjustEl) nearAdjustEl.hidden = !nearDraft
+      if (nearMoveBtn) nearMoveBtn.disabled = !nearDraft || copyLocked() || (flightRevise && !tapCoordsOpen())
+      if (nearExpandBtn) nearExpandBtn.disabled = !nearDraft || expandLocked() || (flightRevise && !tapCoordsOpen())
+      if (nearResetBtn) nearResetBtn.disabled = !nearDraft || greenEdit === 'none' || twoPointFar()
+      const copyNearBtn = root.querySelector<HTMLButtonElement>('#sc-copy-near')
+      if (copyNearBtn) copyNearBtn.disabled = !nearDraft
+      const nearOk = root.querySelector<HTMLButtonElement>('#sc-ok-near')
+      if (nearOk) {
+        const rel = nearDraft ? flightRelation() : 'none'
+        const inRange = !!nearDraft && (rel === 'inside' || rel === 'touch-out')
+        nearOk.disabled = !inRange || greenMasterUnchanged()
+      }
+      const tapOk = root.querySelector<HTMLButtonElement>('#sc-ok')
+      if (tapOk) tapOk.disabled = flightRevise && !tapCoordsOpen()
+    }
     syncNearButtons()
 
     const applyFlightText = (el: HTMLInputElement, value: string) => {
@@ -2307,9 +2354,11 @@ function askDualPlaceGeo(opts: {
       refreshClearable()
     }
 
-    /** ケース3・4の住所・場所。円内・接触は最寄住所＋連番。円外・無しは抽出住所＋場所＝住所／新規 */
-    const syncFlightSiteTapFields = async () => {
-      if (!flightSite || viewMode === 'green') return
+    /** 4ケース共通。円内・接触は緑側住所＋連番。円外・無しは抽出住所＋場所＝住所／新規 */
+    const syncFlightFields = async () => {
+      if (!flightText) return
+      syncNearButtons()
+      if (viewMode === 'green') return
       if (flightRevise && !tapCoordsOpen()) return
       const rel = flightRelation()
       const nearTouch = !!nearDraft && (rel === 'inside' || rel === 'touch-out')
@@ -2318,7 +2367,10 @@ function askDualPlaceGeo(opts: {
         applyFlightText(adrsEl, adrs)
         tapHeld.adrs = adrs
       }
-      if (nameManual) return
+      if (nameManual) {
+        syncNearButtons()
+        return
+      }
       if (nearTouch && nearDraft) {
         const stem = nearDraft.name.replace(/_\d+$/, '').trim() || '新規'
         if (derivedStem !== stem || !derivedName) {
@@ -2327,6 +2379,7 @@ function askDualPlaceGeo(opts: {
         }
         applyFlightText(nameEl, derivedName)
         tapHeld.name = derivedName
+        syncNearButtons()
         return
       }
       derivedStem = ''
@@ -2335,33 +2388,7 @@ function askDualPlaceGeo(opts: {
       const name = placeNamePrefill(adrsForName)
       applyFlightText(nameEl, name)
       tapHeld.name = name
-    }
-
-    const syncFlightFields = async () => {
-      if (!flightText) return
       syncNearButtons()
-      if (viewMode === 'green') return
-      if (flightSite) {
-        await syncFlightSiteTapFields()
-        return
-      }
-      // ケース2。住所は逆引き。円内・接触は選択場所の連番
-      if (!adrsManual) applyFlightText(adrsEl, lastMapAdrs)
-      if (nameManual) return
-      const rel = flightRelation()
-      const derive = rel === 'inside' || rel === 'touch-out'
-      if (derive && nearDraft) {
-        const stem = nearDraft.name.replace(/_\d+$/, '').trim() || '新規'
-        if (derivedStem !== stem || !derivedName) {
-          derivedStem = stem
-          derivedName = await nextDerivedPlaceName(nearDraft.name)
-        }
-        applyFlightText(nameEl, derivedName)
-        return
-      }
-      derivedStem = ''
-      derivedName = ''
-      applyFlightText(nameEl, placeNamePrefill(lastMapAdrs))
     }
 
     /** タップ地点（橙）更新のたび、キャッシュ上で ECEF 3D 最短を再検出 */
@@ -2451,19 +2478,22 @@ function askDualPlaceGeo(opts: {
           greenEdit = 'none'
           derivedStem = ''
           derivedName = ''
+          const altac0 = String(hit.place.ALTAC ?? '').trim() || PLACE_DEFAULT_ALTAC
+          const adrs0 = String(hit.place.ADRS ?? '').trim()
           nearDraft = {
             name: hit.name,
             lat: hit.plat,
             lng: hit.plng,
             alt: altN,
-            adrs: String(hit.place.ADRS ?? '').trim(),
+            adrs: adrs0,
             posac: posacM,
-            altac: String(hit.place.ALTAC ?? '').trim() || PLACE_DEFAULT_ALTAC,
+            altac: altac0,
             baseLat: hit.plat,
             baseLng: hit.plng,
             baseAlt: altN,
             basePosac: posacM,
-            baseAdrs: String(hit.place.ADRS ?? '').trim(),
+            baseAdrs: adrs0,
+            baseAltac: altac0,
           }
           if (viewMode !== 'green') greenName = hit.name
         }
@@ -2553,9 +2583,9 @@ function askDualPlaceGeo(opts: {
     const sameAccPoint = (aLat: number, aLng: number, bLat: number, bLng: number) =>
       Math.abs(aLat - bLat) < 1e-7 && Math.abs(aLng - bLng) < 1e-7
 
-    /** 円の外は別の場所。精度は既定の 15m と 5m。同じ位置での手修正は残す */
+    /** 円の外は別の場所。精度は既定の 15m と 5m。同じ位置での手修正は残す（4ケース共通） */
     const applyOutsideDefaultAccuracy = () => {
-      if (!flightSite || viewMode !== 'tap') return
+      if (!flightChrome || viewMode !== 'tap') return
       if (flightRevise && !tapCoordsOpen()) return
       const rel = flightRelation()
       if (rel === 'inside') {
@@ -2959,6 +2989,7 @@ function askDualPlaceGeo(opts: {
       nearDraft.alt = nearDraft.baseAlt
       nearDraft.posac = nearDraft.basePosac
       nearDraft.adrs = nearDraft.baseAdrs
+      nearDraft.altac = nearDraft.baseAltac
       greenName = nearDraft.name
       greenEdit = 'none'
       enterTapMode(undefined, true)
@@ -3108,12 +3139,18 @@ function askDualPlaceGeo(opts: {
       )
     }
     adrsEl.addEventListener('input', () => {
-      if (flightChrome && !syncingText && viewMode === 'tap') adrsManual = true
+      if (flightChrome && !syncingText) {
+        if (viewMode === 'tap') adrsManual = true
+        syncNearButtons()
+      }
     })
     nameEl.addEventListener('input', () => {
-      if (flightChrome && !syncingText && viewMode === 'tap') {
-        nameManual = true
-        nameTouched = true
+      if (flightChrome && !syncingText) {
+        if (viewMode === 'tap') {
+          nameManual = true
+          nameTouched = true
+        }
+        syncNearButtons()
       }
     })
     if (flightText) {
@@ -3130,12 +3167,7 @@ function askDualPlaceGeo(opts: {
       })
     }
     const setOkLabel = () => {
-      if (flightSite) {
-        okBtn.textContent = 'タップ地点確定'
-        return
-      }
-      okBtn.textContent =
-        viewMode === 'green' ? (hideGps ? '選択場所確定' : '最寄地点確定') : 'タップ地点確定'
+      okBtn.textContent = 'タップ地点確定'
     }
     const raiseMarkers = () => {
       if (flightRevise) {
@@ -3244,21 +3276,20 @@ function askDualPlaceGeo(opts: {
       setOkLabel()
     }
 
-    /** 最寄マスタ更新は、緑へ橙をコピーしたあとと位置精度を広げたあとだけ */
+    /** 緑側確定。マスタ更新（3・4は飛行も緑で書く） */
     const flightNearCommit = (useNearest: boolean): LatLngAlt['flightCommit'] | undefined => {
       if (!flightSite || !nearDraft) return undefined
       if (viewMode === 'green') commitGreenForm()
       const rel = flightRelation()
       const relation = rel === 'inside' || rel === 'touch-out' ? rel : 'apart'
-      const writeGreen = greenEdit !== 'none'
       return {
         relation,
         useNearest,
         writeTapMaster: !useNearest,
-        green: writeGreen
+        green: useNearest
           ? {
               baseName: nearDraft.name,
-              name: nearDraft.name,
+              name: String(greenName || nearDraft.name).trim() || nearDraft.name,
               lat: nearDraft.lat,
               lng: nearDraft.lng,
               alt: nearDraft.alt,
@@ -3277,8 +3308,8 @@ function askDualPlaceGeo(opts: {
       nameEl.reportValidity()
     }
 
-    /** ケース3・4。タップ地点確定＝橙でマスタ登録してから飛行データへ */
-    const confirmTapFlight = async () => {
+    /** タップ地点確定＝橙でマスタ追加（3・4は続けて飛行データ） */
+    const confirmTapMaster = async () => {
       if (viewMode !== 'green') tapHeld = readFormPoint()
       const src = tapHeld
       if (!Number.isFinite(src.lat) || !Number.isFinite(src.lng) || !Number.isFinite(src.alt)) {
@@ -3288,16 +3319,34 @@ function askDualPlaceGeo(opts: {
         if (readRequired(altEl) === null) return
         tapHeld = readFormPoint()
       }
-      const point = viewMode === 'green' ? src : tapHeld
-      const posacN = Number(point.posac)
-      const altacN = Number(point.altac)
+      let finalPt = viewMode === 'green' && Number.isFinite(src.lat) ? { ...src } : { ...tapHeld }
+      const posacN = Number(finalPt.posac)
+      const altacN = Number(finalPt.altac)
       if (!Number.isFinite(posacN) || !Number.isFinite(altacN)) {
         if (viewMode === 'green') enterTapMode(undefined, true)
         if (readRequired(posacEl) === null) return
         if (readRequired(altacEl) === null) return
         tapHeld = readFormPoint()
+        finalPt = { ...tapHeld }
       }
-      const finalPt = viewMode === 'green' && Number.isFinite(src.lat) ? src : tapHeld
+      // 緑表示のままでも、未手修正なら円規則で住所・場所を揃える
+      const rel = flightRelation()
+      const nearTouch = !!nearDraft && (rel === 'inside' || rel === 'touch-out')
+      if (!adrsManual) {
+        finalPt.adrs = nearTouch && nearDraft ? nearDraft.adrs : lastMapAdrs
+      }
+      if (!nameManual) {
+        if (nearTouch && nearDraft) {
+          const stem = nearDraft.name.replace(/_\d+$/, '').trim() || '新規'
+          if (derivedStem !== stem || !derivedName) {
+            derivedStem = stem
+            derivedName = await nextDerivedPlaceName(nearDraft.name)
+          }
+          finalPt.name = derivedName
+        } else {
+          finalPt.name = placeNamePrefill(finalPt.adrs)
+        }
+      }
       const nameRaw = String(finalPt.name ?? '').trim()
       if (!nameRaw) {
         reportNameError('場所を入力してください')
@@ -3309,7 +3358,6 @@ function askDualPlaceGeo(opts: {
         reportNameError(checked.err)
         return
       }
-      const rel = flightRelation()
       finish({
         lat: finalPt.lat,
         lng: finalPt.lng,
@@ -3318,58 +3366,30 @@ function askDualPlaceGeo(opts: {
         posac: String(finalPt.posac || PLACE_DEFAULT_POSAC),
         altac: String(finalPt.altac || PLACE_DEFAULT_ALTAC),
         name: checked.value,
-        flightCommit: {
-          relation: rel === 'inside' || rel === 'touch-out' ? rel : 'apart',
-          useNearest: false,
-          writeTapMaster: true,
-        },
+        flightCommit: flightSite
+          ? {
+              relation: rel === 'inside' || rel === 'touch-out' ? rel : 'apart',
+              useNearest: false,
+              writeTapMaster: true,
+            }
+          : undefined,
       })
     }
 
     const confirm = async () => {
-      if (flightSite) {
-        await confirmTapFlight()
-        return
-      }
-      const lat = readRequired(latEl)
-      if (lat === null) return
-      const lng = readRequired(lngEl)
-      if (lng === null) return
-      const alt = readRequired(altEl)
-      if (alt === null) return
-      const posac = readRequired(posacEl)
-      if (posac === null) return
-      const altac = readRequired(altacEl)
-      if (altac === null) return
-      const adrs = String(adrsEl.value ?? '').trim()
-      const checked = await validatePlaceNameCandidate(nameEl.value, {
-        allowExistingName: isPlaceReview ? placeRefName : undefined,
-        confirmOverwrite: true,
-      })
-      if (!checked.ok) {
-        reportNameError(checked.err)
-        return
-      }
-      nameEl.setCustomValidity('')
-      finish({
-        lat,
-        lng,
-        alt: roundAltMeters(alt),
-        adrs,
-        posac: String(posac),
-        altac: String(altac),
-        name: checked.value,
-      })
+      await confirmTapMaster()
     }
 
     const confirmNearReg = async () => {
-      if (!flightSite || !nearDraft) return
+      if (!nearDraft) return
       const rel = flightRelation()
       if (rel !== 'inside' && rel !== 'touch-out') return
+      if (greenMasterUnchanged()) return
       if (viewMode === 'green') commitGreenForm()
+      const allowName = isPlaceReview ? placeRefName : nearDraft.name
       const name = String(greenName || nearDraft.name).trim()
       const checked = await validatePlaceNameCandidate(name, {
-        allowExistingName: nearDraft.name,
+        allowExistingName: allowName,
         confirmOverwrite: true,
       })
       if (!checked.ok) {
@@ -3526,6 +3546,7 @@ function showMapDialog(lat: number, lng: number, alt?: number): Promise<void> {
         <section class="card sc-dialog-body sc-dialog-body--map">
           ${body}
           ${actions}
+          ${appVersionFoot('foot--dialog')}
         </section>
       </div>`
 
@@ -4816,7 +4837,10 @@ async function onPlaceMenu(id: string): Promise<void> {
     })
     placeEditName = null
     view = 'places'
-    flashMsg = `${PLACE_REVIEW_UPDATE_MSG_PREFIX}(${newName})`
+    flashMsg =
+      newName !== name
+        ? `${PLACE_NEW_DONE_MSG_PREFIX}(${newName})`
+        : `${PLACE_REVIEW_UPDATE_MSG_PREFIX}(${newName})`
     await render()
   }
 }

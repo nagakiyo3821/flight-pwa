@@ -1016,10 +1016,21 @@ code { font-size: 0.85em; }
   flex: 1 1 auto;
   min-height: clamp(96px, 15svh, 140px);
 }
+/* 凡例: 縦横共通。タイトルと同帯パディング・右詰め */
 .sc-dialog--geopick .sc-geopick-body > .sc-map-hint,
 .sc-dialog--geopick .sc-map-hint {
   margin: 0;
   flex: 0 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+  /* .sc-geopick-title と同じ上下パディング */
+  padding: 0.4rem 0 0.45rem;
+  /* 縦タイトル本文 18px / lh 1.2。横は下で 15px 相当に上書き */
+  min-height: calc(0.4rem + 0.45rem + 22px);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  text-align: right;
   font-size: 11px;
   line-height: 1.2;
   color: var(--muted);
@@ -1539,21 +1550,11 @@ code { font-size: 0.85em; }
     min-width: 0;
     align-self: start;
   }
-  /* 凡例＝タイトル行と同帯（上端パディング一致）・右詰め */
   .sc-dialog--geopick .sc-geopick-body > .sc-map-hint {
     align-self: start;
     justify-self: stretch;
-    width: 100%;
-    box-sizing: border-box;
-    margin: 0;
-    /* .sc-geopick-title と同じ上下パディング */
-    padding: 0.4rem 0 0.45rem;
-    /* 横タイトル本文 15px / line-height 1.2 と同じ行ボックスに収める */
+    /* 横タイトル本文 15px / line-height 1.2 */
     min-height: calc(0.4rem + 0.45rem + 18px);
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    text-align: right;
   }
   .sc-dialog--geopick .sc-geopick-body > .sc-geopick-form-pane {
     align-self: stretch;

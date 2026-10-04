@@ -1537,11 +1537,23 @@ code { font-size: 0.85em; }
   }
   .sc-dialog--geopick .sc-geopick-body > .sc-geopick-title {
     min-width: 0;
+    align-self: start;
   }
+  /* 凡例＝タイトル行と同帯（上端パディング一致）・右詰め */
   .sc-dialog--geopick .sc-geopick-body > .sc-map-hint {
-    align-self: end;
+    align-self: start;
     justify-self: stretch;
-    padding-bottom: 0.1rem;
+    width: 100%;
+    box-sizing: border-box;
+    margin: 0;
+    /* .sc-geopick-title と同じ上下パディング */
+    padding: 0.4rem 0 0.45rem;
+    /* 横タイトル本文 15px / line-height 1.2 と同じ行ボックスに収める */
+    min-height: calc(0.4rem + 0.45rem + 18px);
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    text-align: right;
   }
   .sc-dialog--geopick .sc-geopick-body > .sc-geopick-form-pane {
     align-self: stretch;

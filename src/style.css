@@ -1626,6 +1626,18 @@ code { font-size: 0.85em; }
   font-size: 0.95rem;
 }
 
+/*
+ * ポップオーバー共通（トースト／削除確認シート）
+ * 下端・白カード・14px・広い横幅で見た目を揃える
+ */
+:root {
+  --popup-inset: 0.65rem;
+  --popup-radius: 14px;
+  --popup-shadow: 0 10px 32px rgb(26 42 50 / 22%);
+  --popup-font: 14px;
+  --popup-width: calc(100vw - (var(--popup-inset) * 2));
+}
+
 /* スマホ向け削除確認シート（既存ダイアログの上に重ねる） */
 .sc-confirm {
   position: fixed;
@@ -1635,8 +1647,8 @@ code { font-size: 0.85em; }
   flex-direction: column;
   justify-content: flex-end;
   align-items: center;
-  padding: 0.65rem;
-  padding-bottom: calc(0.65rem + env(safe-area-inset-bottom, 0px));
+  padding: var(--popup-inset);
+  padding-bottom: calc(var(--popup-inset) + env(safe-area-inset-bottom, 0px));
   box-sizing: border-box;
   pointer-events: none;
 }
@@ -1656,7 +1668,8 @@ code { font-size: 0.85em; }
 .sc-confirm-sheet {
   position: relative;
   z-index: 1;
-  width: min(100%, 22rem);
+  width: var(--popup-width);
+  max-width: 100%;
   display: flex;
   flex-direction: column;
   gap: 0.45rem;
@@ -1673,16 +1686,16 @@ code { font-size: 0.85em; }
   flex-direction: column;
   align-items: stretch;
   gap: 0;
-  border-radius: 14px;
+  border-radius: var(--popup-radius);
   background: #fff;
   overflow: hidden;
-  box-shadow: 0 10px 32px rgb(26 42 50 / 22%);
+  box-shadow: var(--popup-shadow);
 }
 /* 確認シート内は 14px で統一（一覧／geopick 寄り） */
 .sc-confirm-title {
   margin: 0;
   padding: 0.95rem 1rem 0.3rem;
-  font-size: 14px;
+  font-size: var(--popup-font);
   font-weight: 600;
   line-height: 1.35;
   text-align: center;
@@ -1693,7 +1706,7 @@ code { font-size: 0.85em; }
 .sc-confirm-detail {
   margin: 0;
   padding: 0 1rem 0.75rem;
-  font-size: 14px;
+  font-size: var(--popup-font);
   font-weight: 500;
   line-height: 1.35;
   text-align: center;
@@ -1712,7 +1725,7 @@ code { font-size: 0.85em; }
   border-top: 1px solid var(--line);
   background: #fff;
   font: inherit;
-  font-size: 14px;
+  font-size: var(--popup-font);
   font-weight: 600;
   line-height: 1.25;
   text-align: center;
@@ -1724,22 +1737,21 @@ code { font-size: 0.85em; }
 .sc-confirm-btn:active {
   background: #f0f4f6;
 }
-/* 削除は破壊操作として赤を強調（geopick 削除ボタンと同系） */
+/* 削除は文字色のみ赤（背景は白のまま） */
 .sc-confirm-btn--danger {
-  color: #9b2c2c;
-  background: #fdecec;
-  border-top-color: #f0b4b4;
+  color: var(--bad);
+  background: #fff;
 }
 .sc-confirm-btn--danger:active {
-  background: #f8d8d8;
+  background: #f0f4f6;
 }
 .sc-confirm-btn--ok {
   color: var(--accent);
 }
 .sc-confirm-btn--cancel {
   border: none;
-  border-radius: 14px;
-  box-shadow: 0 6px 20px rgb(26 42 50 / 14%);
+  border-radius: var(--popup-radius);
+  box-shadow: var(--popup-shadow);
   font-weight: 600;
   color: var(--accent);
   background: #fff;
@@ -2170,21 +2182,29 @@ html.places-ui-lock body {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
+/* トースト＝確認シートと同じ白カード／幅／字サイズ（下端ポップ） */
 .toast {
   position: fixed;
   left: 50%;
-  bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px));
+  bottom: calc(var(--popup-inset) + env(safe-area-inset-bottom, 0px));
   z-index: 2000;
-  max-width: min(22rem, calc(100vw - 2rem));
-  padding: 0.7rem 1rem;
-  border-radius: 10px;
-  background: rgb(26 42 50 / 92%);
-  color: #fff;
-  font-size: 0.92rem;
-  font-weight: 500;
+  width: var(--popup-width);
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 0.78rem 1rem;
+  border-radius: var(--popup-radius);
+  background: #fff;
+  color: var(--ink);
+  font-size: var(--popup-font);
+  font-weight: 600;
   line-height: 1.35;
   text-align: center;
-  box-shadow: 0 8px 24px rgb(26 42 50 / 22%);
+  box-shadow: var(--popup-shadow);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
   transform: translate(-50%, 0.4rem);
   opacity: 0;
   pointer-events: none;

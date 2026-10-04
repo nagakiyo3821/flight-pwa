@@ -1678,36 +1678,41 @@ code { font-size: 0.85em; }
   overflow: hidden;
   box-shadow: 0 10px 32px rgb(26 42 50 / 22%);
 }
+/* 確認シート内は 14px で統一（一覧／geopick 寄り） */
 .sc-confirm-title {
   margin: 0;
-  padding: 1rem 1rem 0.35rem;
-  font-size: 15px;
+  padding: 0.95rem 1rem 0.3rem;
+  font-size: 14px;
   font-weight: 600;
   line-height: 1.35;
   text-align: center;
   color: var(--ink);
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 .sc-confirm-detail {
   margin: 0;
-  padding: 0 1rem 0.85rem;
-  font-size: 13px;
+  padding: 0 1rem 0.75rem;
+  font-size: 14px;
   font-weight: 500;
   line-height: 1.35;
   text-align: center;
   color: var(--muted);
   overflow-wrap: anywhere;
   word-break: break-word;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 .sc-confirm-btn {
   display: block;
   width: 100%;
   margin: 0;
-  padding: 0.85rem 1rem;
+  padding: 0.78rem 1rem;
   border: none;
   border-top: 1px solid var(--line);
   background: #fff;
   font: inherit;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 600;
   line-height: 1.25;
   text-align: center;
@@ -1719,8 +1724,14 @@ code { font-size: 0.85em; }
 .sc-confirm-btn:active {
   background: #f0f4f6;
 }
+/* 削除は破壊操作として赤を強調（geopick 削除ボタンと同系） */
 .sc-confirm-btn--danger {
-  color: var(--bad);
+  color: #9b2c2c;
+  background: #fdecec;
+  border-top-color: #f0b4b4;
+}
+.sc-confirm-btn--danger:active {
+  background: #f8d8d8;
 }
 .sc-confirm-btn--ok {
   color: var(--accent);
@@ -1731,6 +1742,7 @@ code { font-size: 0.85em; }
   box-shadow: 0 6px 20px rgb(26 42 50 / 14%);
   font-weight: 600;
   color: var(--accent);
+  background: #fff;
 }
 .sc-confirm-btn--cancel:active {
   background: #f3f7f9;

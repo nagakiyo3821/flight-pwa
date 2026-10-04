@@ -34,6 +34,11 @@ export const CMD_LANDING = '#着陸'
 
 /** 登録データ管理 直接起動（レコード一覧） */
 export const REC_MENU_BACK = '%戻る'
+/** 一覧画面の表示文言（% なし・場所一覧と同系） */
+export const REC_HUB_TITLE = '登録データ管理'
+export const REC_HUB_BACK = '戻る'
+export const REC_HUB_SECTION = (n: number) => `登録済 ${n}件`
+export const REC_HUB_EMPTY = '登録済のデータはありません'
 
 export const REC_DEL_PROMPT = '本当にこのデータを削除しますか？'
 export const REC_DEL_OK = '1.削除'

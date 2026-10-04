@@ -155,7 +155,10 @@ import {
   REC_DEL_BACK,
   REC_DEL_OK,
   REC_DEL_PROMPT,
-  REC_MENU_BACK,
+  REC_HUB_TITLE,
+  REC_HUB_BACK,
+  REC_HUB_SECTION,
+  REC_HUB_EMPTY,
   RESET_OK,
   RESET_BACK,
   RESET_PROMPT,
@@ -4433,57 +4436,73 @@ function editFieldsFor(kind: 'A' | 'B' | 'F', droneType: string): FieldDef[] {
   return freeFields(droneType)
 }
 
+/** 7.登録データ管理（場所一覧と同系の L1＋トースト） */
 async function renderRecords(): Promise<void> {
   const keys = await listFlightKeys()
   const meta = await getMeta()
   const drone = meta.tmp.DRONE || 'Mavic2Pro'
-  const rows = [
-    { id: 'back', text: REC_MENU_BACK },
-    ...keys.map((k) => ({ id: `k:${k}`, text: k })),
-  ]
-  const list = rows
-    .map(
-      (it) =>
-        `<button type="button" class="menu-btn" data-id="${escapeHtml(it.id)}">${escapeHtml(it.text)}</button>`,
-    )
-    .join('')
+  const rowsHtml = keys.length
+    ? keys
+        .map(
+          (k) =>
+            `<button type="button" class="places-ui-row" data-id="k:${escapeHtml(k)}"><span class="places-ui-row-name">${escapeHtml(k)}</span><span class="places-ui-row-chevron" aria-hidden="true">›</span></button>`,
+        )
+        .join('')
+    : `<p class="places-ui-empty">${escapeHtml(REC_HUB_EMPTY)}</p>`
 
-  app.innerHTML = shell(
-    escapeHtml(`登録データ管理（${drone}）`),
-    `
-    <p id="msg" class="msg menu-flash"></p>
-    <section class="card menu-card">
-      <div class="menu">${list}</div>
-    </section>`,
-  )
+  app.classList.add('places-ui-app')
+  document.documentElement.classList.add('places-ui-lock')
+  app.innerHTML = `
+  <header class="top top--with-back">
+    <button type="button" class="nav-back" id="records-back" aria-label="${escapeHtml(REC_HUB_BACK)}">
+      <span class="nav-back-chevron" aria-hidden="true"></span>
+      <span>${escapeHtml(REC_HUB_BACK)}</span>
+    </button>
+    <div class="top-titles">
+      <h1 class="prompt places-ui-title">
+        <span class="places-ui-title-text">${escapeHtml(REC_HUB_TITLE)}</span>
+        <span class="sc-geopick-ver">v${APP_VERSION}</span>
+      </h1>
+      <p class="prompt-sub">${escapeHtml(drone)}</p>
+    </div>
+  </header>
+  <main class="places-ui-main">
+    <section class="card places-ui-card">
+      <h2 class="places-ui-section">${escapeHtml(REC_HUB_SECTION(keys.length))}</h2>
+      <div class="places-ui-list-wrap">
+        <div class="places-ui-list">${rowsHtml}</div>
+      </div>
+    </section>
+  </main>`
 
-  const msgEl = app.querySelector('#msg')!
   if (flashMsg) {
-    msgEl.textContent = flashMsg
+    toastMsg = flashMsg
     flashMsg = ''
   }
+  if (toastMsg) {
+    showToast(toastMsg)
+    toastMsg = ''
+  }
 
-  app.querySelectorAll<HTMLButtonElement>('[data-id]').forEach((btn) => {
+  app.querySelector('#records-back')!.addEventListener('click', () => {
+    view = 'menu'
+    void render()
+  })
+  app.querySelectorAll<HTMLButtonElement>('.places-ui-row[data-id]').forEach((btn) => {
     btn.addEventListener('click', () => {
       void onRecords(btn.dataset.id!).catch((e) => {
-        msgEl.textContent = `失敗: ${(e as Error).message}`
+        showToast(`失敗: ${(e as Error).message}`)
       })
     })
   })
 }
 
 async function onRecords(id: string): Promise<void> {
-  if (id === 'back') {
-    view = 'menu'
-    await render()
-    return
-  }
-  if (id.startsWith('k:')) {
-    const key = id.slice(2)
-    await setWorkingKey(key)
-    view = 'record-edit'
-    await render()
-  }
+  if (!id.startsWith('k:')) return
+  const key = id.slice(2)
+  await setWorkingKey(key)
+  view = 'record-edit'
+  await render()
 }
 
 async function renderEditList(kind: 'A' | 'B' | 'F'): Promise<void> {

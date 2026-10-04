@@ -2045,6 +2045,12 @@ html.places-ui-lock body {
 #app.places-ui-app .sc-geopick-ver {
   font-size: 12px;
 }
+#app.places-ui-app .prompt-sub {
+  margin: 0.2rem 0 0;
+  font-size: 12px;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
 /* タイトルは geopick 1行目と同じ 18px。ボタン／リストは geopick 確定行寄りに密にする */
 .places-ui-title {
   display: flex;

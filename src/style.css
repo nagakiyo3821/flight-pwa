@@ -1445,12 +1445,14 @@ code { font-size: 0.85em; }
 
 /* 場所登録（ケース1〜4）横画面: 左＝タイトル（版右詰め）＋入力＋確定、右＝地図
    地図上端はタイトル下のデータ欄（form）に揃える。
-   safe-area（ノッチ左右・底のホーム帯）は .sc-geopick-stack 共通ルールを適用 */
+   左右余白は iPhone（Dynamic Island / ノッチ）と iPad（端のコントロール呼出マーク）で共通。
+   safe-area がある機種はその値、無い機種は Island 相当の下限でバランスを取る */
 @media (orientation: landscape) {
   .sc-dialog--geopick .sc-geopick-stack {
     max-width: none;
-    padding-left: max(0.5rem, env(safe-area-inset-left, 0px));
-    padding-right: max(0.5rem, env(safe-area-inset-right, 0px));
+    /* ~44px: Island 横向き相当。iPad で inset=0 でも左端マークに負けない */
+    padding-left: max(2.75rem, env(safe-area-inset-left, 0px));
+    padding-right: max(2.75rem, env(safe-area-inset-right, 0px));
   }
   .sc-dialog--geopick .sc-geopick-body {
     /* 右上は空：地図は form 行から開始してタイトル下のデータ高さに揃える */

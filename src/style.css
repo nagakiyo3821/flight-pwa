@@ -1843,12 +1843,38 @@ button.ghost.is-busy {
 }
 
 /* —— 場所データ管理 UI 試作（メニュー11） —— */
+/* 画面全体スクロール禁止。リスト枠だけが縦スクロール */
+html.places-ui-lock,
+html.places-ui-lock body {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
 #app.places-ui-app {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
-  min-height: 100dvh;
-  padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+  height: 100vh;
+  height: 100dvh;
+  max-height: 100vh;
+  max-height: 100dvh;
+  overflow: hidden;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: calc(0.5rem + env(safe-area-inset-bottom, 0px));
+  box-sizing: border-box;
+  /* iOS 横画面の文字拡大を抑止（geopick と同様） */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+#app.places-ui-app > .top {
+  flex: 0 0 auto;
+}
+#app.places-ui-app .nav-back {
+  font-size: 15px;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+#app.places-ui-app .sc-geopick-ver {
+  font-size: 12px;
 }
 .places-ui-title {
   display: flex;
@@ -1857,6 +1883,11 @@ button.ghost.is-busy {
   justify-content: space-between;
   gap: 0.35rem;
   width: 100%;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.25;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 .places-ui-title-text {
   min-width: 0;
@@ -1870,11 +1901,13 @@ button.ghost.is-busy {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  overflow: hidden;
   gap: 0.75rem;
   margin-top: 0.35rem;
 }
 .places-ui-new {
   display: block;
+  flex: 0 0 auto;
   width: 100%;
   margin: 0;
   padding: 0.9rem 1.1rem;
@@ -1883,11 +1916,13 @@ button.ghost.is-busy {
   background: var(--accent);
   color: #fff;
   font: inherit;
-  font-size: 1rem;
+  font-size: 16px;
   font-weight: 600;
   line-height: 1.35;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 .places-ui-new:active {
   opacity: 0.88;
@@ -1913,20 +1948,24 @@ button.ghost.is-busy {
   overflow: hidden;
 }
 .places-ui-section {
+  flex: 0 0 auto;
   margin: 0;
   padding: 0.65rem 1.1rem 0.45rem;
-  font-size: 0.85rem;
+  font-size: 13px;
   font-weight: 600;
   color: var(--muted);
   border-bottom: 1px solid var(--line);
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 .places-ui-list-wrap {
   position: relative;
   flex: 1 1 auto;
   min-height: 0;
-  max-height: min(62vh, 32rem);
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 .places-ui-list {
   display: grid;
@@ -1947,12 +1986,15 @@ button.ghost.is-busy {
   border-radius: 0;
   background: #fff;
   font: inherit;
-  font-size: 1rem;
+  /* rem ではなく px（横回転後の iOS 文字肥大を防ぐ） */
+  font-size: 16px;
   font-weight: 400;
   line-height: 1.35;
   text-align: left;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
   min-width: 0;
 }
 .places-ui-row:last-child {
@@ -1976,19 +2018,26 @@ button.ghost.is-busy {
   min-width: 0;
   flex: 1 1 auto;
   overflow-wrap: anywhere;
+  font-size: 16px;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 .places-ui-row-chevron {
   flex: 0 0 auto;
   color: var(--muted);
-  font-size: 1.15rem;
+  font-size: 18px;
   line-height: 1;
   opacity: 0.75;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 .places-ui-empty {
   margin: 0;
   padding: 1.25rem 1.1rem;
   color: var(--muted);
-  font-size: 0.95rem;
+  font-size: 15px;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 .toast {
   position: fixed;

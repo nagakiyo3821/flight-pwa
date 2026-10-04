@@ -291,6 +291,7 @@ async function render(): Promise<void> {
   stopMenuTick()
   clearStickyFocus()
   app.classList.remove('places-ui-app')
+  document.documentElement.classList.remove('places-ui-lock')
   await ensureBootstrap()
   if (view === 'menu') await renderMenu()
   else if (view === 'newa') await renderEditList('A')
@@ -4862,6 +4863,7 @@ async function renderPlacesUiProto(): Promise<void> {
     : `<p class="places-ui-empty">${escapeHtml(PLACE_UI_PROTO_EMPTY)}</p>`
 
   app.classList.add('places-ui-app')
+  document.documentElement.classList.add('places-ui-lock')
   app.innerHTML = `
   <header class="top top--with-back">
     <button type="button" class="nav-back" id="places-ui-back" aria-label="${escapeHtml(PLACE_UI_PROTO_BACK)}">

@@ -615,6 +615,14 @@ code { font-size: 0.85em; }
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
+.sc-dt-combo-field .sc-dt-combo-text::placeholder {
+  color: #a8b4bc;
+  opacity: 1;
+}
+.sc-dt-combo-field .sc-dt-combo-text.is-invalid {
+  border-color: var(--bad);
+  background: #fff8f8;
+}
 .sc-dt-combo-part--time .sc-dt-combo-text {
   padding-left: 0.45rem;
   padding-right: 3.7rem;
@@ -703,14 +711,6 @@ code { font-size: 0.85em; }
   padding: 0;
   opacity: 0.01;
   cursor: pointer;
-}
-.sc-dt-combo-hint {
-  margin: 0.35rem 0 0;
-  font-size: 12px;
-  line-height: 1.35;
-  color: var(--muted);
-  -webkit-text-size-adjust: 100%;
-  text-size-adjust: 100%;
 }
 .sc-actions.sc-actions--hub {
   gap: 0.35rem;

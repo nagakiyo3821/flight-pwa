@@ -1520,7 +1520,7 @@ function dtComboFieldHtml(
   const isDate = kind === 'date'
   const pickLabel = isDate ? 'カレンダーから選択' : '時刻ピッカーから選択'
   const icon = isDate ? ICON_CALENDAR : ICON_CLOCK
-  const placeholder = isDate ? '20261005' : '0000'
+  const placeholder = isDate ? '2026/01/01' : '00:00'
   const nativeAttrs = isDate ? 'type="date"' : 'type="time" step="60"'
   return `<div class="sc-dt-combo-field" data-kind="${kind}">
     <input id="${textId}" class="sc-input sc-dt-combo-text" type="text" inputmode="numeric" pattern="[0-9/:]*" autocomplete="off" enterkeyhint="done" placeholder="${placeholder}" value="${escapeHtml(textValue)}" />
@@ -1593,6 +1593,7 @@ function wireDtComboField(field: HTMLElement): {
   text: HTMLInputElement
   getNormalized: () => string
   setError: (msg: string) => void
+  clearError: () => void
 } {
   const text = field.querySelector<HTMLInputElement>('.sc-dt-combo-text')!
   const clearBtn = field.querySelector<HTMLButtonElement>('.sc-dt-combo-clear')!
@@ -1604,6 +1605,38 @@ function wireDtComboField(field: HTMLElement): {
   }
   const getNormalized = () =>
     kind === 'date' ? normalizeYmdText(text.value) : normalizeHmText(text.value)
+
+  const clearError = () => {
+    text.setCustomValidity('')
+    text.classList.remove('is-invalid')
+  }
+
+  /** 入力途中は黙認。完成形なのに不正なときだけエラー */
+  const validateLive = (report: boolean): boolean => {
+    const raw = text.value.trim()
+    if (!raw) {
+      clearError()
+      return true
+    }
+    const digits = digitsOnly(raw, kind === 'date' ? 8 : 4)
+    const complete =
+      kind === 'date' ? digits.length === 8 : digits.length === 3 || digits.length === 4
+    if (!complete) {
+      clearError()
+      return true
+    }
+    const ok = !!getNormalized()
+    if (ok) {
+      clearError()
+      return true
+    }
+    const msg =
+      kind === 'date' ? '正しい日付を入力してください' : '正しい時刻を入力してください'
+    text.setCustomValidity(msg)
+    text.classList.add('is-invalid')
+    if (report) text.reportValidity()
+    return false
+  }
 
   const syncNativeFromText = () => {
     if (kind === 'date') {
@@ -1633,34 +1666,31 @@ function wireDtComboField(field: HTMLElement): {
     e.stopPropagation()
     text.value = ''
     native.value = ''
-    text.setCustomValidity('')
+    clearError()
     syncClear()
     text.focus()
   })
   // ピッカーはアイコン上の native が直接タップを受ける（iOS で showPicker 不可対策）
-  native.addEventListener('input', () => {
+  const onNativePick = () => {
     if (kind === 'date') {
       text.value = native.value ? fromDateInputValue(native.value) : ''
     } else {
       text.value = native.value ? native.value.trim().slice(0, 5) : ''
     }
-    text.setCustomValidity('')
+    clearError()
     syncClear()
-  })
-  native.addEventListener('change', () => {
-    if (kind === 'date') {
-      text.value = native.value ? fromDateInputValue(native.value) : ''
-    } else {
-      text.value = native.value ? native.value.trim().slice(0, 5) : ''
-    }
-    text.setCustomValidity('')
-    syncClear()
-  })
+  }
+  native.addEventListener('input', onNativePick)
+  native.addEventListener('change', onNativePick)
   text.addEventListener('input', () => {
-    text.setCustomValidity('')
+    clearError()
     applyTypingFormat()
     syncClear()
     syncNativeFromText()
+    validateLive(false)
+  })
+  text.addEventListener('blur', () => {
+    validateLive(true)
   })
   syncClear()
   syncNativeFromText()
@@ -1668,8 +1698,10 @@ function wireDtComboField(field: HTMLElement): {
   return {
     text,
     getNormalized,
+    clearError,
     setError: (msg: string) => {
       text.setCustomValidity(msg)
+      text.classList.add('is-invalid')
       text.reportValidity()
     },
   }
@@ -4563,9 +4595,9 @@ function askDateTimeField(
   return new Promise((resolve) => {
     const parsed = parseFlightDate(current)
     const ymdText = parsed ? formatYmd(parsed) : ''
-    const hmText = parsed ? formatHmFromDate(parsed) : '00:00'
+    const hmText = parsed ? formatHmFromDate(parsed) : ''
     const dateNative = ymdText ? toDateInputValue(ymdText) : ''
-    const timeNative = toTimeInputValue(hmText) || '00:00'
+    const timeNative = hmText ? toTimeInputValue(hmText) : ''
     const hub = hubDialogHeadFromChrome(
       chrome ?? fieldEntryChrome(f.no, f.label, parenData(current)),
     )
@@ -4580,7 +4612,6 @@ function askDateTimeField(
           ${dtComboFieldHtml('time', 'sc-dt-time', hmText, timeNative)}
         </div>
       </div>
-      <p class="sc-dt-combo-hint">数字のみ入力可（例: 20261005／1430）。右アイコンでカレンダー・時計</p>
     </div>`
     const root = openDialogRoot()
     root.classList.add('sc-dialog--hub')
@@ -4616,8 +4647,8 @@ function askDateTimeField(
       if (!ymd) {
         dateCtl.setError(
           dateCtl.text.value.trim()
-            ? '日付は数字8桁（例: 20261005）で入力してください'
-            : '日付を入力または選択してください',
+            ? '正しい日付を入力してください'
+            : '日付を入力してください',
         )
         return
       }
@@ -4625,16 +4656,16 @@ function askDateTimeField(
       if (!hm) {
         timeCtl.setError(
           timeCtl.text.value.trim()
-            ? '時刻は数字3〜4桁（例: 1430）で入力してください'
-            : '時刻を入力または選択してください',
+            ? '正しい時刻を入力してください'
+            : '時刻を入力してください',
         )
         return
       }
-      dateCtl.text.setCustomValidity('')
-      timeCtl.text.setCustomValidity('')
+      dateCtl.clearError()
+      timeCtl.clearError()
       const combined = combineYmdAndHm(ymd, hm)
       if (!combined) {
-        flashMsg = '日時の組み合わせが不正です'
+        dateCtl.setError('日時の組み合わせが不正です')
         return
       }
       finish(combined)

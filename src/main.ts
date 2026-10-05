@@ -9,6 +9,8 @@ import {
 } from './flag'
 import {
   applyWeatherSet,
+  appendMastersDroneId,
+  appendMastersListItem,
   commitWorking,
   deleteOrResetRecord,
   deletePlace,
@@ -52,7 +54,7 @@ import {
   upsertPlace,
 } from './db'
 import type { FieldDef, FlightRecord, LogFile, PlaceRecord, PosFile, TmpFlag } from './types'
-import type { MastersFile } from './catalog'
+import type { ListKey, MastersFile } from './catalog'
 import {
   droneTypeFrom,
   getDroneIds,
@@ -4166,7 +4168,14 @@ async function editOneField(f: FieldDef, rec: FlightRecord): Promise<string | nu
     const selected = await chooseFromList(prompt, choices, { chrome })
     if (selected === null) return null
     if (f.allowCustom && selected === customLabel) {
-      return askText(prompt, cur === '?' ? '' : cur, 'text', chrome)
+      const typed = await askText(prompt, cur === '?' ? '' : cur, 'text', chrome)
+      if (typed === null) return null
+      const v = typed.trim()
+      // 任意入力を masters に残し、次回以降の選択肢にする（氏名・バッテリー番号など）
+      if (v && f.optionsKey) {
+        await appendMastersListItem(f.optionsKey as ListKey, v)
+      }
+      return v
     }
     return selected
   }
@@ -4246,6 +4255,7 @@ async function editDroneField(
     if (typed === null) return null
     id = typed.trim()
     if (!id) return null
+    await appendMastersDroneId(typeSel, id)
   }
 
   return `${typeSel}_${id}`

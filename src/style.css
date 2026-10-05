@@ -495,13 +495,13 @@ code { font-size: 0.85em; }
   line-height: 1;
 }
 .sc-guide-dot--red {
-  color: #e53935;
+  color: #ff3b30;
 }
 .sc-guide-dot--green {
-  color: #2e7d32;
+  color: #34c759;
 }
 .sc-guide-dot--yellow {
-  color: #f9a825;
+  color: #ffcc00;
 }
 .sc-dialog-head .sc-dialog-sub {
   margin: 0.2rem 0 0;

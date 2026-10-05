@@ -279,28 +279,46 @@ code { font-size: 0.85em; }
   gap: 0.25rem;
   width: 100%;
   min-width: 0;
+  /* 戻る／順次／版を同一の文字サイズ・行高に揃える */
+  --sc-top-nav-fs: 14px;
+  --sc-top-nav-lh: 1.25;
+}
+.sc-dialog-top-nav-slot--start,
+.sc-dialog-top-nav-center,
+.sc-dialog-top-nav-slot--end {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  min-height: calc(var(--sc-top-nav-fs) * var(--sc-top-nav-lh) + 0.4rem);
 }
 .sc-dialog-top-nav-slot--start {
   justify-self: start;
-  min-width: 0;
+  justify-content: flex-start;
 }
 .sc-dialog-top-nav-center {
   justify-self: center;
+  justify-content: center;
   grid-column: 2;
-  min-width: 0;
 }
 .sc-dialog-top-nav-slot--end {
   justify-self: end;
+  justify-content: flex-end;
   grid-column: 3;
-  min-width: 0;
+}
+.sc-dialog-top-nav .nav-back,
+.sc-dialog-top-nav .sc-seq-nav-btn,
+.sc-dialog-top-nav .sc-seq-nav-mode,
+.sc-dialog-top-nav .sc-geopick-ver {
+  font-size: var(--sc-top-nav-fs);
+  line-height: var(--sc-top-nav-lh);
+  font-weight: 500;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 .sc-dialog-top-nav-ver {
   flex: 0 0 auto;
   margin: 0;
-  margin-top: 0;
-  font-size: 12px;
-  -webkit-text-size-adjust: 100%;
-  text-size-adjust: 100%;
+  color: var(--muted);
 }
 .sc-seq-nav {
   display: flex;
@@ -312,13 +330,9 @@ code { font-size: 0.85em; }
 }
 .sc-seq-nav-mode {
   flex: 0 0 auto;
-  padding: 0 0.15rem;
-  font-size: 12px;
-  font-weight: 600;
+  padding: 0.2rem 0.15rem;
   color: var(--muted);
   white-space: nowrap;
-  -webkit-text-size-adjust: 100%;
-  text-size-adjust: 100%;
 }
 .sc-seq-nav-btn {
   flex: 0 1 auto;
@@ -329,14 +343,9 @@ code { font-size: 0.85em; }
   background: transparent;
   color: var(--accent);
   font: inherit;
-  font-size: 12px;
-  font-weight: 500;
-  line-height: 1.2;
   white-space: nowrap;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  -webkit-text-size-adjust: 100%;
-  text-size-adjust: 100%;
 }
 .sc-seq-nav-btn:active:not(:disabled) {
   opacity: 0.65;
@@ -2281,10 +2290,15 @@ html.places-ui-lock body {
 }
 #app.places-ui-app .nav-back {
   font-size: 14px;
+  line-height: 1.25;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
-#app.places-ui-app .sc-geopick-ver {
+#app.places-ui-app .sc-dialog-top-nav .sc-geopick-ver {
+  font-size: var(--sc-top-nav-fs);
+  line-height: var(--sc-top-nav-lh);
+}
+#app.places-ui-app .sc-geopick-ver:not(.sc-dialog-top-nav-ver) {
   font-size: 12px;
 }
 #app.places-ui-app .prompt-sub {

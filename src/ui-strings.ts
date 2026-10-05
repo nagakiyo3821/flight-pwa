@@ -159,6 +159,34 @@ export function fieldPromptText(
   return `${no}.${fallbackLabel ?? ''}\n${shown}`
 }
 
+/** hub 系項目入力画面: 説明文（FIELD_PROMPT_BODY） */
+export function fieldEntryGuide(no: number, fallbackLabel?: string): string {
+  return FIELD_PROMPT_BODY[no] ?? `${no}.${fallbackLabel ?? ''}`
+}
+
+export type FieldEntryChrome = {
+  title: string
+  subtitle: string
+  guide: string
+}
+
+/** 1〜63 個別入力のヘッダ（一覧行と同じ `${no}.${label}`） */
+export function fieldEntryChrome(
+  no: number,
+  label: string,
+  currentDisplay: string,
+): FieldEntryChrome {
+  const shown =
+    currentDisplay.startsWith('(') || currentDisplay === '(-)'
+      ? currentDisplay
+      : parenData(currentDisplay)
+  return {
+    title: `${no}.${label}`,
+    subtitle: `現在値 ${shown}`,
+    guide: fieldEntryGuide(no, label),
+  }
+}
+
 /** 項目1 機種選択プロンプト（ショートカット19 テキスト158 系） */
 export function droneTypePrompt(current: string): string {
   return `環境条件:\n・機種名と機体識別番号を確認\n${parenData(current)}\n・機種名を選択`

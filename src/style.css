@@ -370,6 +370,31 @@ code { font-size: 0.85em; }
   border-bottom: 1px solid var(--line);
   background: #fbfcfd;
 }
+.sc-dialog-scroll .sc-field-guide {
+  padding: 0.65rem var(--inset-x) 0.5rem;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: var(--ink);
+  white-space: normal;
+  overflow-wrap: anywhere;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+.sc-dialog-head .sc-dialog-sub {
+  margin: 0.2rem 0 0;
+  font-size: 12px;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+.sc-dialog-body > .sc-actions.sc-actions--hub-confirm {
+  flex: 0 0 auto;
+  padding: 0.45rem var(--inset-x) calc(0.35rem + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--line);
+  background: var(--card);
+}
+.sc-dialog-body > .sc-actions.sc-actions--hub-confirm .places-ui-new {
+  width: 100%;
+}
 .sc-dialog-detail .net-fail,
 .sc-map-hint.net-fail {
   color: var(--bad);

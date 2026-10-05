@@ -194,7 +194,9 @@ import {
   droneIdInputPrompt,
   droneIdPrompt,
   droneTypePrompt,
+  fieldEntryChrome,
   fieldPromptText,
+  type FieldEntryChrome,
   gpsMissingPrompt,
   isValidNumberInput,
   parenData,
@@ -516,17 +518,37 @@ function confirmYesNo(opts: {
   })
 }
 
+function chromeGuideHtml(chrome: FieldEntryChrome): string {
+  return `<div class="sc-field-guide">${escapeHtml(chrome.guide).replace(/\n/g, '<br/>')}</div>`
+}
+
+/** 旧プロンプト文字列から hub ヘッダを推定（場所編集・機種フロー等） */
+function promptToFieldChrome(prompt: string): FieldEntryChrome {
+  const lines = prompt.split('\n').filter((l) => l.trim() !== '')
+  let subtitle = ''
+  let rest = lines
+  const last = lines[lines.length - 1]
+  if (last && /^\([^)]*\)$/.test(last.trim())) {
+    subtitle = `現在値 ${last.trim()}`
+    rest = lines.slice(0, -1)
+  }
+  const title = rest[0]?.trim() || '入力'
+  const guide = rest.join('\n')
+  return { title, subtitle, guide }
+}
+
 function dialogShell(
   promptHtml: string,
   bodyHtml: string,
   actionsHtml: string,
   detailHtml = '',
   panelClass = '',
-  opts: { withHeadBack?: boolean } = {},
+  opts: { withHeadBack?: boolean; subtitleHtml?: string; guideHtml?: string } = {},
 ): string {
   const detail = detailHtml
     ? `<div class="sc-dialog-detail">${detailHtml}</div>`
     : ''
+  const guide = opts.guideHtml ?? ''
   const panelCls = panelClass ? ` sc-dialog-panel ${panelClass}` : ' sc-dialog-panel'
   const back = opts.withHeadBack
     ? `<button type="button" class="nav-back" id="sc-back" aria-label="${escapeHtml(ITEM_BACK)}">
@@ -535,19 +557,25 @@ function dialogShell(
       </button>`
     : ''
   const hasPrompt = String(promptHtml ?? '').trim().length > 0
+  const sub = opts.subtitleHtml
+    ? `<p class="prompt-sub sc-dialog-sub">${opts.subtitleHtml}</p>`
+    : ''
   const head =
     hasPrompt || opts.withHeadBack
       ? `<header class="sc-dialog-head${opts.withHeadBack ? ' top--with-back' : ''}">
         ${back}
-        <div class="sc-dialog-title-row">
-          <h1 class="prompt sc-dialog-prompt">${hasPrompt ? promptHtml : '&nbsp;'}</h1>
-          <span class="sc-geopick-ver">v${APP_VERSION}</span>
+        <div class="top-titles">
+          <div class="sc-dialog-title-row">
+            <h1 class="prompt sc-dialog-prompt places-ui-title-text">${hasPrompt ? promptHtml : '&nbsp;'}</h1>
+            <span class="sc-geopick-ver">v${APP_VERSION}</span>
+          </div>
+          ${sub}
         </div>
       </header>`
       : ''
   // 選択肢ペインは本文スクロールと分離（溢れ目印付き）
   const choicePane = bodyHtml.includes('sc-dialog-choice-pane')
-  const scrollInner = choicePane ? detail : `${detail}${bodyHtml}`
+  const scrollInner = choicePane ? `${detail}${guide}` : `${detail}${guide}${bodyHtml}`
   const listPart = choicePane ? bodyHtml : ''
   return `
     <div class="${panelCls.trim()}">
@@ -569,6 +597,25 @@ function dialogActions(opts: { ok?: boolean; back?: boolean }): string {
       ? `<button type="button" class="sc-btn sc-btn-back" id="sc-back">${escapeHtml(ITEM_BACK)}</button>`
       : ''
   return `<div class="sc-actions sc-actions--hub">${ok}${back}</div>`
+}
+
+/** 項目入力: ヘッダ戻る＋下端は確定のみ（場所 hub の新規ボタンと同色） */
+function dialogActionsHubConfirm(): string {
+  return `<div class="sc-actions sc-actions--hub sc-actions--hub-confirm">
+    <button type="button" class="places-ui-new sc-dialog-confirm" id="sc-ok">${escapeHtml(ITEM_OK)}</button>
+  </div>`
+}
+
+function hubDialogHeadFromChrome(chrome: FieldEntryChrome): {
+  titleHtml: string
+  subtitleHtml: string
+  guidePrefix: string
+} {
+  return {
+    titleHtml: escapeHtml(chrome.title),
+    subtitleHtml: escapeHtml(chrome.subtitle),
+    guidePrefix: chromeGuideHtml(chrome),
+  }
 }
 
 function choicePaneHtml(rowsHtml: string): string {
@@ -775,12 +822,17 @@ function closeDialogSafely(root: HTMLElement, after?: () => void): void {
 function chooseFromList(
   prompt: string,
   choices: string[],
-  opts: { withBackButton?: boolean; detail?: string } = { withBackButton: true },
+  opts: {
+    withBackButton?: boolean
+    detail?: string
+    chrome?: FieldEntryChrome
+  } = { withBackButton: true },
 ): Promise<string | null> {
   return new Promise((resolve) => {
     const root = openDialogRoot()
     root.classList.add('sc-dialog--hub')
-    const promptHtml = escapeHtml(prompt).replace(/\n/g, '<br/>')
+    const chrome = opts.chrome ?? promptToFieldChrome(prompt)
+    const head = hubDialogHeadFromChrome(chrome)
     const detailHtml = opts.detail
       ? escapeHtml(opts.detail).replace(/\n/g, '<br/>')
       : ''
@@ -792,12 +844,16 @@ function chooseFromList(
       )
       .join('')
     root.innerHTML = dialogShell(
-      promptHtml,
+      head.titleHtml,
       choicePaneHtml(rowsHtml),
       '',
       detailHtml,
       '',
-      { withHeadBack: withBack },
+      {
+        withHeadBack: withBack,
+        subtitleHtml: head.subtitleHtml,
+        guideHtml: head.guidePrefix,
+      },
     )
     wireListScrollCue(root)
     let done = false
@@ -827,12 +883,13 @@ function chooseFromListMulti(
   prompt: string,
   choices: string[],
   preselected: string[] = [],
+  chrome?: FieldEntryChrome,
 ): Promise<string[] | null> {
   return new Promise((resolve) => {
     const selected = new Set(preselected.filter((x) => choices.includes(x)))
     const root = openDialogRoot()
     root.classList.add('sc-dialog--hub')
-    const promptHtml = escapeHtml(prompt).replace(/\n/g, '<br/>')
+    const hub = hubDialogHeadFromChrome(chrome ?? promptToFieldChrome(prompt))
 
     const renderChoices = () =>
       choices
@@ -847,9 +904,16 @@ function chooseFromListMulti(
       'class="places-ui-list sc-choice-list" id="sc-multi"',
     )
     root.innerHTML = dialogShell(
-      promptHtml,
+      hub.titleHtml,
       pane,
-      dialogActions({ ok: true, back: true }),
+      dialogActionsHubConfirm(),
+      '',
+      '',
+      {
+        withHeadBack: true,
+        subtitleHtml: hub.subtitleHtml,
+        guideHtml: hub.guidePrefix,
+      },
     )
     wireListScrollCue(root)
 
@@ -907,22 +971,34 @@ function normalizeNumberInput(raw: string): string {
   return t
 }
 
-/** 記述／数値の1項目入力。確定／戻るは下部ボタン。数値は文字を受け付けない。 */
+/** 記述／数値の1項目入力。ヘッダ戻る＋下端確定。数値は文字を受け付けない。 */
 function askText(
   prompt: string,
   initial: string,
   mode: 'text' | 'number' = 'text',
+  chrome?: FieldEntryChrome,
 ): Promise<string | null> {
   return new Promise((resolve) => {
     const root = openDialogRoot()
     root.classList.add('sc-dialog--hub')
-    const promptHtml = escapeHtml(prompt).replace(/\n/g, '<br/>')
+    const hub = hubDialogHeadFromChrome(chrome ?? promptToFieldChrome(prompt))
     const start = mode === 'number' ? sanitizeNumberDraft(initial) : initial
     const body =
       mode === 'number'
         ? `<div class="sc-field-block">${clearableInputHtml('sc-input', 'class="sc-input" type="text" inputmode="decimal" autocomplete="off"', start)}</div>`
         : `<div class="sc-field-block">${clearableInputHtml('sc-input', 'class="sc-input" type="text" inputmode="text"', start)}</div>`
-    root.innerHTML = dialogShell(promptHtml, body, dialogActions({ ok: true, back: true }))
+    root.innerHTML = dialogShell(
+      hub.titleHtml,
+      body,
+      dialogActionsHubConfirm(),
+      '',
+      '',
+      {
+        withHeadBack: true,
+        subtitleHtml: hub.subtitleHtml,
+        guideHtml: hub.guidePrefix,
+      },
+    )
     wireClearableInputs(root)
     const input = root.querySelector<HTMLInputElement>('#sc-input')!
     input.focus()
@@ -994,14 +1070,29 @@ function toTimeInputValue(hm: string): string {
  * カレンダー UI（input type=date）。
  * モバイル／PC とも OS 標準の日付ピッカー。
  */
-function askDate(prompt: string, initialYmd: string): Promise<string | null> {
+function askDate(
+  prompt: string,
+  initialYmd: string,
+  chrome?: FieldEntryChrome,
+): Promise<string | null> {
   return new Promise((resolve) => {
     const root = openDialogRoot()
     root.classList.add('sc-dialog--hub')
-    const promptHtml = escapeHtml(prompt).replace(/\n/g, '<br/>')
+    const hub = hubDialogHeadFromChrome(chrome ?? promptToFieldChrome(prompt))
     const value = toDateInputValue(initialYmd)
     const body = `<div class="sc-field-block">${clearableInputHtml('sc-input', 'class="sc-input sc-input-date" type="date"', value)}</div>`
-    root.innerHTML = dialogShell(promptHtml, body, dialogActions({ ok: true, back: true }))
+    root.innerHTML = dialogShell(
+      hub.titleHtml,
+      body,
+      dialogActionsHubConfirm(),
+      '',
+      '',
+      {
+        withHeadBack: true,
+        subtitleHtml: hub.subtitleHtml,
+        guideHtml: hub.guidePrefix,
+      },
+    )
     wireClearableInputs(root)
     const input = root.querySelector<HTMLInputElement>('#sc-input')!
     input.focus()
@@ -1033,14 +1124,29 @@ function askDate(prompt: string, initialYmd: string): Promise<string | null> {
  * 時・分ピッカー（input type=time）。
  * iPhone / Android ではローリング UI、PC は OS 標準の時刻 UI。
  */
-function askTime(prompt: string, initialHm: string): Promise<string | null> {
+function askTime(
+  prompt: string,
+  initialHm: string,
+  chrome?: FieldEntryChrome,
+): Promise<string | null> {
   return new Promise((resolve) => {
     const root = openDialogRoot()
     root.classList.add('sc-dialog--hub')
-    const promptHtml = escapeHtml(prompt).replace(/\n/g, '<br/>')
+    const hub = hubDialogHeadFromChrome(chrome ?? promptToFieldChrome(prompt))
     const value = toTimeInputValue(initialHm) || '00:00'
     const body = `<div class="sc-field-block">${clearableInputHtml('sc-input', 'class="sc-input sc-input-time" type="time" step="60"', value)}</div>`
-    root.innerHTML = dialogShell(promptHtml, body, dialogActions({ ok: true, back: true }))
+    root.innerHTML = dialogShell(
+      hub.titleHtml,
+      body,
+      dialogActionsHubConfirm(),
+      '',
+      '',
+      {
+        withHeadBack: true,
+        subtitleHtml: hub.subtitleHtml,
+        guideHtml: hub.guidePrefix,
+      },
+    )
     wireClearableInputs(root)
     const input = root.querySelector<HTMLInputElement>('#sc-input')!
     input.focus()
@@ -3957,6 +4063,10 @@ function fieldPrompt(f: FieldDef, current: string): string {
   return fieldPromptText(f.no, current, f.label, shown)
 }
 
+function fieldChrome(f: FieldDef, rec: FlightRecord): FieldEntryChrome {
+  return fieldEntryChrome(f.no, f.label, displayValue(rec, f))
+}
+
 /**
  * 1項目の設定ダイアログ。戻る／中断時は null。
  * choice2 / select はリスト、text / number は記述入力。
@@ -3973,8 +4083,7 @@ async function editOneField(f: FieldDef, rec: FlightRecord): Promise<string | nu
     }
     hydrateFlightDurationCache(rec.A_DATE, rec.B_DATE)
     const cur = displayFlightHm(rec.A_DATE, rec.B_DATE) || '00:00'
-    const prompt = fieldPrompt(f, cur)
-    const raw = await askTime(prompt, cur)
+    const raw = await askTime(fieldPrompt(f, cur), cur, fieldChrome(f, rec))
     if (raw === null) return null
     const synced = syncAfterFlightDuration(rec.A_DATE, rec.B_DATE, raw)
     if ('error' in synced) {
@@ -3992,17 +4101,17 @@ async function editOneField(f: FieldDef, rec: FlightRecord): Promise<string | nu
   }
 
   if (f.input === 'time') {
-    const prompt = fieldPrompt(f, cur)
     const initial = toTimeInputValue(String(cur).trim()) || '00:00'
-    return askTime(prompt, initial)
+    return askTime(fieldPrompt(f, cur), initial, fieldChrome(f, rec))
   }
 
   if (f.key === 'A_DRONE') {
-    return editDroneField(cur)
+    return editDroneField(cur, fieldChrome(f, rec))
   }
 
   const drone = droneTypeFrom(rec.A_DRONE)
   const prompt = fieldPrompt(f, cur)
+  const chrome = fieldChrome(f, rec)
 
   if (f.input === 'choice2' || f.input === 'select') {
     let opts = resolveOptions(f, drone)
@@ -4020,7 +4129,7 @@ async function editOneField(f: FieldDef, rec: FlightRecord): Promise<string | nu
 
     if (f.multi) {
       const pre = cur.split('+').map((s) => s.trim()).filter(Boolean)
-      const picked = await chooseFromListMulti(prompt, opts, pre)
+      const picked = await chooseFromListMulti(prompt, opts, pre, chrome)
       if (picked === null) return null
       return picked.join('+')
     }
@@ -4028,15 +4137,15 @@ async function editOneField(f: FieldDef, rec: FlightRecord): Promise<string | nu
     const customLabel = resolveCustomLabel(f)
     const choices = [...opts]
     if (f.allowCustom) choices.push(customLabel)
-    const selected = await chooseFromList(prompt, choices)
+    const selected = await chooseFromList(prompt, choices, { chrome })
     if (selected === null) return null
     if (f.allowCustom && selected === customLabel) {
-      return askText(prompt, cur === '?' ? '' : cur, 'text')
+      return askText(prompt, cur === '?' ? '' : cur, 'text', chrome)
     }
     return selected
   }
 
-  return askText(prompt, cur, f.input === 'number' ? 'number' : 'text')
+  return askText(prompt, cur, f.input === 'number' ? 'number' : 'text', chrome)
 }
 
 /** ショートカット同様: 月日（カレンダー）→ 時間（時分ピッカー） */
@@ -4052,9 +4161,10 @@ async function askDateTimeField(f: FieldDef, current: string): Promise<string | 
   const ymdDraft = parsed ? formatYmd(parsed) : ''
   const hmDraft = parsed ? formatHmFromDate(parsed) : ''
 
-  const ymd = await askDate(ymdPrompt, ymdDraft)
+  const baseChrome = fieldEntryChrome(f.no, f.label, parenData(current))
+  const ymd = await askDate(ymdPrompt, ymdDraft, { ...baseChrome, guide: ymdPrompt })
   if (ymd === null) return null
-  const hm = await askTime(hmPrompt, hmDraft || '00:00')
+  const hm = await askTime(hmPrompt, hmDraft || '00:00', { ...baseChrome, guide: hmPrompt })
   if (hm === null) return null
   const combined = combineYmdAndHm(ymd, hm)
   if (!combined) {
@@ -4065,19 +4175,32 @@ async function askDateTimeField(f: FieldDef, current: string): Promise<string | 
 }
 
 /** 項目1: 機種選択 → 識別番号リスト＋任意入力（カタログ） */
-async function editDroneField(current: string): Promise<string | null> {
+async function editDroneField(
+  current: string,
+  chrome: FieldEntryChrome,
+): Promise<string | null> {
   const types = getDroneTypes()
-  const typeSel = await chooseFromList(droneTypePrompt(current), types)
+  const typeSel = await chooseFromList(droneTypePrompt(current), types, {
+    chrome: { ...chrome, guide: `${chrome.guide}\n・機種名を選択` },
+  })
   if (typeSel === null || !isKnownDroneType(typeSel)) return null
 
   const customId = getLabel('droneIdCustom')
   const ids = [...getDroneIds(typeSel), customId]
-  const idSel = await chooseFromList(droneIdPrompt(current, typeSel), ids)
+  const idSel = await chooseFromList(droneIdPrompt(current, typeSel), ids, {
+    chrome: {
+      ...chrome,
+      guide: `${chrome.guide}\n${parenData(typeSel)}\n・機体識別番号を選択`,
+    },
+  })
   if (idSel === null) return null
 
   let id = idSel
   if (idSel === customId) {
-    const typed = await askText(droneIdInputPrompt(current, typeSel), '', 'text')
+    const typed = await askText(droneIdInputPrompt(current, typeSel), '', 'text', {
+      ...chrome,
+      guide: `${chrome.guide}\n${parenData(typeSel)}\n・機体識別番号を入力`,
+    })
     if (typed === null) return null
     id = typed.trim()
     if (!id) return null
@@ -5588,8 +5711,14 @@ async function onPlaceEdit(id: string, name: string, place: PlaceRecord): Promis
     const def = PLACE_EDIT_FIELDS.find((f) => f.no === no)
     if (!def) return
     const cur = placeFieldValue(name, place, def.key)
+    const chrome = fieldEntryChrome(def.no, def.label, parenData(cur))
     const prompt = `${def.no}.${def.label}\n${parenData(cur)}`
-    const next = await askText(prompt, cur === '?' ? '' : cur, def.number ? 'number' : 'text')
+    const next = await askText(
+      prompt,
+      cur === '?' ? '' : cur,
+      def.number ? 'number' : 'text',
+      chrome,
+    )
     if (next === null) {
       await render()
       return

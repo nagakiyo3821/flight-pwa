@@ -468,18 +468,13 @@ code { font-size: 0.85em; }
   border-bottom: 1px solid var(--line);
   background: #fbfcfd;
 }
-/* hub 項目入力: 内容は上詰め、確定行は画面下端 */
+/* hub 項目入力: リスト／入力の直下に確定。余白は確定行の下（geopick 離着陸修正は別） */
 .sc-dialog--hub .sc-dialog-body {
-  flex: 1 1 auto;
-  min-height: 0;
+  flex: 0 1 auto;
   max-height: 100%;
 }
 .sc-dialog--hub .sc-dialog-scroll {
   flex: 0 1 auto;
-  min-height: 0;
-}
-.sc-dialog--hub .sc-dialog-body--choice .sc-dialog-choice-pane {
-  flex: 1 1 auto;
   min-height: 0;
 }
 .sc-field-guide {
@@ -503,7 +498,6 @@ code { font-size: 0.85em; }
 }
 .sc-dialog-body > .sc-actions.sc-actions--hub-confirm {
   flex: 0 0 auto;
-  margin-top: auto;
   gap: 0;
   padding: 0.35rem var(--inset-x) calc(0.4rem + env(safe-area-inset-bottom, 0px));
   border-top: 1px solid var(--line);

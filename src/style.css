@@ -257,7 +257,7 @@ code { font-size: 0.85em; }
   box-sizing: border-box;
 }
 .sc-dialog-head {
-  padding: 1.25rem 0 0.65rem;
+  padding: 0.65rem 0 0.35rem;
   flex: 0 0 auto;
   background: var(--bg);
   position: relative;
@@ -265,12 +265,70 @@ code { font-size: 0.85em; }
   min-width: 0;
   max-width: 100%;
 }
-.sc-dialog-head .prompt {
+.sc-dialog-head.top--with-back {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.2rem;
+  padding-top: 0.55rem;
+}
+.sc-dialog-title-row {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.35rem;
+  width: 100%;
+}
+.sc-dialog-prompt {
   margin: 0;
-  font-size: 1.15rem;
+  min-width: 0;
+  flex: 1 1 auto;
+  font-size: 18px;
   font-weight: 600;
-  line-height: 1.35;
+  line-height: 1.25;
   overflow-wrap: anywhere;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+.sc-dialog-head .sc-geopick-ver {
+  flex: 0 0 auto;
+  margin-top: 0.15rem;
+  font-size: 12px;
+}
+.sc-dialog--hub {
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: calc(0.5rem + env(safe-area-inset-bottom, 0px));
+  box-sizing: border-box;
+}
+.sc-dialog-choice-pane {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.sc-dialog-choice-pane .sc-geopick-scroll-fade--top {
+  background: linear-gradient(to bottom, var(--card) 10%, transparent);
+}
+.sc-dialog-choice-pane .sc-geopick-scroll-fade--bottom {
+  background: linear-gradient(to top, var(--card) 18%, transparent);
+}
+.sc-dialog-choice-pane.is-scroll-more .sc-geopick-scroll-fade--bottom,
+.sc-dialog-choice-pane.is-scroll-less .sc-geopick-scroll-fade--top {
+  opacity: 1;
+}
+.sc-dialog-choice-pane.is-scroll-more .sc-geopick-scroll-hint--bottom,
+.sc-dialog-choice-pane.is-scroll-less .sc-geopick-scroll-hint--top {
+  opacity: 0.95;
+}
+.sc-dialog-choice-pane .sc-geopick-scroll-hint {
+  text-shadow:
+    0 0 0.35rem var(--card),
+    0 0 0.7rem var(--card);
+}
+.places-ui-row--on {
+  background: var(--accent-soft);
+}
+.places-ui-row--on:focus:not(:focus-visible) {
+  background: var(--accent-soft);
 }
 .sc-dialog-list {
   margin-top: 0.25rem;
@@ -322,19 +380,20 @@ code { font-size: 0.85em; }
   max-width: 100%;
   width: 100%;
 }
-/* ダイアログ選択肢: 詳細スクロール外で行高・間隔を統一（.menu-btn と同じ） */
-.sc-dialog-body > .sc-choice-list {
-  flex: 0 0 auto;
+/* ダイアログ選択肢: places-ui 行＋スクロールペイン */
+.sc-dialog-body > .sc-dialog-choice-pane {
+  flex: 1 1 auto;
+  min-height: 0;
   border-top: 1px solid var(--line);
   background: #fff;
 }
-.sc-dialog-body > .sc-choice-list .menu-btn:last-child {
-  border-bottom: none;
+.sc-actions.sc-actions--hub {
+  gap: 0.35rem;
+  padding: 0.45rem 0.75rem calc(0.35rem + env(safe-area-inset-bottom, 0px));
 }
-/* スクロール内に残るリストも同じ行間隔 */
-.sc-dialog-scroll .sc-choice-list .menu-btn {
-  padding: 0.95rem 1.1rem;
-  line-height: 1.35;
+.sc-actions.sc-actions--hub .sc-btn {
+  padding: 0.5rem 0.75rem;
+  font-size: 14px;
 }
 /* 親パディング＋ width:100%。calc(100%-余白)+margin は使わない */
 .sc-field-block {

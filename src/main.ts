@@ -490,36 +490,69 @@ async function renderMenu(): Promise<void> {
   void enforceSessionTimers(t.TIME)
 }
 
+/** 確認シート用ラベル（先頭の番号・#/% を外す） */
+function sheetActionLabel(raw: string): string {
+  return String(raw ?? '')
+    .replace(/^\d+\./, '')
+    .replace(/^[#%]+/, '')
+}
+
+/** はい／いいえ確認（場所削除と同系の下端シート） */
+function confirmYesNo(opts: {
+  title: string
+  okLabel: string
+  cancelLabel: string
+  destructive?: boolean
+}): Promise<boolean> {
+  return showConfirmSheet({
+    title: opts.title,
+    confirmLabel: sheetActionLabel(opts.okLabel),
+    cancelLabel: sheetActionLabel(opts.cancelLabel),
+    destructive: opts.destructive === true,
+  })
+}
+
 function dialogShell(
   promptHtml: string,
   bodyHtml: string,
   actionsHtml: string,
   detailHtml = '',
   panelClass = '',
+  opts: { withHeadBack?: boolean } = {},
 ): string {
   const detail = detailHtml
     ? `<div class="sc-dialog-detail">${detailHtml}</div>`
     : ''
   const panelCls = panelClass ? ` sc-dialog-panel ${panelClass}` : ' sc-dialog-panel'
+  const back = opts.withHeadBack
+    ? `<button type="button" class="nav-back" id="sc-back" aria-label="${escapeHtml(ITEM_BACK)}">
+        <span class="nav-back-chevron" aria-hidden="true"></span>
+        <span>${escapeHtml(ITEM_BACK)}</span>
+      </button>`
+    : ''
+  const hasPrompt = String(promptHtml ?? '').trim().length > 0
   const head =
-    String(promptHtml ?? '').trim().length > 0
-      ? `<header class="sc-dialog-head">
-        <h1 class="prompt">${promptHtml}</h1>
+    hasPrompt || opts.withHeadBack
+      ? `<header class="sc-dialog-head${opts.withHeadBack ? ' top--with-back' : ''}">
+        ${back}
+        <div class="sc-dialog-title-row">
+          <h1 class="prompt sc-dialog-prompt">${hasPrompt ? promptHtml : '&nbsp;'}</h1>
+          <span class="sc-geopick-ver">v${APP_VERSION}</span>
+        </div>
       </header>`
       : ''
-  // 選択肢リストはスクロール外に置き、行間隔を揃える
-  const choiceOnly = /^\s*<div\s+class="menu\s+sc-choice-list"/.test(bodyHtml)
-  const scrollInner = choiceOnly ? detail : `${detail}${bodyHtml}`
-  const listPart = choiceOnly ? bodyHtml : ''
+  // 選択肢ペインは本文スクロールと分離（溢れ目印付き）
+  const choicePane = bodyHtml.includes('sc-dialog-choice-pane')
+  const scrollInner = choicePane ? detail : `${detail}${bodyHtml}`
+  const listPart = choicePane ? bodyHtml : ''
   return `
     <div class="${panelCls.trim()}">
       ${head}
       <section class="card sc-dialog-body">
-        <div class="sc-dialog-scroll">${scrollInner}</div>
+        ${scrollInner ? `<div class="sc-dialog-scroll">${scrollInner}</div>` : ''}
         ${listPart}
         ${actionsHtml}
       </section>
-      ${appVersionFoot()}
     </div>`
 }
 
@@ -531,7 +564,16 @@ function dialogActions(opts: { ok?: boolean; back?: boolean }): string {
     opts.back !== false
       ? `<button type="button" class="sc-btn sc-btn-back" id="sc-back">${escapeHtml(ITEM_BACK)}</button>`
       : ''
-  return `<div class="sc-actions">${ok}${back}</div>`
+  return `<div class="sc-actions sc-actions--hub">${ok}${back}</div>`
+}
+
+function choicePaneHtml(rowsHtml: string): string {
+  return `<div class="places-ui-list-pane sc-dialog-choice-pane">
+      <div class="places-ui-list-wrap">
+        <div class="places-ui-list sc-choice-list">${rowsHtml}</div>
+      </div>
+      ${scrollCueOverlayHtml()}
+    </div>`
 }
 
 /** 出力確認。OK タップ＝ユーザー操作内で出力開始（iOS 必須） */
@@ -733,26 +775,27 @@ function chooseFromList(
 ): Promise<string | null> {
   return new Promise((resolve) => {
     const root = openDialogRoot()
+    root.classList.add('sc-dialog--hub')
     const promptHtml = escapeHtml(prompt).replace(/\n/g, '<br/>')
     const detailHtml = opts.detail
       ? escapeHtml(opts.detail).replace(/\n/g, '<br/>')
       : ''
     const withBack = opts.withBackButton !== false
-    const listHtml = `
-      <div class="menu sc-choice-list">
-        ${choices
-          .map(
-            (c, i) =>
-              `<button type="button" class="menu-btn" data-choice="${i}">${escapeHtml(c)}</button>`,
-          )
-          .join('')}
-      </div>`
+    const rowsHtml = choices
+      .map(
+        (c, i) =>
+          `<button type="button" class="places-ui-row" data-choice="${i}"><span class="places-ui-row-name">${escapeHtml(c)}</span><span class="places-ui-row-chevron" aria-hidden="true">›</span></button>`,
+      )
+      .join('')
     root.innerHTML = dialogShell(
       promptHtml,
-      listHtml,
-      withBack ? dialogActions({ back: true }) : '',
+      choicePaneHtml(rowsHtml),
+      '',
       detailHtml,
+      '',
+      { withHeadBack: withBack },
     )
+    wireListScrollCue(root)
     let done = false
     const finish = (value: string | null) => {
       if (done) return
@@ -784,18 +827,27 @@ function chooseFromListMulti(
   return new Promise((resolve) => {
     const selected = new Set(preselected.filter((x) => choices.includes(x)))
     const root = openDialogRoot()
+    root.classList.add('sc-dialog--hub')
     const promptHtml = escapeHtml(prompt).replace(/\n/g, '<br/>')
 
     const renderChoices = () =>
       choices
         .map((c, i) => {
           const on = selected.has(c)
-          return `<button type="button" class="menu-btn${on ? ' multi-on' : ''}" data-choice="${i}">${on ? '✓ ' : ''}${escapeHtml(c)}</button>`
+          return `<button type="button" class="places-ui-row${on ? ' places-ui-row--on' : ''}" data-choice="${i}"><span class="places-ui-row-name">${on ? '✓ ' : ''}${escapeHtml(c)}</span><span class="places-ui-row-chevron" aria-hidden="true">›</span></button>`
         })
         .join('')
 
-    const body = `<div class="menu sc-choice-list" id="sc-multi">${renderChoices()}</div>`
-    root.innerHTML = dialogShell(promptHtml, body, dialogActions({ ok: true, back: true }))
+    const pane = choicePaneHtml(renderChoices()).replace(
+      'class="places-ui-list sc-choice-list"',
+      'class="places-ui-list sc-choice-list" id="sc-multi"',
+    )
+    root.innerHTML = dialogShell(
+      promptHtml,
+      pane,
+      dialogActions({ ok: true, back: true }),
+    )
+    wireListScrollCue(root)
 
     const wire = () => {
       root.querySelectorAll<HTMLButtonElement>('#sc-multi [data-choice]').forEach((btn) => {
@@ -803,8 +855,10 @@ function chooseFromListMulti(
           const c = choices[Number(btn.dataset.choice)]!
           if (selected.has(c)) selected.delete(c)
           else selected.add(c)
-          root.querySelector('#sc-multi')!.innerHTML = renderChoices()
+          const list = root.querySelector('#sc-multi')
+          if (list) list.innerHTML = renderChoices()
           wire()
+          wireListScrollCue(root)
         })
       })
     }
@@ -857,6 +911,7 @@ function askText(
 ): Promise<string | null> {
   return new Promise((resolve) => {
     const root = openDialogRoot()
+    root.classList.add('sc-dialog--hub')
     const promptHtml = escapeHtml(prompt).replace(/\n/g, '<br/>')
     const start = mode === 'number' ? sanitizeNumberDraft(initial) : initial
     const body =
@@ -938,6 +993,7 @@ function toTimeInputValue(hm: string): string {
 function askDate(prompt: string, initialYmd: string): Promise<string | null> {
   return new Promise((resolve) => {
     const root = openDialogRoot()
+    root.classList.add('sc-dialog--hub')
     const promptHtml = escapeHtml(prompt).replace(/\n/g, '<br/>')
     const value = toDateInputValue(initialYmd)
     const body = `<div class="sc-field-block">${clearableInputHtml('sc-input', 'class="sc-input sc-input-date" type="date"', value)}</div>`
@@ -976,6 +1032,7 @@ function askDate(prompt: string, initialYmd: string): Promise<string | null> {
 function askTime(prompt: string, initialHm: string): Promise<string | null> {
   return new Promise((resolve) => {
     const root = openDialogRoot()
+    root.classList.add('sc-dialog--hub')
     const promptHtml = escapeHtml(prompt).replace(/\n/g, '<br/>')
     const value = toTimeInputValue(initialHm) || '00:00'
     const body = `<div class="sc-field-block">${clearableInputHtml('sc-input', 'class="sc-input sc-input-time" type="time" step="60"', value)}</div>`
@@ -1753,12 +1810,12 @@ function escapeRegExpLiteral(s: string): string {
 
 /** 同一場所名の上書き確認。キャンセルなら false */
 async function confirmPlaceOverwrite(name: string): Promise<boolean> {
-  const sel = await chooseFromList(
-    placeOverwritePrompt(name),
-    [PLACE_OVERWRITE_OK, PLACE_OVERWRITE_BACK],
-    { withBackButton: false },
-  )
-  return !!sel && sel.includes('上書き')
+  return confirmYesNo({
+    title: placeOverwritePrompt(name),
+    okLabel: PLACE_OVERWRITE_OK,
+    cancelLabel: PLACE_OVERWRITE_BACK,
+    destructive: false,
+  })
 }
 
 /** 場所名の検証（空・空白・長さ・重複）。confirmOverwrite 時は同一名で上書き確認 */
@@ -4358,10 +4415,13 @@ async function onMenu(action: string): Promise<void> {
     return
   }
   if (action === 'reset') {
-    const selected = await chooseFromList(RESET_PROMPT, [RESET_OK, RESET_BACK], {
-      withBackButton: false,
+    const ok = await confirmYesNo({
+      title: RESET_PROMPT,
+      okLabel: RESET_OK,
+      cancelLabel: RESET_BACK,
+      destructive: true,
     })
-    if (!selected || !selected.includes(RESET_OK)) {
+    if (!ok) {
       await render()
       return
     }
@@ -4376,10 +4436,13 @@ async function onMenu(action: string): Promise<void> {
     return
   }
   if (action === 'commit') {
-    const selected = await chooseFromList(COMMIT_PROMPT, [COMMIT_OK, COMMIT_BACK], {
-      withBackButton: false,
+    const ok = await confirmYesNo({
+      title: COMMIT_PROMPT,
+      okLabel: COMMIT_OK,
+      cancelLabel: COMMIT_BACK,
+      destructive: false,
     })
-    if (selected?.includes('データ登録')) {
+    if (ok) {
       const k = await commitWorking()
       flashMsg = k ? `登録しました: ${k}` : 'A_DATE が空のため登録できません'
     }
@@ -4389,8 +4452,13 @@ async function onMenu(action: string): Promise<void> {
 
 async function runDataSetFlow(opts: { skipConfirm?: boolean } = {}): Promise<boolean> {
   if (!opts.skipConfirm) {
-    const setSel = await chooseFromList(SET_PROMPT, [SET_OK, SET_BACK], { withBackButton: false })
-    if (!setSel?.includes('セット')) return false
+    const ok = await confirmYesNo({
+      title: SET_PROMPT,
+      okLabel: SET_OK,
+      cancelLabel: SET_BACK,
+      destructive: false,
+    })
+    if (!ok) return false
   }
   try {
     const { rec } = await getWorking()
@@ -4434,12 +4502,13 @@ async function enforceSessionTimers(timeRaw: string): Promise<void> {
   timerCheckRunning = true
   try {
     if (need === 'need_reset') {
-      const sel = await chooseFromList(
-        TIMER_RESET_PROMPT,
-        [TIMER_RESET_OK, TIMER_RESET_LATER],
-        { withBackButton: false },
-      )
-      if (sel?.includes('リセット')) {
+      const yes = await confirmYesNo({
+        title: TIMER_RESET_PROMPT,
+        okLabel: TIMER_RESET_OK,
+        cancelLabel: TIMER_RESET_LATER,
+        destructive: true,
+      })
+      if (yes) {
         await resetWorking()
         const ok = await runDataSetFlow({ skipConfirm: true })
         await render()
@@ -4453,12 +4522,13 @@ async function enforceSessionTimers(timeRaw: string): Promise<void> {
     }
 
     if (need === 'need_set') {
-      const sel = await chooseFromList(
-        TIMER_SET_PROMPT,
-        [TIMER_SET_OK, TIMER_SET_LATER],
-        { withBackButton: false },
-      )
-      if (sel?.includes('セット')) {
+      const yes = await confirmYesNo({
+        title: TIMER_SET_PROMPT,
+        okLabel: TIMER_SET_OK,
+        cancelLabel: TIMER_SET_LATER,
+        destructive: false,
+      })
+      if (yes) {
         const ok = await runDataSetFlow({ skipConfirm: true })
         await render()
         if (!ok) {
@@ -4685,10 +4755,13 @@ async function onEditList(kind: 'A' | 'B' | 'F', id: string): Promise<void> {
     return
   }
   if (id === 'delete') {
-    const sel = await chooseFromList(REC_DEL_PROMPT, [REC_DEL_OK, REC_DEL_BACK], {
-      withBackButton: false,
+    const ok = await confirmYesNo({
+      title: REC_DEL_PROMPT,
+      okLabel: REC_DEL_OK,
+      cancelLabel: REC_DEL_BACK,
+      destructive: true,
     })
-    if (sel && sel.includes('削除') && !sel.includes('戻る')) {
+    if (ok) {
       const { key } = await getWorking()
       await deleteOrResetRecord(key)
       flashMsg = `削除しました（${key}）`
@@ -4698,10 +4771,13 @@ async function onEditList(kind: 'A' | 'B' | 'F', id: string): Promise<void> {
     return
   }
   if (id === 'commit') {
-    const selected = await chooseFromList(COMMIT_PROMPT, [COMMIT_OK, COMMIT_BACK], {
-      withBackButton: false,
+    const ok = await confirmYesNo({
+      title: COMMIT_PROMPT,
+      okLabel: COMMIT_OK,
+      cancelLabel: COMMIT_BACK,
+      destructive: false,
     })
-    if (selected?.includes('データ登録')) {
+    if (ok) {
       const k = await commitWorking()
       flashMsg = k ? `登録しました: ${k}` : 'A_DATE が空のため登録できません'
     }
@@ -4709,10 +4785,13 @@ async function onEditList(kind: 'A' | 'B' | 'F', id: string): Promise<void> {
     return
   }
   if (id === 'reset') {
-    const selected = await chooseFromList(RESET_PROMPT, [RESET_OK, RESET_BACK], {
-      withBackButton: false,
+    const ok = await confirmYesNo({
+      title: RESET_PROMPT,
+      okLabel: RESET_OK,
+      cancelLabel: RESET_BACK,
+      destructive: true,
     })
-    if (selected && selected.includes(RESET_OK)) {
+    if (ok) {
       await resetWorking()
       await runDataSetFlow()
     }
@@ -5638,12 +5717,13 @@ async function renderIO(): Promise<void> {
   app.querySelector('#settingsOff')!.addEventListener('click', async (ev) => {
     if (!isServerSyncConfigured() || ioBusy) return
     const btn = ev.currentTarget as HTMLElement
-    const sel = await chooseFromList(
-      SETTINGS_OFF_CONFIRM,
-      ['1.解除する', '2.戻る'],
-      { withBackButton: false },
-    )
-    if (!sel?.includes('解除')) return
+    const offOk = await confirmYesNo({
+      title: SETTINGS_OFF_CONFIRM,
+      okLabel: '1.解除する',
+      cancelLabel: '2.戻る',
+      destructive: true,
+    })
+    if (!offOk) return
     await withIoBusy(btn, '解除中…', 'サーバー同期をオフにしています…', async () => {
       clearGoogleSession()
       await resetSettings()
@@ -5857,14 +5937,13 @@ async function renderIO(): Promise<void> {
     })
   }
 
-  const confirmReset = async (label: string): Promise<boolean> => {
-    const sel = await chooseFromList(
-      `本当に端末の ${label} を初期化しますか？\n（サーバーは変更しません）`,
-      ['1.初期化する', '2.戻る'],
-      { withBackButton: false },
-    )
-    return Boolean(sel?.includes('初期化'))
-  }
+  const confirmReset = async (label: string): Promise<boolean> =>
+    confirmYesNo({
+      title: `本当に端末の ${label} を初期化しますか？\n（サーバーは変更しません）`,
+      okLabel: '1.初期化する',
+      cancelLabel: '2.戻る',
+      destructive: true,
+    })
 
   const bindReset = (btnId: string, label: string, work: () => Promise<void>, doneMsg: string) => {
     app.querySelector(`#${btnId}`)!.addEventListener('click', async (ev) => {

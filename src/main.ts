@@ -121,10 +121,12 @@ import {
   PLACE_DEL_PROMPT,
   PLACE_DEL_CONFIRM_OK,
   PLACE_DEL_CONFIRM_CANCEL,
-  PLACE_EDIT_BACK,
   PLACE_EDIT_DEL,
   PLACE_EDIT_MAP,
-  PLACE_EDIT_PROMPT,
+  PLACE_EDIT_TITLE,
+  PLACE_EDIT_HUB_BACK,
+  PLACE_EDIT_SECTION,
+  PLACE_EDIT_SUB,
   PLACE_HUB_TITLE,
   PLACE_HUB_NEW,
   PLACE_HUB_BACK,
@@ -5431,44 +5433,67 @@ async function renderPlaceEdit(): Promise<void> {
   }
   const { name: _n, ...place } = row
   const copyCmd = placeEditCopyCmd(name)
-  const rows = [
-    { id: 'back', text: PLACE_EDIT_BACK },
-    { id: 'del', text: PLACE_EDIT_DEL },
+  const cmdRows: { id: string; text: string; danger?: boolean }[] = [
+    { id: 'del', text: PLACE_EDIT_DEL, danger: true },
     { id: 'map', text: PLACE_EDIT_MAP },
     { id: 'copy', text: copyCmd },
-    ...PLACE_EDIT_FIELDS.map((f) => {
-      const v = placeFieldValue(name, place, f.key)
-      return {
-        id: `f:${f.no}`,
-        text: `${f.no}.${f.label}\n${parenData(v)}`,
-      }
-    }),
   ]
-  const list = rows
+  const cmdHtml = cmdRows
     .map(
       (it) =>
-        `<button type="button" class="menu-btn menu-btn-multiline" data-id="${escapeHtml(it.id)}">${escapeHtml(it.text).replace(/\n/g, '<br/>')}</button>`,
+        `<button type="button" class="places-ui-cmd${it.danger ? ' places-ui-cmd--danger' : ''}" data-id="${it.id}">${escapeHtml(hubCmdLabel(it.text))}</button>`,
     )
     .join('')
+  const fieldHtml = PLACE_EDIT_FIELDS.map((f) => {
+    const v = placeFieldValue(name, place, f.key)
+    return `<button type="button" class="places-ui-row places-ui-row--field" data-id="f:${f.no}"><span class="places-ui-row-stack"><span class="places-ui-row-name">${escapeHtml(`${f.no}.${f.label}`)}</span><span class="places-ui-row-meta">${escapeHtml(parenData(v))}</span></span><span class="places-ui-row-chevron" aria-hidden="true">›</span></button>`
+  }).join('')
 
-  app.innerHTML = shell(
-    escapeHtml(PLACE_EDIT_PROMPT),
-    `
-    <p id="msg" class="msg menu-flash"></p>
-    <section class="card menu-card">
-      <div class="menu">${list}</div>
-    </section>`,
-    escapeHtml(`対象場所:${name}`),
-  )
-  const msgEl = app.querySelector('#msg')!
+  app.classList.add('places-ui-app')
+  document.documentElement.classList.add('places-ui-lock')
+  resetViewportScroll()
+  app.innerHTML = `
+  <header class="top top--with-back">
+    <button type="button" class="nav-back" id="place-edit-back" aria-label="${escapeHtml(PLACE_EDIT_HUB_BACK)}">
+      <span class="nav-back-chevron" aria-hidden="true"></span>
+      <span>${escapeHtml(PLACE_EDIT_HUB_BACK)}</span>
+    </button>
+    <div class="top-titles">
+      <h1 class="prompt places-ui-title">
+        <span class="places-ui-title-text">${escapeHtml(PLACE_EDIT_TITLE)}</span>
+        <span class="sc-geopick-ver">v${APP_VERSION}</span>
+      </h1>
+      <p class="prompt-sub" id="promptSub">${escapeHtml(PLACE_EDIT_SUB(name))}</p>
+    </div>
+  </header>
+  <main class="places-ui-main">
+    <div class="places-ui-cmds">${cmdHtml}</div>
+    <section class="card places-ui-card">
+      <h2 class="places-ui-section">${escapeHtml(PLACE_EDIT_SECTION(PLACE_EDIT_FIELDS.length))}</h2>
+      ${placesListPaneHtml(fieldHtml)}
+    </section>
+  </main>`
+
   if (flashMsg) {
-    msgEl.textContent = flashMsg
+    toastMsg = flashMsg
     flashMsg = ''
   }
+  if (toastMsg) {
+    showToast(toastMsg)
+    toastMsg = ''
+  }
+
+  wireListScrollCue()
+
+  app.querySelector('#place-edit-back')!.addEventListener('click', () => {
+    void onPlaceEdit('back', name, place).catch((e) => {
+      showToast(`失敗: ${(e as Error).message}`)
+    })
+  })
   app.querySelectorAll<HTMLButtonElement>('[data-id]').forEach((btn) => {
     btn.addEventListener('click', () => {
       void onPlaceEdit(btn.dataset.id!, name, place).catch((e) => {
-        msgEl.textContent = `失敗: ${(e as Error).message}`
+        showToast(`失敗: ${(e as Error).message}`)
       })
     })
   })

@@ -1656,13 +1656,14 @@ code { font-size: 0.85em; }
     padding: 0.2rem 0.32rem;
   }
 }
+/* 場所修正マップ上の削除＝項目編集のデータ削除と同じ塗り赤 */
 .sc-btn.sc-btn-del {
-  color: #9b2c2c;
-  background: #fdecec;
-  border: 1px solid #f0b4b4;
+  color: #fff;
+  background: #e53935;
+  border: 1px solid #e53935;
 }
 .sc-btn.sc-btn-del:active {
-  background: #f8d8d8;
+  filter: brightness(0.92);
 }
 .sc-actions .sc-btn {
   flex: 1 1 0;

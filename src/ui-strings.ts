@@ -429,6 +429,11 @@ export const PLACE_EDIT_BACK = '#戻る'
 export const PLACE_EDIT_DEL = '#データ削除'
 export const PLACE_EDIT_MAP = '#マップ表示'
 export const PLACE_EDIT_PROMPT = '削除または更新したい項目1~7を選択してください。'
+/** 場所 7 項目修正（表示文言・場所一覧と同系） */
+export const PLACE_EDIT_TITLE = '場所データ修正'
+export const PLACE_EDIT_HUB_BACK = '戻る'
+export const PLACE_EDIT_SECTION = (n: number) => `項目 ${n}件`
+export const PLACE_EDIT_SUB = (name: string) => `対象場所:${name}`
 export const PLACE_DEL_PROMPT = '本当にこの場所データを削除しますか？'
 export const PLACE_DEL_OK = '1.削除'
 export const PLACE_DEL_BACK = '2.キャンセル'

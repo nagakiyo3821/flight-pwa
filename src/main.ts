@@ -1855,7 +1855,8 @@ function syncScrollCueHost(host: HTMLElement, scroller: HTMLElement): void {
 function scrollCueOverlayHtml(): string {
   return `<div class="sc-geopick-scroll-fade sc-geopick-scroll-fade--top" aria-hidden="true"></div>
           <div class="sc-geopick-scroll-fade sc-geopick-scroll-fade--bottom" aria-hidden="true"></div>
-          <div class="sc-geopick-scroll-hint" aria-hidden="true">▼</div>`
+          <div class="sc-geopick-scroll-hint sc-geopick-scroll-hint--top" aria-hidden="true">▲</div>
+          <div class="sc-geopick-scroll-hint sc-geopick-scroll-hint--bottom" aria-hidden="true">▼</div>`
 }
 
 function geopickFormPaneHtml(innerScrollHtml: string): string {

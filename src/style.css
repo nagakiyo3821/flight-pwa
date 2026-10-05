@@ -816,7 +816,6 @@ code { font-size: 0.85em; }
 .sc-geopick-scroll-hint {
   position: absolute;
   left: 50%;
-  bottom: 0.1rem;
   transform: translateX(-50%);
   z-index: 3;
   pointer-events: none;
@@ -830,7 +829,14 @@ code { font-size: 0.85em; }
     0 0 0.35rem var(--bg),
     0 0 0.7rem var(--bg);
 }
-.sc-geopick-form-pane.is-scroll-more .sc-geopick-scroll-hint {
+.sc-geopick-scroll-hint--top {
+  top: 0.1rem;
+}
+.sc-geopick-scroll-hint--bottom {
+  bottom: 0.1rem;
+}
+.sc-geopick-form-pane.is-scroll-more .sc-geopick-scroll-hint--bottom,
+.sc-geopick-form-pane.is-scroll-less .sc-geopick-scroll-hint--top {
   opacity: 0.95;
 }
 /* 二重ポイント: 地図が余り高さを埋め、確定ボタン直上まで寄せる */
@@ -2154,7 +2160,7 @@ html.places-ui-lock body {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
-/* 一覧スクロール＋溢れ目印（geopick と同系の ▼／フェード） */
+/* 一覧スクロール＋溢れ目印（geopick と同系の ▲／▼／フェード） */
 .places-ui-list-pane {
   position: relative;
   flex: 1 1 auto;
@@ -2191,7 +2197,8 @@ html.places-ui-lock body {
 .places-ui-list-pane.is-scroll-less .sc-geopick-scroll-fade--top {
   opacity: 1;
 }
-.places-ui-list-pane.is-scroll-more .sc-geopick-scroll-hint {
+.places-ui-list-pane.is-scroll-more .sc-geopick-scroll-hint--bottom,
+.places-ui-list-pane.is-scroll-less .sc-geopick-scroll-hint--top {
   opacity: 0.95;
 }
 .places-ui-list-pane .sc-geopick-scroll-hint {

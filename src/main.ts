@@ -358,7 +358,13 @@ function wireAutoSync(): void {
   })
 }
 
-/** 全画面共通の版表示（位置・見た目は .foot で統一） */
+/** 版バッジ（先頭行右端に置く） */
+function versionBadgeHtml(extraClass = 'sc-dialog-top-nav-ver'): string {
+  const cls = extraClass ? `sc-geopick-ver ${extraClass}` : 'sc-geopick-ver'
+  return `<span class="${cls}">v${APP_VERSION}</span>`
+}
+
+/** 旧フッタ版（アラート等の狭いオーバーレイ向け） */
 function appVersionFoot(): string {
   return `<footer class="foot">飛行記録 PWA · v${APP_VERSION}</footer>`
 }
@@ -367,24 +373,22 @@ function shell(
   title: string,
   body: string,
   subtitle = '',
-  opts: { backId?: string } = {},
+  opts: { backId?: string; backLabel?: string } = {},
 ): string {
-  const back = opts.backId
-    ? `<button type="button" class="nav-back" id="${escapeHtml(opts.backId)}" aria-label="戻る">
-        <span class="nav-back-chevron" aria-hidden="true"></span>
-        <span>戻る</span>
-      </button>`
-    : ''
   return `
-  <header class="top${opts.backId ? ' top--with-back' : ''}">
-    ${back}
+  <header class="top top--with-back">
+    ${topNavBarHtml({
+      withBack: !!opts.backId,
+      backId: opts.backId,
+      backLabel: opts.backLabel,
+      always: true,
+    })}
     <div class="top-titles">
       <h1 class="prompt">${title}</h1>
       ${subtitle ? `<p class="prompt-sub" id="promptSub">${subtitle}</p>` : ''}
     </div>
   </header>
-  <main>${body}</main>
-  ${appVersionFoot()}`
+  <main>${body}</main>`
 }
 
 function srSsOrQ(v: string | undefined): string {
@@ -453,10 +457,10 @@ async function renderMenu(): Promise<void> {
   resetViewportScroll()
   app.innerHTML = `
   <header class="top places-ui-home-top">
+    ${topNavBarHtml({ always: true })}
     <div class="top-titles">
       <h1 class="prompt places-ui-title">
         <span class="places-ui-title-text">${escapeHtml(APP_NAME)}</span>
-        <span class="sc-geopick-ver">v${APP_VERSION}</span>
       </h1>
       <p class="prompt-sub" id="promptSub">${titleSubtitle(t.A_SR, t.A_SS, t.TIME)}</p>
     </div>
@@ -597,14 +601,26 @@ function wireSeqNavButtons(
   })
 }
 
-/** 先頭ナビ: 戻る ＋（順次時）前の項目／モード／次の項目 ＋ 版（右端） */
+/**
+ * 先頭ナビ行（全画面共通）: 戻る（任意）＋順次ナビ（任意）＋版（右端）。
+ * 版位置はここに統一する。
+ */
 function topNavBarHtml(
-  opts: { withBack?: boolean; seqNav?: SeqNavChrome } = {},
+  opts: {
+    withBack?: boolean
+    backId?: string
+    backLabel?: string
+    seqNav?: SeqNavChrome
+    /** 戻る／順次がなくても版だけの行を出す */
+    always?: boolean
+  } = {},
 ): string {
+  const backId = opts.backId ?? 'sc-back'
+  const backLabel = opts.backLabel ?? ITEM_BACK
   const back = opts.withBack
-    ? `<button type="button" class="nav-back" id="sc-back" aria-label="${escapeHtml(ITEM_BACK)}">
+    ? `<button type="button" class="nav-back" id="${escapeHtml(backId)}" aria-label="${escapeHtml(backLabel)}">
         <span class="nav-back-chevron" aria-hidden="true"></span>
-        <span>${escapeHtml(ITEM_BACK)}</span>
+        <span>${escapeHtml(backLabel)}</span>
       </button>`
     : ''
   const seq = opts.seqNav
@@ -614,8 +630,8 @@ function topNavBarHtml(
         <button type="button" class="sc-seq-nav-btn" id="sc-seq-next"${opts.seqNav.canNext ? '' : ' disabled aria-disabled="true"'}>${escapeHtml(SEQ_NAV_NEXT)}</button>
       </div>`
     : ''
-  const ver = `<span class="sc-geopick-ver sc-dialog-top-nav-ver">v${APP_VERSION}</span>`
-  if (!back && !seq) return ''
+  const ver = versionBadgeHtml()
+  if (!back && !seq && !opts.always) return ''
   return `<div class="sc-dialog-top-nav">
     <div class="sc-dialog-top-nav-slot sc-dialog-top-nav-slot--start">${back}</div>
     <div class="sc-dialog-top-nav-center">${seq}</div>
@@ -641,18 +657,16 @@ function dialogShell(
     : ''
   const guide = opts.guideHtml ?? ''
   const panelCls = panelClass ? ` sc-dialog-panel ${panelClass}` : ' sc-dialog-panel'
+  const hasPrompt = String(promptHtml ?? '').trim().length > 0
   const topNav = topNavBarHtml({
     withBack: opts.withHeadBack === true,
     seqNav: opts.seqNav,
+    always: hasPrompt || opts.withHeadBack === true || !!opts.seqNav,
   })
-  const hasPrompt = String(promptHtml ?? '').trim().length > 0
   const sub = opts.subtitleHtml
     ? `<p class="prompt-sub sc-dialog-sub">${opts.subtitleHtml}</p>`
     : ''
-  // 版は戻る行へ。タイトル行は長い項目名を全幅で使う
-  const titleVer = topNav
-    ? ''
-    : `<span class="sc-geopick-ver">v${APP_VERSION}</span>`
+  // 版は先頭ナビ行右端。タイトル行は文言フル幅
   const head =
     hasPrompt || topNav
       ? `<header class="sc-dialog-head${topNav ? ' top--with-back' : ''}">
@@ -660,7 +674,6 @@ function dialogShell(
         <div class="top-titles">
           <div class="sc-dialog-title-row">
             <h1 class="prompt sc-dialog-prompt places-ui-title-text">${hasPrompt ? promptHtml : '&nbsp;'}</h1>
-            ${titleVer}
           </div>
           ${sub}
         </div>
@@ -4141,14 +4154,14 @@ function showMapDialog(lat: number, lng: number, alt?: number): Promise<void> {
     const actions = `<div class="sc-actions"><button type="button" class="sc-btn sc-btn-ok" id="sc-ok">${escapeHtml(MAP_DONE)}</button></div>`
     root.innerHTML = `
       <div class="sc-dialog-panel sc-dialog-panel--map">
-        <header class="sc-dialog-head sc-dialog-head--compact">
+        <header class="sc-dialog-head sc-dialog-head--compact top--with-back">
+          ${topNavBarHtml({ always: true })}
           <h1 class="prompt">${promptHtml}</h1>
         </header>
         <section class="card sc-dialog-body sc-dialog-body--map">
           ${body}
           ${actions}
         </section>
-        ${appVersionFoot()}
       </div>`
 
     // #マップ表示: 詳細タイル（寄ると classic と同じ）
@@ -5074,14 +5087,10 @@ async function renderRecords(): Promise<void> {
   resetViewportScroll()
   app.innerHTML = `
   <header class="top top--with-back">
-    <button type="button" class="nav-back" id="records-back" aria-label="${escapeHtml(REC_HUB_BACK)}">
-      <span class="nav-back-chevron" aria-hidden="true"></span>
-      <span>${escapeHtml(REC_HUB_BACK)}</span>
-    </button>
+    ${topNavBarHtml({ withBack: true, backId: 'records-back', backLabel: REC_HUB_BACK })}
     <div class="top-titles">
       <h1 class="prompt places-ui-title">
         <span class="places-ui-title-text">${escapeHtml(REC_HUB_TITLE)}</span>
-        <span class="sc-geopick-ver">v${APP_VERSION}</span>
       </h1>
     </div>
   </header>
@@ -5180,14 +5189,10 @@ async function renderEditList(kind: 'A' | 'B' | 'F'): Promise<void> {
   resetViewportScroll()
   app.innerHTML = `
   <header class="top top--with-back">
-    <button type="button" class="nav-back" id="edit-hub-back" aria-label="${escapeHtml(EDIT_HUB_BACK)}">
-      <span class="nav-back-chevron" aria-hidden="true"></span>
-      <span>${escapeHtml(EDIT_HUB_BACK)}</span>
-    </button>
+    ${topNavBarHtml({ withBack: true, backId: 'edit-hub-back', backLabel: EDIT_HUB_BACK })}
     <div class="top-titles">
       <h1 class="prompt places-ui-title">
         <span class="places-ui-title-text">${escapeHtml(title)}</span>
-        <span class="sc-geopick-ver">v${APP_VERSION}</span>
       </h1>
       <p class="prompt-sub" id="promptSub">${escapeHtml(sub)}</p>
     </div>
@@ -5554,14 +5559,10 @@ async function renderPlaces(): Promise<void> {
   resetViewportScroll()
   app.innerHTML = `
   <header class="top top--with-back">
-    <button type="button" class="nav-back" id="places-ui-back" aria-label="${escapeHtml(PLACE_HUB_BACK)}">
-      <span class="nav-back-chevron" aria-hidden="true"></span>
-      <span>${escapeHtml(PLACE_HUB_BACK)}</span>
-    </button>
+    ${topNavBarHtml({ withBack: true, backId: 'places-ui-back', backLabel: PLACE_HUB_BACK })}
     <div class="top-titles">
       <h1 class="prompt places-ui-title">
         <span class="places-ui-title-text">${escapeHtml(PLACE_HUB_TITLE)}</span>
-        <span class="sc-geopick-ver">v${APP_VERSION}</span>
       </h1>
     </div>
   </header>
@@ -5943,14 +5944,10 @@ async function renderPlaceEdit(): Promise<void> {
   resetViewportScroll()
   app.innerHTML = `
   <header class="top top--with-back">
-    <button type="button" class="nav-back" id="place-edit-back" aria-label="${escapeHtml(PLACE_EDIT_HUB_BACK)}">
-      <span class="nav-back-chevron" aria-hidden="true"></span>
-      <span>${escapeHtml(PLACE_EDIT_HUB_BACK)}</span>
-    </button>
+    ${topNavBarHtml({ withBack: true, backId: 'place-edit-back', backLabel: PLACE_EDIT_HUB_BACK })}
     <div class="top-titles">
       <h1 class="prompt places-ui-title">
         <span class="places-ui-title-text">${escapeHtml(PLACE_EDIT_TITLE)}</span>
-        <span class="sc-geopick-ver">v${APP_VERSION}</span>
       </h1>
       <p class="prompt-sub" id="promptSub">${escapeHtml(PLACE_EDIT_SUB(name))}</p>
     </div>

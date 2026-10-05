@@ -1631,15 +1631,17 @@ function askMissingGeo(
       root.innerHTML = `
         <div class="sc-geopick-stack">
           <div class="sc-geopick-body">
-            <h1 class="prompt sc-geopick-title"><span class="sc-geopick-title-stack"><span class="sc-geopick-title-line sc-geopick-title-line--main"><span class="sc-geopick-title-text">${promptHtml}</span><span class="sc-geopick-ver">v${APP_VERSION}</span></span></span></h1>
+            <div class="sc-geopick-title-block">
+              ${topNavBarHtml({ withBack: true })}
+              <h1 class="prompt sc-geopick-title"><span class="sc-geopick-title-stack"><span class="sc-geopick-title-line sc-geopick-title-line--main"><span class="sc-geopick-title-text">${promptHtml}</span><span class="sc-geopick-ver">v${APP_VERSION}</span></span></span></h1>
+            </div>
             ${geopickFormPaneHtml(fieldsHtml)}
             <p class="sc-map-hint" id="sc-map-hint">${hint}</p>
             <div class="sc-geopick-map-block">
               <div id="sc-map-pick" class="sc-map-pick sc-map-pick--geopick" role="application" aria-label="位置選択マップ"></div>
             </div>
-            <div class="sc-actions sc-geopick-actions">
+            <div class="sc-actions sc-geopick-actions sc-geopick-actions--fill">
               <button type="button" class="sc-btn sc-btn-ok" id="sc-ok">${escapeHtml(ITEM_OK)}</button>
-              <button type="button" class="sc-btn sc-btn-back" id="sc-back">${escapeHtml(ITEM_BACK)}</button>
             </div>
           </div>
         </div>`
@@ -2499,16 +2501,12 @@ function askDualPlaceGeo(opts: {
         ? '橙＝タップ（精度円あり）、緑＝最寄（精度円あり）'
         : '青＝GPS、橙＝タップ（精度円あり）、緑＝最寄（精度円あり）'
     const nearOkLabel = isPlaceReview ? '選択場所確定' : '最寄地点確定'
-    const hideCancel = !!opts.seqNav
+    // 全ケース共通: 先頭＜戻る、下端キャンセルなし、確定ボタンを幅いっぱいに
     const actionsMod = isPlaceReview
-      ? hideCancel
-        ? ' sc-geopick-actions--triple sc-geopick-actions--fill'
-        : ' sc-geopick-actions--quad'
-      : hideCancel
-        ? ' sc-geopick-actions--dual sc-geopick-actions--fill'
-        : ' sc-geopick-actions--triple'
+      ? ' sc-geopick-actions--triple sc-geopick-actions--fill'
+      : ' sc-geopick-actions--dual sc-geopick-actions--fill'
     const topNav = topNavBarHtml({
-      withBack: hideCancel,
+      withBack: true,
       seqNav: opts.seqNav,
     })
 
@@ -2531,11 +2529,6 @@ function askDualPlaceGeo(opts: {
               isPlaceReview
                 ? `<button type="button" class="sc-btn sc-btn-del" id="sc-del">削除</button>`
                 : ''
-            }
-            ${
-              hideCancel
-                ? ''
-                : `<button type="button" class="sc-btn sc-btn-back" id="sc-back">${escapeHtml(ITEM_CANCEL)}</button>`
             }
           </div>
         </div>

@@ -10,7 +10,6 @@ import {
 import {
   applyWeatherSet,
   appendMastersDroneId,
-  appendMastersListItem,
   commitWorking,
   deleteOrResetRecord,
   deletePlace,
@@ -54,7 +53,7 @@ import {
   upsertPlace,
 } from './db'
 import type { FieldDef, FlightRecord, LogFile, PlaceRecord, PosFile, TmpFlag } from './types'
-import type { ListKey, MastersFile } from './catalog'
+import type { MastersFile } from './catalog'
 import {
   droneTypeFrom,
   getDroneIds,
@@ -4148,11 +4147,16 @@ async function editOneField(f: FieldDef, rec: FlightRecord): Promise<string | nu
       opts = [...places]
     }
     if (cur) {
-      for (const part of cur.split('+')) {
-        const p = part.trim()
-        if (p && !opts.includes(p)) opts.push(p)
+      // 複数選択は候補に現在値パーツが必要。任意入力つき単一選択は
+      // 現在値は説明文に出すだけ（同じ値を選択肢に載せても無意味）
+      if (f.multi) {
+        for (const part of cur.split('+')) {
+          const p = part.trim()
+          if (p && !opts.includes(p)) opts.push(p)
+        }
+      } else if (!f.allowCustom && !opts.includes(cur)) {
+        opts.push(cur)
       }
-      if (!f.multi && !opts.includes(cur)) opts.push(cur)
     }
 
     if (f.multi) {
@@ -4168,14 +4172,7 @@ async function editOneField(f: FieldDef, rec: FlightRecord): Promise<string | nu
     const selected = await chooseFromList(prompt, choices, { chrome })
     if (selected === null) return null
     if (f.allowCustom && selected === customLabel) {
-      const typed = await askText(prompt, cur === '?' ? '' : cur, 'text', chrome)
-      if (typed === null) return null
-      const v = typed.trim()
-      // 任意入力を masters に残し、次回以降の選択肢にする（氏名・バッテリー番号など）
-      if (v && f.optionsKey) {
-        await appendMastersListItem(f.optionsKey as ListKey, v)
-      }
-      return v
+      return askText(prompt, cur === '?' ? '' : cur, 'text', chrome)
     }
     return selected
   }

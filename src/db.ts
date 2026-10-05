@@ -5,13 +5,11 @@ import { computeTmp, formatNow, formatNowSeconds, newWorkingKey } from './flag'
 import { parseFlightDate } from './flight-time'
 import {
   appendDroneId,
-  appendListItem,
   exportCatalogClone,
   loadBundledDefault,
   mergeMasters,
   setCatalog,
   tryLoadLocalMastersFile,
-  type ListKey,
   type MastersFile,
 } from './catalog'
 import {
@@ -233,17 +231,6 @@ export async function persistCatalog(): Promise<void> {
   await ensureCatalog()
   const meta = await getMeta()
   await db.meta.put({ ...meta, masters: exportCatalogClone() })
-}
-
-/** 選択肢リストへ任意入力を追加して永続化（氏名・バッテリー番号など） */
-export async function appendMastersListItem(
-  key: ListKey,
-  value: string,
-): Promise<boolean> {
-  await ensureCatalog()
-  if (!appendListItem(key, value)) return false
-  await persistCatalog()
-  return true
 }
 
 /** 機種の識別番号を追加して永続化 */

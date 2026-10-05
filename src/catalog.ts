@@ -101,19 +101,6 @@ export function getList(key: ListKey | string, droneType?: string): string[] {
   return Array.isArray(base) ? [...base] : []
 }
 
-/** 共通 lists に値を追加（既存なら false）。メモリ上の catalog を更新 */
-export function appendListItem(key: ListKey, value: string): boolean {
-  const v = String(value ?? '').trim()
-  if (!v) return false
-  const c = getCatalog()
-  const list = Array.isArray(c.lists[key]) ? [...c.lists[key]!] : []
-  if (list.includes(v)) return false
-  list.push(v)
-  c.lists[key] = list
-  setCatalog(c)
-  return true
-}
-
 /** 機種別識別番号を追加（既存なら false） */
 export function appendDroneId(type: string, id: string): boolean {
   const t = String(type ?? '').trim()

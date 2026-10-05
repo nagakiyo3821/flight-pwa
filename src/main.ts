@@ -48,6 +48,7 @@ import {
   savePlaceRecord,
   saveWorking,
   setWorkingKey,
+  syncWorkingTmp,
   upsertPlace,
 } from './db'
 import type { FieldDef, FlightRecord, LogFile, PlaceRecord, PosFile, TmpFlag } from './types'
@@ -395,8 +396,7 @@ function stopMenuTick(): void {
 }
 
 async function renderMenu(): Promise<void> {
-  const meta = await getMeta()
-  const t = meta.tmp
+  const t = await syncWorkingTmp()
   const items: { action: string; text: string; flag?: string }[] = [
     {
       action: 'pre',

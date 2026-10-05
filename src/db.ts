@@ -242,6 +242,19 @@ export async function getWorking(): Promise<{ key: string; rec: FlightRecord }> 
   return { key, rec }
 }
 
+/** 作業中レコードから FLAG を再計算して meta.tmp に反映（メニュー表示前など） */
+export async function syncWorkingTmp(): Promise<TmpFlag> {
+  const meta = await getMeta()
+  const { rec } = await getWorking()
+  const drone = rec.A_DRONE.split('_')[0] || meta.tmp.DRONE || 'Mavic2Pro'
+  const tmp = computeTmp(rec, drone, meta.tmp.TIME)
+  tmp.A_SR = rec.A_SR || meta.tmp.A_SR || ''
+  tmp.A_SS = rec.A_SS || meta.tmp.A_SS || ''
+  tmp.DRONE = drone
+  await patchMeta({ tmp })
+  return tmp
+}
+
 /** log キー一覧。最新順: NEW 系を先頭（プレーン NEW → NEW＋日時の新しい順）、その後は本登録キーの新しい順 */
 export async function listFlightKeys(): Promise<string[]> {
   const keys = (await db.flights.toArray()).map((r) => r.key)

@@ -4586,7 +4586,7 @@ async function renderEditList(kind: 'A' | 'B' | 'F'): Promise<void> {
     kind === 'A' ? EDIT_HUB_TITLE_A : kind === 'B' ? EDIT_HUB_TITLE_B : EDIT_HUB_TITLE_F
   const sel = /^NEW\d{4}\//.test(key) ? key : key.startsWith('NEW') ? 'NEW' : key
   const isNew = isNewRecordKey(key)
-  const sub = `${targetDataLine(sel)}（${drone}）`
+  const sub = targetDataLine(sel)
 
   const cmdRows: { id: string; text: string; danger?: boolean }[] =
     kind === 'F'
@@ -4612,10 +4612,11 @@ async function renderEditList(kind: 'A' | 'B' | 'F'): Promise<void> {
           { id: 'empty', text: CMD_EMPTY },
         ]
 
+  const cmdGrid = cmdRows.length > 3 ? ' places-ui-cmds--grid' : ''
   const cmdHtml = cmdRows
     .map(
       (it) =>
-        `<button type="button" class="places-ui-row${it.danger ? ' places-ui-row--danger' : ''}" data-id="${it.id}"><span class="places-ui-row-name">${escapeHtml(hubCmdLabel(it.text))}</span><span class="places-ui-row-chevron" aria-hidden="true">›</span></button>`,
+        `<button type="button" class="places-ui-cmd${it.danger ? ' places-ui-cmd--danger' : ''}" data-id="${it.id}">${escapeHtml(hubCmdLabel(it.text))}</button>`,
     )
     .join('')
 
@@ -4645,12 +4646,10 @@ async function renderEditList(kind: 'A' | 'B' | 'F'): Promise<void> {
     </div>
   </header>
   <main class="places-ui-main">
+    <div class="places-ui-cmds${cmdGrid}">${cmdHtml}</div>
     <section class="card places-ui-card">
-      ${placesListScrollPane(`
-        <div class="places-ui-list">${cmdHtml}</div>
-        <h2 class="places-ui-section">${escapeHtml(EDIT_HUB_SECTION_ITEMS(fields.length))}</h2>
-        <div class="places-ui-list">${fieldHtml}</div>
-      `)}
+      <h2 class="places-ui-section">${escapeHtml(EDIT_HUB_SECTION_ITEMS(fields.length))}</h2>
+      ${placesListPaneHtml(fieldHtml)}
     </section>
   </main>`
 

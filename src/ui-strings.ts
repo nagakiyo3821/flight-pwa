@@ -159,7 +159,7 @@ export function fieldPromptText(
   return `${no}.${fallbackLabel ?? ''}\n${shown}`
 }
 
-/** hub 系項目入力画面: 説明文（FIELD_PROMPT_BODY） */
+/** hub 系項目入力画面: 説明文（FIELD_PROMPT_BODY）※現在値は入れない（字幕側） */
 export function fieldEntryGuide(no: number, fallbackLabel?: string): string {
   return FIELD_PROMPT_BODY[no] ?? `${no}.${fallbackLabel ?? ''}`
 }
@@ -182,24 +182,39 @@ export function fieldEntryChrome(
       : parenData(currentDisplay)
   return {
     title: `${no}.${label}`,
-    subtitle: `現在値 ${shown}`,
+    subtitle: `現在値${shown}`,
     guide: fieldEntryGuide(no, label),
   }
 }
 
-/** 項目1 機種選択プロンプト（ショートカット19 テキスト158 系） */
+/** 項目1 機種選択の説明（現在値は字幕のみ） */
+export function droneTypeGuide(): string {
+  return `${FIELD_PROMPT_BODY[1]}\n・機種名を選択`
+}
+
+/** 項目1 識別番号選択の説明 */
+export function droneIdGuide(): string {
+  return `${FIELD_PROMPT_BODY[1]}\n・機体識別番号を選択`
+}
+
+/** 項目1 識別番号任意入力の説明 */
+export function droneIdInputGuide(): string {
+  return `${FIELD_PROMPT_BODY[1]}\n・機体識別番号を入力`
+}
+
+/** 項目1 機種選択プロンプト（ショートカット19 テキスト158 系・フォールバック用） */
 export function droneTypePrompt(current: string): string {
-  return `環境条件:\n・機種名と機体識別番号を確認\n${parenData(current)}\n・機種名を選択`
+  return `${droneTypeGuide()}\n${parenData(current)}`
 }
 
-/** 項目1 識別番号選択プロンプト（テキスト160 系） */
+/** 項目1 識別番号選択プロンプト（テキスト160 系・フォールバック用） */
 export function droneIdPrompt(current: string, typeName: string): string {
-  return `環境条件:\n・機種名と機体識別番号を確認\n${parenData(current)}\n・機種名を選択\n${parenData(typeName)}\n・機体識別番号を選択`
+  return `${droneIdGuide()}\n${parenData(current)}\n${parenData(typeName)}`
 }
 
-/** 項目1 識別番号の任意入力プロンプト（テキスト161 系） */
+/** 項目1 識別番号の任意入力プロンプト（テキスト161 系・フォールバック用） */
 export function droneIdInputPrompt(current: string, typeName: string): string {
-  return `環境条件:\n・機種名と機体識別番号を確認\n${parenData(current)}\n・機種名を選択\n${parenData(typeName)}\n・機体識別番号を入力`
+  return `${droneIdInputGuide()}\n${parenData(current)}\n${parenData(typeName)}`
 }
 
 /** NEWA タイトル */

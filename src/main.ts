@@ -4439,8 +4439,6 @@ function editFieldsFor(kind: 'A' | 'B' | 'F', droneType: string): FieldDef[] {
 /** 7.登録データ管理（場所一覧と同系の L1＋トースト） */
 async function renderRecords(): Promise<void> {
   const keys = await listFlightKeys()
-  const meta = await getMeta()
-  const drone = meta.tmp.DRONE || 'Mavic2Pro'
   const rowsHtml = keys.length
     ? keys
         .map(
@@ -4463,7 +4461,6 @@ async function renderRecords(): Promise<void> {
         <span class="places-ui-title-text">${escapeHtml(REC_HUB_TITLE)}</span>
         <span class="sc-geopick-ver">v${APP_VERSION}</span>
       </h1>
-      <p class="prompt-sub">${escapeHtml(drone)}</p>
     </div>
   </header>
   <main class="places-ui-main">

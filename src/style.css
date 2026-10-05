@@ -2136,7 +2136,7 @@ html.places-ui-lock body {
   }
 }
 .places-ui-card {
-  /* 件数少: 内容高さのまま（下は画面スペース）。多いときだけ縮めてスクロール */
+  /* 件数少: 内容高さのまま（下は画面地）。多いときだけ縮めてスクロール */
   flex: 0 1 auto;
   display: flex;
   flex-direction: column;
@@ -2144,10 +2144,6 @@ html.places-ui-lock body {
   max-height: 100%;
   padding: 0;
   overflow: hidden;
-}
-/* ホームなどセクション無しカードは余り高さをリストに渡す */
-.places-ui-card:not(:has(.places-ui-section)) {
-  flex: 1 1 auto;
 }
 .places-ui-section {
   flex: 0 0 auto;

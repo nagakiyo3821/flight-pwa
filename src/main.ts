@@ -1250,7 +1250,7 @@ export function askDate(
     root.classList.add('sc-dialog--hub')
     const hub = hubDialogHeadFromChrome(chrome ?? promptToFieldChrome(prompt))
     const value = toDateInputValue(initialYmd)
-    const body = `<div class="sc-field-block">${clearableInputHtml('sc-input', 'class="sc-input sc-input-date" type="date"', value)}</div>`
+    const body = `<div class="sc-field-block sc-field-block--picker">${pickerInputHtml('sc-input', 'class="sc-input sc-input-date" type="date"', value)}</div>`
     root.innerHTML = dialogShell(
       hub.titleHtml,
       body,
@@ -1264,7 +1264,6 @@ export function askDate(
         seqNav,
       },
     )
-    wireClearableInputs(root)
     const input = root.querySelector<HTMLInputElement>('#sc-input')!
     input.focus()
     let done = false
@@ -1307,7 +1306,7 @@ function askTime(
     root.classList.add('sc-dialog--hub')
     const hub = hubDialogHeadFromChrome(chrome ?? promptToFieldChrome(prompt))
     const value = toTimeInputValue(initialHm) || '00:00'
-    const body = `<div class="sc-field-block">${clearableInputHtml('sc-input', 'class="sc-input sc-input-time" type="time" step="60"', value)}</div>`
+    const body = `<div class="sc-field-block sc-field-block--picker">${pickerInputHtml('sc-input', 'class="sc-input sc-input-time" type="time" step="60"', value)}</div>`
     root.innerHTML = dialogShell(
       hub.titleHtml,
       body,
@@ -1321,7 +1320,6 @@ function askTime(
         seqNav,
       },
     )
-    wireClearableInputs(root)
     const input = root.querySelector<HTMLInputElement>('#sc-input')!
     input.focus()
     let done = false
@@ -1499,6 +1497,13 @@ function clearableInputHtml(
     <input id="${id}" ${inputAttrs} value="${escapeHtml(value)}" />
     ${undoBtn}
     <button type="button" class="sc-input-clear" aria-label="消去" tabindex="-1" hidden>&times;</button>
+  </div>`
+}
+
+/** 日付／時刻ピッカー（×なし・OS UI と競合しない） */
+function pickerInputHtml(id: string, inputAttrs: string, value: string): string {
+  return `<div class="sc-input-wrap sc-input-wrap--picker">
+    <input id="${id}" ${inputAttrs} value="${escapeHtml(value)}" />
   </div>`
 }
 
@@ -4397,14 +4402,14 @@ function askDateTimeField(
       chrome ?? fieldEntryChrome(f.no, f.label, parenData(current)),
     )
     const body = `<div class="sc-field-block sc-field-block--datetime">
-      <div class="datetime-row">
-        <label class="datetime-part">
-          <span>月日</span>
-          ${clearableInputHtml('sc-dt-date', 'class="sc-input sc-input-date" type="date"', dateVal)}
+      <div class="sc-datetime-hub">
+        <label class="sc-datetime-hub-part">
+          <span class="sc-datetime-hub-label">月日</span>
+          ${pickerInputHtml('sc-dt-date', 'class="sc-input sc-input-date" type="date"', dateVal)}
         </label>
-        <label class="datetime-part">
-          <span>時間</span>
-          ${clearableInputHtml('sc-dt-time', 'class="sc-input sc-input-time" type="time" step="60"', timeVal)}
+        <label class="sc-datetime-hub-part">
+          <span class="sc-datetime-hub-label">時間</span>
+          ${pickerInputHtml('sc-dt-time', 'class="sc-input sc-input-time" type="time" step="60"', timeVal)}
         </label>
       </div>
     </div>`
@@ -4423,7 +4428,6 @@ function askDateTimeField(
         seqNav,
       },
     )
-    wireClearableInputs(root)
     const dateEl = root.querySelector<HTMLInputElement>('#sc-dt-date')!
     const timeEl = root.querySelector<HTMLInputElement>('#sc-dt-time')!
     let done = false

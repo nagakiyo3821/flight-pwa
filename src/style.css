@@ -543,19 +543,52 @@ code { font-size: 0.85em; }
 .sc-dialog--hub .sc-field-block {
   padding: 0.35rem var(--inset-x) 0.35rem;
 }
+.sc-input-wrap--picker .sc-input-date,
+.sc-input-wrap--picker .sc-input-time {
+  padding-right: 0.75rem;
+}
+.sc-field-block--picker .sc-input-date,
+.sc-field-block--picker .sc-input-time,
+.sc-field-block--datetime .sc-input-date,
+.sc-field-block--datetime .sc-input-time {
+  min-height: 2.75rem;
+  padding: 0.55rem 0.75rem;
+  font-size: 16px;
+  line-height: 1.25;
+  max-width: none;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+.sc-field-block--picker .sc-input-date::-webkit-calendar-picker-indicator,
+.sc-field-block--picker .sc-input-time::-webkit-calendar-picker-indicator,
+.sc-field-block--datetime .sc-input-date::-webkit-calendar-picker-indicator,
+.sc-field-block--datetime .sc-input-time::-webkit-calendar-picker-indicator {
+  transform: scale(1.05);
+  opacity: 0.75;
+}
 .sc-field-block--datetime {
-  padding-bottom: 0.25rem;
+  padding: 0.35rem var(--inset-x) 0.25rem;
 }
-.sc-field-block--datetime .datetime-row {
-  gap: 0.5rem;
+.sc-datetime-hub {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  width: 100%;
+  min-width: 0;
 }
-.sc-field-block--datetime .datetime-part {
-  flex: 1 1 0;
+.sc-datetime-hub-part {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
 }
-.sc-field-block--datetime .datetime-part span {
-  font-size: 13px;
+.sc-datetime-hub-label {
+  font-size: 14px;
   font-weight: 500;
+  line-height: 1.25;
   color: var(--muted);
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 .sc-actions.sc-actions--hub {
   gap: 0.35rem;

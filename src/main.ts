@@ -287,11 +287,23 @@ function notifyPlaceHub(msg: string): void {
   toastMsg = msg
 }
 
+/** 画面切替時に前画面のスクロール位置を捨てる（縦で一覧タイトルが欠ける対策） */
+function resetViewportScroll(): void {
+  const se = document.scrollingElement
+  if (se) se.scrollTop = 0
+  document.documentElement.scrollTop = 0
+  document.body.scrollTop = 0
+  app.scrollTop = 0
+  window.scrollTo(0, 0)
+}
+
 async function render(): Promise<void> {
   stopMenuTick()
   clearStickyFocus()
   app.classList.remove('places-ui-app')
   document.documentElement.classList.remove('places-ui-lock')
+  // lock 解除後にリセット（overflow:hidden 中だと効かない端末がある）
+  resetViewportScroll()
   await ensureBootstrap()
   if (view === 'menu') await renderMenu()
   else if (view === 'newa') await renderEditList('A')
@@ -302,6 +314,11 @@ async function render(): Promise<void> {
   else if (view === 'places') await renderPlaces()
   else if (view === 'place-edit') await renderPlaceEdit()
   else await renderIO()
+  resetViewportScroll()
+  // iOS: 描画・lock 適用後に残スクロールが戻ることがある
+  requestAnimationFrame(() => {
+    resetViewportScroll()
+  })
   clearStickyFocus()
 }
 
@@ -4450,6 +4467,7 @@ async function renderRecords(): Promise<void> {
 
   app.classList.add('places-ui-app')
   document.documentElement.classList.add('places-ui-lock')
+  resetViewportScroll()
   app.innerHTML = `
   <header class="top top--with-back">
     <button type="button" class="nav-back" id="records-back" aria-label="${escapeHtml(REC_HUB_BACK)}">
@@ -4889,6 +4907,7 @@ async function renderPlaces(): Promise<void> {
 
   app.classList.add('places-ui-app')
   document.documentElement.classList.add('places-ui-lock')
+  resetViewportScroll()
   app.innerHTML = `
   <header class="top top--with-back">
     <button type="button" class="nav-back" id="places-ui-back" aria-label="${escapeHtml(PLACE_HUB_BACK)}">

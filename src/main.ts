@@ -197,6 +197,7 @@ import {
   droneIdPrompt,
   droneTypeGuide,
   droneTypePrompt,
+  currentValueLine,
   fieldEntryChrome,
   fieldPromptText,
   type FieldEntryChrome,
@@ -525,33 +526,35 @@ function chromeGuideHtml(chrome: FieldEntryChrome): string {
   return `<div class="sc-field-guide">${escapeHtml(chrome.guide).replace(/\n/g, '<br/>')}</div>`
 }
 
-/** 旧プロンプト文字列から hub ヘッダを推定（場所編集・機種フロー等） */
+/** 旧プロンプト文字列から hub ヘッダを推定（場所編集など） */
 function promptToFieldChrome(prompt: string): FieldEntryChrome {
   const lines = prompt.split('\n').filter((l) => l.trim() !== '')
-  let subtitle = ''
   const content: string[] = []
   for (const line of lines) {
     const t = line.trim()
-    // `(値)` だけの行は字幕へ（説明文には混ぜない）
+    // `(値)` だけの行は説明文内の「現在値(…)」へ（字幕には出さない）
     if (/^\([^)]*\)$/.test(t)) {
-      if (!subtitle) subtitle = `現在値${t}`
+      content.push(`現在値${t}`)
+      continue
+    }
+    if (/^現在値\s*\(/.test(t)) {
+      content.push(t.replace(/^現在値\s*/, '現在値'))
       continue
     }
     content.push(line)
   }
   const title = content[0]?.trim() || '入力'
-  // 先頭が「環境条件:」等のカテゴリ見出しならタイトルは残し、全体を guide に
-  const looksLikeCategory = /[:：]$/.test(title) || title.endsWith(':')
-  if (looksLikeCategory || /^\d+\./.test(title) === false) {
+  const looksLikeCategory = /[:：]$/.test(title)
+  if (looksLikeCategory || !/^\d+\./.test(title)) {
     return {
-      title: looksLikeCategory ? title.replace(/:$/, '') : title,
-      subtitle,
+      title: looksLikeCategory ? title.replace(/[:：]$/, '') : title,
+      subtitle: '',
       guide: content.join('\n'),
     }
   }
   return {
     title,
-    subtitle,
+    subtitle: '',
     guide: content.slice(1).join('\n') || title,
   }
 }
@@ -4187,12 +4190,14 @@ async function askDateTimeField(f: FieldDef, current: string): Promise<string | 
   const baseChrome = fieldEntryChrome(f.no, f.label, parenData(current))
   const ymd = await askDate(ymdPrompt, ymdDraft, {
     ...baseChrome,
-    guide: ymdPrompt,
+    subtitle: '',
+    guide: `${ymdPrompt}\n${currentValueLine(current)}`,
   })
   if (ymd === null) return null
   const hm = await askTime(hmPrompt, hmDraft || '00:00', {
     ...baseChrome,
-    guide: hmPrompt,
+    subtitle: '',
+    guide: `${hmPrompt}\n${currentValueLine(current)}`,
   })
   if (hm === null) return null
   const combined = combineYmdAndHm(ymd, hm)
@@ -4210,17 +4215,16 @@ async function editDroneField(
 ): Promise<string | null> {
   const types = getDroneTypes()
   const typeSel = await chooseFromList(droneTypePrompt(current), types, {
-    chrome: { ...chrome, guide: droneTypeGuide() },
+    chrome: { ...chrome, subtitle: '', guide: droneTypeGuide(current) },
   })
   if (typeSel === null || !isKnownDroneType(typeSel)) return null
 
   const customId = getLabel('droneIdCustom')
   const ids = [...getDroneIds(typeSel), customId]
-  // 現在値は字幕のみ。説明文に (機種)/(値) を埋め込まない
   const idChrome: FieldEntryChrome = {
     ...chrome,
-    subtitle: `現在値${parenData(current)}`,
-    guide: droneIdGuide(),
+    subtitle: '',
+    guide: droneIdGuide(current, typeSel),
   }
   const idSel = await chooseFromList(droneIdPrompt(current, typeSel), ids, {
     chrome: idChrome,
@@ -4237,7 +4241,7 @@ async function editDroneField(
       droneIdInputPrompt(current, typeSel),
       existingId,
       'text',
-      { ...idChrome, guide: droneIdInputGuide() },
+      { ...idChrome, guide: droneIdInputGuide(current, typeSel) },
     )
     if (typed === null) return null
     id = typed.trim()

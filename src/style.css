@@ -543,6 +543,20 @@ code { font-size: 0.85em; }
 .sc-dialog--hub .sc-field-block {
   padding: 0.35rem var(--inset-x) 0.35rem;
 }
+.sc-field-block--datetime {
+  padding-bottom: 0.25rem;
+}
+.sc-field-block--datetime .datetime-row {
+  gap: 0.5rem;
+}
+.sc-field-block--datetime .datetime-part {
+  flex: 1 1 0;
+}
+.sc-field-block--datetime .datetime-part span {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+}
 .sc-actions.sc-actions--hub {
   gap: 0.35rem;
   padding: 0.45rem 0.75rem calc(0.35rem + env(safe-area-inset-bottom, 0px));

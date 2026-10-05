@@ -201,7 +201,6 @@ import {
   droneIdPrompt,
   droneTypeGuide,
   droneTypePrompt,
-  currentValueLine,
   fieldEntryChrome,
   fieldPromptText,
   type FieldEntryChrome,
@@ -1239,7 +1238,8 @@ function toTimeInputValue(hm: string): string {
  * カレンダー UI（input type=date）。
  * モバイル／PC とも OS 標準の日付ピッカー。
  */
-function askDate(
+/** 単独の日付入力（将来の項目用。38/39 は askDateTimeField） */
+export function askDate(
   prompt: string,
   initialYmd: string,
   chrome?: FieldEntryChrome,
@@ -4321,7 +4321,7 @@ async function editOneField(
   const cur = rec[f.key] ?? ''
 
   if (f.input === 'datetime' && (f.key === 'A_DATE' || f.key === 'B_DATE')) {
-    return askDateTimeField(f, cur, seqNav)
+    return askDateTimeField(f, cur, seqNav, fieldChrome(f, rec))
   }
 
   if (f.input === 'time') {
@@ -4380,52 +4380,88 @@ async function editOneField(
   })
 }
 
-/** ショートカット同様: 月日（カレンダー）→ 時間（時分ピッカー） */
-async function askDateTimeField(
+/** 離着陸日時: 月日＋時間を同一画面で入力し、まとめて確定 */
+function askDateTimeField(
   f: FieldDef,
   current: string,
   seqNav?: SeqNavChrome,
+  chrome?: FieldEntryChrome,
 ): Promise<string | null> {
-  const parsed = parseFlightDate(current)
-  const isTakeoff = f.key === 'A_DATE'
-  const ymdPrompt = isTakeoff
-    ? '時間管理:\n・離陸月日を確認'
-    : '時間管理:\n・着陸月日を確認'
-  const hmPrompt = isTakeoff
-    ? 'その他:\n・離陸時間を確認'
-    : '時間管理:\n・着陸時間を確認'
-  const ymdDraft = parsed ? formatYmd(parsed) : ''
-  const hmDraft = parsed ? formatHmFromDate(parsed) : ''
-
-  const baseChrome = fieldEntryChrome(f.no, f.label, parenData(current))
-  const ymd = await askDate(
-    ymdPrompt,
-    ymdDraft,
-    {
-      ...baseChrome,
-      subtitle: '',
-      guide: `${ymdPrompt}\n${currentValueLine(current)}`,
-    },
-    seqNav,
-  )
-  if (ymd === null || isFieldNavToken(ymd)) return ymd
-  const hm = await askTime(
-    hmPrompt,
-    hmDraft || '00:00',
-    {
-      ...baseChrome,
-      subtitle: '',
-      guide: `${hmPrompt}\n${currentValueLine(current)}`,
-    },
-    seqNav,
-  )
-  if (hm === null || isFieldNavToken(hm)) return hm
-  const combined = combineYmdAndHm(ymd, hm)
-  if (!combined) {
-    flashMsg = '日時の組み合わせが不正です'
-    return null
-  }
-  return combined
+  return new Promise((resolve) => {
+    const parsed = parseFlightDate(current)
+    const dateVal = parsed ? toDateInputValue(formatYmd(parsed)) : ''
+    const timeVal = parsed
+      ? toTimeInputValue(formatHmFromDate(parsed))
+      : toTimeInputValue('') || '00:00'
+    const hub = hubDialogHeadFromChrome(
+      chrome ?? fieldEntryChrome(f.no, f.label, parenData(current)),
+    )
+    const body = `<div class="sc-field-block sc-field-block--datetime">
+      <div class="datetime-row">
+        <label class="datetime-part">
+          <span>月日</span>
+          ${clearableInputHtml('sc-dt-date', 'class="sc-input sc-input-date" type="date"', dateVal)}
+        </label>
+        <label class="datetime-part">
+          <span>時間</span>
+          ${clearableInputHtml('sc-dt-time', 'class="sc-input sc-input-time" type="time" step="60"', timeVal)}
+        </label>
+      </div>
+    </div>`
+    const root = openDialogRoot()
+    root.classList.add('sc-dialog--hub')
+    root.innerHTML = dialogShell(
+      hub.titleHtml,
+      body,
+      dialogActionsHubConfirm(),
+      '',
+      '',
+      {
+        withHeadBack: true,
+        subtitleHtml: hub.subtitleHtml,
+        guideHtml: hub.guidePrefix,
+        seqNav,
+      },
+    )
+    wireClearableInputs(root)
+    const dateEl = root.querySelector<HTMLInputElement>('#sc-dt-date')!
+    const timeEl = root.querySelector<HTMLInputElement>('#sc-dt-time')!
+    let done = false
+    const finish = (v: string | null) => {
+      if (done) return
+      done = true
+      closeDialogSafely(root, () => resolve(v))
+    }
+    const confirm = () => {
+      if (!dateEl.value) {
+        dateEl.setCustomValidity('日付を選択してください')
+        dateEl.reportValidity()
+        return
+      }
+      if (!timeEl.value) {
+        timeEl.setCustomValidity('時刻を選択してください')
+        timeEl.reportValidity()
+        return
+      }
+      dateEl.setCustomValidity('')
+      timeEl.setCustomValidity('')
+      const ymd = fromDateInputValue(dateEl.value)
+      const hm = timeEl.value.trim().slice(0, 5)
+      const combined = combineYmdAndHm(ymd, hm)
+      if (!combined) {
+        flashMsg = '日時の組み合わせが不正です'
+        return
+      }
+      finish(combined)
+    }
+    root.querySelector('#sc-ok')!.addEventListener('click', confirm)
+    root.querySelector('#sc-back')!.addEventListener('click', () => finish(null))
+    wireSeqNavButtons(root, (v) => {
+      if (v === FIELD_NAV_PREV || v === FIELD_NAV_NEXT) finish(v)
+    })
+    dateEl.addEventListener('input', () => dateEl.setCustomValidity(''))
+    timeEl.addEventListener('input', () => timeEl.setCustomValidity(''))
+  })
 }
 
 /** 項目1: 機種選択 → 識別番号リスト＋任意入力（カタログ） */

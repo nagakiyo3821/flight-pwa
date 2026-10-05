@@ -4201,10 +4201,19 @@ async function editDroneField(
 
   let id = idSel
   if (idSel === customId) {
-    const typed = await askText(droneIdInputPrompt(current, typeSel), '', 'text', {
-      ...chrome,
-      guide: `${chrome.guide}\n${parenData(typeSel)}\n・機体識別番号を入力`,
-    })
+    // A_DRONE は「機種_識別」。任意入力時は既存識別を入力欄に出す
+    const underscore = String(current ?? '').indexOf('_')
+    const existingId =
+      underscore >= 0 ? String(current).slice(underscore + 1).trim() : ''
+    const typed = await askText(
+      droneIdInputPrompt(current, typeSel),
+      existingId,
+      'text',
+      {
+        ...chrome,
+        guide: `${chrome.guide}\n${parenData(typeSel)}\n・機体識別番号を入力`,
+      },
+    )
     if (typed === null) return null
     id = typed.trim()
     if (!id) return null

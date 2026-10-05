@@ -34,6 +34,17 @@ export const CMD_RESET = '#データリセット'
 export const CMD_TAKEOFF = '#離陸'
 export const CMD_LANDING = '#着陸'
 
+/** 項目修正画面（NEWA／NEWB／FREE）の表示文言（# なし・場所一覧と同系） */
+export const EDIT_HUB_BACK = '戻る'
+export const EDIT_HUB_TITLE_A = '離陸前チェック'
+export const EDIT_HUB_TITLE_B = '着陸後チェック'
+export const EDIT_HUB_TITLE_F = '項目編集'
+export const EDIT_HUB_SECTION_ITEMS = (n: number) => `項目 ${n}件`
+/** コマンド行の表示用（先頭の # / % を外す） */
+export function hubCmdLabel(raw: string): string {
+  return String(raw ?? '').replace(/^[#%]+/, '')
+}
+
 /** 登録データ管理 直接起動（レコード一覧） */
 export const REC_MENU_BACK = '%戻る'
 /** 一覧画面の表示文言（% なし・場所一覧と同系） */

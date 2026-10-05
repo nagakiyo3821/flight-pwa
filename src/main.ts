@@ -159,6 +159,12 @@ import {
   REC_HUB_BACK,
   REC_HUB_SECTION,
   REC_HUB_EMPTY,
+  EDIT_HUB_BACK,
+  EDIT_HUB_TITLE_A,
+  EDIT_HUB_TITLE_B,
+  EDIT_HUB_TITLE_F,
+  EDIT_HUB_SECTION_ITEMS,
+  hubCmdLabel,
   RESET_OK,
   RESET_BACK,
   RESET_PROMPT,
@@ -186,11 +192,8 @@ import {
   droneIdPrompt,
   droneTypePrompt,
   fieldPromptText,
-  freePrompt,
   gpsMissingPrompt,
   isValidNumberInput,
-  newaPrompt,
-  newbPrompt,
   parenData,
   placeEditCopyCmd,
   targetDataLine,
@@ -1868,13 +1871,19 @@ function geopickFormPaneHtml(innerScrollHtml: string): string {
         </div>`
 }
 
-function placesListPaneHtml(listInnerHtml: string): string {
+function placesListScrollPane(wrapInnerHtml: string): string {
   return `<div class="places-ui-list-pane">
       <div class="places-ui-list-wrap">
-        <div class="places-ui-list">${listInnerHtml}</div>
+        ${wrapInnerHtml}
       </div>
       ${scrollCueOverlayHtml()}
     </div>`
+}
+
+function placesListPaneHtml(listInnerHtml: string): string {
+  return placesListScrollPane(
+    `<div class="places-ui-list">${listInnerHtml}</div>`,
+  )
 }
 
 let listScrollCueAbort: AbortController | null = null
@@ -4573,17 +4582,17 @@ async function renderEditList(kind: 'A' | 'B' | 'F'): Promise<void> {
   const { key, rec } = await getWorking()
   const drone = meta.tmp.DRONE || rec.A_DRONE.split('_')[0] || 'Mavic2Pro'
   const fields = editFieldsFor(kind, drone)
-  const prompt =
-    kind === 'A' ? newaPrompt(drone) : kind === 'B' ? newbPrompt(drone) : freePrompt(drone)
+  const title =
+    kind === 'A' ? EDIT_HUB_TITLE_A : kind === 'B' ? EDIT_HUB_TITLE_B : EDIT_HUB_TITLE_F
   const sel = /^NEW\d{4}\//.test(key) ? key : key.startsWith('NEW') ? 'NEW' : key
   const isNew = isNewRecordKey(key)
+  const sub = `${targetDataLine(sel)}（${drone}）`
 
-  const cmdRows: { id: string; text: string }[] =
+  const cmdRows: { id: string; text: string; danger?: boolean }[] =
     kind === 'F'
       ? isNew
         ? [
-            { id: 'back', text: CMD_BACK },
-            { id: 'delete', text: CMD_DELETE },
+            { id: 'delete', text: CMD_DELETE, danger: true },
             { id: 'commit', text: CMD_COMMIT },
             { id: 'reset', text: CMD_RESET },
             { id: 'dataset', text: CMD_DATASET },
@@ -4593,50 +4602,78 @@ async function renderEditList(kind: 'A' | 'B' | 'F'): Promise<void> {
             { id: 'empty', text: CMD_EMPTY },
           ]
         : [
-            { id: 'back', text: CMD_BACK },
-            { id: 'delete', text: CMD_DELETE },
+            { id: 'delete', text: CMD_DELETE, danger: true },
             { id: 'all', text: CMD_ALL },
             { id: 'empty', text: CMD_EMPTY },
           ]
       : [
-          { id: 'back', text: CMD_BACK },
           { id: 'dataset', text: CMD_DATASET },
           { id: 'all', text: CMD_ALL },
           { id: 'empty', text: CMD_EMPTY },
         ]
 
-  const fieldRows = fields.map((f) => ({
-    id: `f-${f.no}`,
-    text: `${f.no}.${f.label}\n${displayValue(rec, f)}`,
-  }))
-
-  const list = [...cmdRows, ...fieldRows]
+  const cmdHtml = cmdRows
     .map(
       (it) =>
-        `<button type="button" class="menu-btn menu-btn-multiline" data-id="${it.id}">${escapeHtml(it.text).replace(/\n/g, '<br/>')}</button>`,
+        `<button type="button" class="places-ui-row${it.danger ? ' places-ui-row--danger' : ''}" data-id="${it.id}"><span class="places-ui-row-name">${escapeHtml(hubCmdLabel(it.text))}</span><span class="places-ui-row-chevron" aria-hidden="true">›</span></button>`,
     )
     .join('')
 
-  app.innerHTML = shell(
-    escapeHtml(prompt),
-    `
-    <p id="msg" class="msg menu-flash"></p>
-    <section class="card menu-card">
-      <div class="menu">${list}</div>
-    </section>`,
-    escapeHtml(targetDataLine(sel)),
-  )
+  const fieldHtml = fields
+    .map((f) => {
+      const name = `${f.no}.${f.label}`
+      const val = displayValue(rec, f)
+      return `<button type="button" class="places-ui-row places-ui-row--field" data-id="f-${f.no}"><span class="places-ui-row-stack"><span class="places-ui-row-name">${escapeHtml(name)}</span><span class="places-ui-row-meta">${escapeHtml(val)}</span></span><span class="places-ui-row-chevron" aria-hidden="true">›</span></button>`
+    })
+    .join('')
 
-  const msgEl = app.querySelector('#msg')!
+  app.classList.add('places-ui-app')
+  document.documentElement.classList.add('places-ui-lock')
+  resetViewportScroll()
+  app.innerHTML = `
+  <header class="top top--with-back">
+    <button type="button" class="nav-back" id="edit-hub-back" aria-label="${escapeHtml(EDIT_HUB_BACK)}">
+      <span class="nav-back-chevron" aria-hidden="true"></span>
+      <span>${escapeHtml(EDIT_HUB_BACK)}</span>
+    </button>
+    <div class="top-titles">
+      <h1 class="prompt places-ui-title">
+        <span class="places-ui-title-text">${escapeHtml(title)}</span>
+        <span class="sc-geopick-ver">v${APP_VERSION}</span>
+      </h1>
+      <p class="prompt-sub" id="promptSub">${escapeHtml(sub)}</p>
+    </div>
+  </header>
+  <main class="places-ui-main">
+    <section class="card places-ui-card">
+      ${placesListScrollPane(`
+        <div class="places-ui-list">${cmdHtml}</div>
+        <h2 class="places-ui-section">${escapeHtml(EDIT_HUB_SECTION_ITEMS(fields.length))}</h2>
+        <div class="places-ui-list">${fieldHtml}</div>
+      `)}
+    </section>
+  </main>`
+
   if (flashMsg) {
-    msgEl.textContent = flashMsg
+    toastMsg = flashMsg
     flashMsg = ''
   }
+  if (toastMsg) {
+    showToast(toastMsg)
+    toastMsg = ''
+  }
 
+  wireListScrollCue()
+
+  app.querySelector('#edit-hub-back')!.addEventListener('click', () => {
+    void onEditList(kind, 'back').catch((e) => {
+      showToast(`失敗: ${(e as Error).message}`)
+    })
+  })
   app.querySelectorAll<HTMLButtonElement>('[data-id]').forEach((btn) => {
     btn.addEventListener('click', () => {
       void onEditList(kind, btn.dataset.id!).catch((e) => {
-        msgEl.textContent = `失敗: ${(e as Error).message}`
+        showToast(`失敗: ${(e as Error).message}`)
       })
     })
   })

@@ -2269,6 +2269,32 @@ html.places-ui-lock body {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
+.places-ui-row--danger .places-ui-row-name {
+  color: #e53935;
+}
+.places-ui-row--field {
+  align-items: center;
+}
+.places-ui-row-stack {
+  min-width: 0;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.12rem;
+}
+.places-ui-row-stack .places-ui-row-name {
+  flex: 0 0 auto;
+}
+.places-ui-row-meta {
+  min-width: 0;
+  font-size: 12px;
+  line-height: 1.25;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
 .places-ui-row-chevron {
   flex: 0 0 auto;
   color: var(--muted);

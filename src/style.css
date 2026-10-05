@@ -490,6 +490,19 @@ code { font-size: 0.85em; }
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
+.sc-guide-dot {
+  font-weight: 700;
+  line-height: 1;
+}
+.sc-guide-dot--red {
+  color: #e53935;
+}
+.sc-guide-dot--green {
+  color: #2e7d32;
+}
+.sc-guide-dot--yellow {
+  color: #f9a825;
+}
 .sc-dialog-head .sc-dialog-sub {
   margin: 0.2rem 0 0;
   font-size: 12px;

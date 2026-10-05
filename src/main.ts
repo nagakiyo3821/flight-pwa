@@ -530,8 +530,26 @@ function confirmYesNo(opts: {
   })
 }
 
+/** 説明文の ●{red|green|yellow} を色付き丸に変換（escape 後） */
+function colorizeGuideDots(escaped: string): string {
+  return escaped
+    .replace(
+      /●\{red\}/g,
+      '<span class="sc-guide-dot sc-guide-dot--red" aria-hidden="true">●</span>',
+    )
+    .replace(
+      /●\{green\}/g,
+      '<span class="sc-guide-dot sc-guide-dot--green" aria-hidden="true">●</span>',
+    )
+    .replace(
+      /●\{yellow\}/g,
+      '<span class="sc-guide-dot sc-guide-dot--yellow" aria-hidden="true">●</span>',
+    )
+}
+
 function chromeGuideHtml(chrome: FieldEntryChrome): string {
-  return `<div class="sc-field-guide">${escapeHtml(chrome.guide).replace(/\n/g, '<br/>')}</div>`
+  const body = colorizeGuideDots(escapeHtml(chrome.guide).replace(/\n/g, '<br/>'))
+  return `<div class="sc-field-guide">${body}</div>`
 }
 
 /** 旧プロンプト文字列から hub ヘッダを推定（場所編集など） */

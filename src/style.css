@@ -2051,6 +2051,19 @@ html.places-ui-lock body {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
+/* ホーム: 戻るなしタイトル＋SR/SS/T */
+#app.places-ui-app > .top.places-ui-home-top {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.2rem;
+  padding: 0.85rem 0 0.35rem;
+}
+.places-ui-row.locked {
+  color: var(--muted);
+}
+.places-ui-row.locked .places-ui-row-chevron {
+  opacity: 0.4;
+}
 /* タイトルは geopick 1行目と同じ 18px。ボタン／リストは geopick 確定行寄りに密にする */
 .places-ui-title {
   display: flex;

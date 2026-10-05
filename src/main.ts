@@ -110,7 +110,7 @@ import {
   ITEM_BACK,
   ITEM_OK,
   ITEM_CANCEL,
-  MENU_PROMPT,
+  APP_NAME,
   NUMBER_RE,
   NET_FAIL_ADDRESS,
   NET_FAIL_ADDRESS_EMPTY,
@@ -392,7 +392,7 @@ function stopMenuTick(): void {
 async function renderMenu(): Promise<void> {
   const meta = await getMeta()
   const t = meta.tmp
-  const items: { action: string; text: string; flag?: string; inert?: boolean }[] = [
+  const items: { action: string; text: string; flag?: string }[] = [
     {
       action: 'pre',
       flag: t.DATA1,
@@ -422,48 +422,55 @@ async function renderMenu(): Promise<void> {
     { action: 'records', text: '7.登録データ管理' },
     { action: 'places', text: '8.場所データ管理' },
     { action: 'io', text: '9.システムデータ管理' },
-    {
-      action: 'exit',
-      text: '10.終了(手動でタブを閉じる)',
-      inert: true,
-    },
   ]
 
   const list = items
     .map((it) => {
-      const locked = !!it.inert || (it.flag !== undefined && !canOpen(it.flag))
-      const inertAttr = it.inert ? ' data-inert="1"' : ''
-      return `<button type="button" class="menu-btn${locked ? ' locked' : ''}" data-action="${it.action}" data-flag="${it.flag ?? ''}"${inertAttr}${locked ? ' aria-disabled="true"' : ''}>${escapeHtml(it.text)}</button>`
+      const locked = it.flag !== undefined && !canOpen(it.flag)
+      return `<button type="button" class="places-ui-row${locked ? ' locked' : ''}" data-action="${it.action}" data-flag="${it.flag ?? ''}"${locked ? ' aria-disabled="true"' : ''}><span class="places-ui-row-name">${escapeHtml(it.text)}</span><span class="places-ui-row-chevron" aria-hidden="true">›</span></button>`
     })
     .join('')
 
-  app.innerHTML = shell(
-    MENU_PROMPT,
-    `
-    <p id="msg" class="msg menu-flash"></p>
-    <section class="card menu-card">
-      <div class="menu">${list}</div>
-    </section>`,
-    titleSubtitle(t.A_SR, t.A_SS, t.TIME),
-  )
+  app.classList.add('places-ui-app')
+  document.documentElement.classList.add('places-ui-lock')
+  resetViewportScroll()
+  app.innerHTML = `
+  <header class="top places-ui-home-top">
+    <div class="top-titles">
+      <h1 class="prompt places-ui-title">
+        <span class="places-ui-title-text">${escapeHtml(APP_NAME)}</span>
+        <span class="sc-geopick-ver">v${APP_VERSION}</span>
+      </h1>
+      <p class="prompt-sub" id="promptSub">${titleSubtitle(t.A_SR, t.A_SS, t.TIME)}</p>
+    </div>
+  </header>
+  <main class="places-ui-main">
+    <section class="card places-ui-card">
+      <div class="places-ui-list-wrap">
+        <div class="places-ui-list">${list}</div>
+      </div>
+    </section>
+  </main>`
 
-  const msgEl = app.querySelector('#msg')!
   if (flashMsg) {
-    msgEl.textContent = flashMsg
+    toastMsg = flashMsg
     flashMsg = ''
+  }
+  if (toastMsg) {
+    showToast(toastMsg)
+    toastMsg = ''
   }
 
   app.querySelectorAll<HTMLButtonElement>('[data-action]').forEach((btn) => {
     btn.addEventListener('click', () => {
-      if (btn.dataset.inert === '1') return
       const action = btn.dataset.action!
       const flag = btn.dataset.flag ?? ''
       if (flag !== '' && !canOpen(flag)) {
-        msgEl.textContent = 'ロック中のため実行できません'
+        showToast('ロック中のため実行できません')
         return
       }
       void onMenu(action).catch((e) => {
-        msgEl.textContent = `失敗: ${(e as Error).message}`
+        showToast(`失敗: ${(e as Error).message}`)
       })
     })
   })
@@ -4295,9 +4302,6 @@ async function onMenu(action: string): Promise<void> {
   if (action === 'io') {
     view = 'io'
     await render()
-    return
-  }
-  if (action === 'exit') {
     return
   }
   if (action === 'reset') {

@@ -3,8 +3,10 @@
  * 出典の骨格: iPhoneショートカット説明書.xlsx「ショートカット19」
  */
 
-/** 飛行記録メイン：リストからの選択プロンプト */
+/** 飛行記録メイン：リストからの選択プロンプト（ホームでは未使用） */
 export const MENU_PROMPT = '項目を選択してください。'
+/** ホーム画面のアプリ名称（タイトル行） */
+export const APP_NAME = '飛行記録 PWA'
 
 /** 9.システムデータ管理（同期 settings ＋ JSON 入出力・初期化） */
 export const SYS_DATA_TITLE = 'システムデータ管理'

@@ -395,8 +395,8 @@ code { font-size: 0.85em; }
 }
 .sc-dialog--hub {
   padding-top: env(safe-area-inset-top, 0px);
-  /* 下端 safe-area は確定行のみ（二重余白を避ける） */
-  padding-bottom: 0;
+  /* 下端 home 帯はダイアログ背景側。確定行（白）に載せない */
+  padding-bottom: env(safe-area-inset-bottom, 0px);
   box-sizing: border-box;
 }
 .sc-dialog-choice-pane {
@@ -499,8 +499,8 @@ code { font-size: 0.85em; }
 .sc-dialog-body > .sc-actions.sc-actions--hub-confirm {
   flex: 0 0 auto;
   gap: 0;
-  /* 説明・リストと同色。下余白はボタン高さに対して控えめ（safe-area のみ上乗せ） */
-  padding: 0.3rem var(--inset-x) calc(0.15rem + env(safe-area-inset-bottom, 0px));
+  /* 説明・リストと同色。上下余白はボタン高さに対して同程度（下に別帯を作らない） */
+  padding: 0.3rem var(--inset-x) 0.3rem;
   border-top: none;
   background: var(--card);
   box-shadow: none;

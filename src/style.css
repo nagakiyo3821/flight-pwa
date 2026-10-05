@@ -370,10 +370,21 @@ code { font-size: 0.85em; }
   border-bottom: 1px solid var(--line);
   background: #fbfcfd;
 }
-.sc-dialog-scroll .sc-field-guide {
-  padding: 0.65rem var(--inset-x) 0.5rem;
+/* hub 項目入力: 件数少は内容高さ（説明〜リスト〜確定の空帯を作らない） */
+.sc-dialog--hub .sc-dialog-body {
+  flex: 0 1 auto;
+  max-height: 100%;
+}
+.sc-dialog--hub .sc-dialog-scroll {
+  flex: 0 1 auto;
+  min-height: 0;
+}
+.sc-field-guide {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 0.4rem var(--inset-x) 0.15rem;
   font-size: 0.9rem;
-  line-height: 1.45;
+  line-height: 1.4;
   color: var(--ink);
   white-space: normal;
   overflow-wrap: anywhere;
@@ -405,12 +416,16 @@ code { font-size: 0.85em; }
   max-width: 100%;
   width: 100%;
 }
-/* ダイアログ選択肢: places-ui 行＋スクロールペイン */
-.sc-dialog-body > .sc-dialog-choice-pane {
-  flex: 1 1 auto;
+/* 選択肢: 説明の直後にリスト。件数少は内容高さ、多いときだけ縮めてスクロール */
+.sc-dialog-body--choice > .sc-dialog-choice-pane {
+  flex: 0 1 auto;
   min-height: 0;
-  border-top: 1px solid var(--line);
+  max-height: 100%;
+  border-top: none;
   background: #fff;
+}
+.sc-dialog--hub .sc-field-block {
+  padding: 0.35rem var(--inset-x) 0.35rem;
 }
 .sc-actions.sc-actions--hub {
   gap: 0.35rem;

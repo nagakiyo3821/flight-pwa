@@ -573,16 +573,20 @@ function dialogShell(
         </div>
       </header>`
       : ''
-  // 選択肢ペインは本文スクロールと分離（溢れ目印付き）
+  // 選択肢: 説明の直後にリスト（空帯なし）。入力: 説明＋欄を1スクロール内に
   const choicePane = bodyHtml.includes('sc-dialog-choice-pane')
-  const scrollInner = choicePane ? `${detail}${guide}` : `${detail}${guide}${bodyHtml}`
-  const listPart = choicePane ? bodyHtml : ''
+  const bodyInner = `${detail}${guide}${bodyHtml}`
   return `
     <div class="${panelCls.trim()}">
       ${head}
-      <section class="card sc-dialog-body">
-        ${scrollInner ? `<div class="sc-dialog-scroll">${scrollInner}</div>` : ''}
-        ${listPart}
+      <section class="card sc-dialog-body${choicePane ? ' sc-dialog-body--choice' : ''}">
+        ${
+          choicePane
+            ? bodyInner
+            : bodyInner
+              ? `<div class="sc-dialog-scroll">${bodyInner}</div>`
+              : ''
+        }
         ${actionsHtml}
       </section>
     </div>`

@@ -1004,6 +1004,7 @@ function askText(
   initial: string,
   mode: 'text' | 'number' = 'text',
   chrome?: FieldEntryChrome,
+  opts?: { required?: boolean; requiredMessage?: string },
 ): Promise<string | null> {
   return new Promise((resolve) => {
     const root = openDialogRoot()
@@ -1049,15 +1050,24 @@ function askText(
         finish(v)
         return
       }
-      finish(input.value)
+      const text = input.value.trim()
+      if (opts?.required && !text) {
+        input.setCustomValidity(
+          opts.requiredMessage || '入力してください',
+        )
+        input.reportValidity()
+        return
+      }
+      input.setCustomValidity('')
+      finish(text)
     }
-    if (mode === 'number') {
-      input.addEventListener('input', () => {
+    input.addEventListener('input', () => {
+      if (mode === 'number') {
         const cleaned = sanitizeNumberDraft(input.value)
         if (cleaned !== input.value) input.value = cleaned
-        input.setCustomValidity('')
-      })
-    }
+      }
+      input.setCustomValidity('')
+    })
     root.querySelector('#sc-ok')!.addEventListener('click', confirm)
     root.querySelector('#sc-back')!.addEventListener('click', () => finish(null))
     input.addEventListener('keydown', (e) => {
@@ -4248,13 +4258,21 @@ async function editDroneField(
       existingId,
       'text',
       { ...idChrome, guide: droneIdInputGuide(current, typeSel) },
+      {
+        required: true,
+        requiredMessage: '機体識別番号を入力してください',
+      },
     )
     if (typed === null) return null
     id = typed.trim()
-    if (!id) return null
-    await appendMastersDroneId(typeSel, id)
   }
 
+  // 機種のみ／末尾 _ だけの値は危険（識別なし）
+  if (!id) {
+    flashMsg = '機体識別番号が空です'
+    return null
+  }
+  await appendMastersDroneId(typeSel, id)
   return `${typeSel}_${id}`
 }
 

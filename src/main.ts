@@ -878,10 +878,21 @@ function showConfirmSheet(opts: {
   })
 }
 
+/** 全項目／?項目の連続入力中はダイアログ DOM を使い回し（閉→開の隙間で一覧が見えない） */
+let sequentialFieldSession = 0
+
 function openDialogRoot(): HTMLDivElement {
   stopMenuTick()
   clearStickyFocus()
-  document.getElementById('sc-dialog')?.remove()
+  const existing = document.getElementById('sc-dialog')
+  if (sequentialFieldSession > 0 && existing instanceof HTMLDivElement) {
+    existing.style.pointerEvents = ''
+    existing.className = 'sc-dialog'
+    existing.setAttribute('role', 'dialog')
+    existing.setAttribute('aria-modal', 'true')
+    return existing
+  }
+  const prev = existing
   document.getElementById('app')?.removeAttribute('inert')
   const root = document.createElement('div')
   root.id = 'sc-dialog'
@@ -889,6 +900,7 @@ function openDialogRoot(): HTMLDivElement {
   root.setAttribute('role', 'dialog')
   root.setAttribute('aria-modal', 'true')
   document.body.appendChild(root)
+  prev?.remove()
   return root
 }
 
@@ -902,6 +914,10 @@ function clearStickyFocus(): void {
 function closeDialogSafely(root: HTMLElement, after?: () => void): void {
   root.style.pointerEvents = 'none'
   clearStickyFocus()
+  if (sequentialFieldSession > 0) {
+    after?.()
+    return
+  }
   window.setTimeout(() => {
     root.remove()
     clearStickyFocus()
@@ -4483,8 +4499,10 @@ async function runSequentialFields(
   const modeLabel =
     mode === 'all' ? SEQ_NAV_MODE_ALL : mode === 'empty' ? SEQ_NAV_MODE_EMPTY : ''
   const showSeqNav = mode === 'all' || mode === 'empty'
+  if (showSeqNav) sequentialFieldSession++
 
   let i = 0
+  try {
   while (i >= 0 && i < items.length) {
     const item = items[i]!
     const seqNav: SeqNavChrome | undefined = showSeqNav
@@ -4556,6 +4574,15 @@ async function runSequentialFields(
     i++
   }
   return 'done'
+  } finally {
+    if (showSeqNav) {
+      sequentialFieldSession = Math.max(0, sequentialFieldSession - 1)
+      if (sequentialFieldSession === 0) {
+        document.getElementById('sc-dialog')?.remove()
+        clearStickyFocus()
+      }
+    }
+  }
 }
 
 function isFieldEmpty(rec: FlightRecord, f: FieldDef): boolean {

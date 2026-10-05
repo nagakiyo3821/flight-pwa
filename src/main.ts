@@ -1292,8 +1292,8 @@ export function askDate(
 }
 
 /**
- * 時・分ピッカー（input type=time）。
- * iPhone / Android ではローリング UI、PC は OS 標準の時刻 UI。
+ * 時刻入力（40・41・42 など）: 数字のみ自動整形＋×＋時計ピッカー。
+ * 空欄は灰字 00:00。不正値はエラー。
  */
 function askTime(
   prompt: string,
@@ -1305,8 +1305,16 @@ function askTime(
     const root = openDialogRoot()
     root.classList.add('sc-dialog--hub')
     const hub = hubDialogHeadFromChrome(chrome ?? promptToFieldChrome(prompt))
-    const value = toTimeInputValue(initialHm) || '00:00'
-    const body = `<div class="sc-field-block sc-field-block--picker">${pickerInputHtml('sc-input', 'class="sc-input sc-input-time" type="time" step="60"', value)}</div>`
+    const hmText = normalizeHmText(initialHm) || toTimeInputValue(initialHm) || ''
+    const timeNative = hmText ? toTimeInputValue(hmText) : ''
+    const body = `<div class="sc-field-block sc-field-block--datetime">
+      <div class="sc-dt-combo sc-dt-combo--time-only" role="group" aria-label="時間">
+        <div class="sc-dt-combo-part sc-dt-combo-part--time">
+          <span class="sc-dt-combo-label">時間</span>
+          ${dtComboFieldHtml('time', 'sc-tm', hmText, timeNative)}
+        </div>
+      </div>
+    </div>`
     root.innerHTML = dialogShell(
       hub.titleHtml,
       body,
@@ -1320,8 +1328,8 @@ function askTime(
         seqNav,
       },
     )
-    const input = root.querySelector<HTMLInputElement>('#sc-input')!
-    input.focus()
+    const timeField = root.querySelector<HTMLElement>('.sc-dt-combo-field')!
+    const timeCtl = wireDtComboField(timeField)
     let done = false
     const finish = (v: string | null) => {
       if (done) return
@@ -1329,20 +1337,22 @@ function askTime(
       closeDialogSafely(root, () => resolve(v))
     }
     const confirm = () => {
-      if (!input.value) {
-        input.setCustomValidity('時刻を選択してください')
-        input.reportValidity()
+      const hm = timeCtl.getNormalized()
+      if (!hm) {
+        timeCtl.setError(
+          timeCtl.text.value.trim()
+            ? '正しい時刻を入力してください'
+            : '時刻を入力してください',
+        )
         return
       }
-      input.setCustomValidity('')
-      // 秒付き "HH:mm:ss" になる環境もある
-      const hm = toTimeInputValue(input.value.slice(0, 5)) || input.value.slice(0, 5)
+      timeCtl.clearError()
       finish(hm)
     }
     root.querySelector('#sc-ok')!.addEventListener('click', confirm)
     root.querySelector('#sc-back')!.addEventListener('click', () => finish(null))
     wireSeqNavButtons(root, finish)
-    input.addEventListener('keydown', (e) => {
+    timeCtl.text.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') confirm()
       if (e.key === 'Escape') finish(null)
     })
@@ -4511,7 +4521,7 @@ async function editOneField(
       return null
     }
     hydrateFlightDurationCache(rec.A_DATE, rec.B_DATE)
-    const cur = displayFlightHm(rec.A_DATE, rec.B_DATE) || '00:00'
+    const cur = displayFlightHm(rec.A_DATE, rec.B_DATE) || ''
     const raw = await askTime(fieldPrompt(f, cur), cur, fieldChrome(f, rec), seqNav)
     if (raw === null || isFieldNavToken(raw)) return raw
     const synced = syncAfterFlightDuration(rec.A_DATE, rec.B_DATE, raw)
@@ -4530,7 +4540,7 @@ async function editOneField(
   }
 
   if (f.input === 'time') {
-    const initial = toTimeInputValue(String(cur).trim()) || '00:00'
+    const initial = toTimeInputValue(String(cur).trim())
     return askTime(fieldPrompt(f, cur), initial, fieldChrome(f, rec), seqNav)
   }
 

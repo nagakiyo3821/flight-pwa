@@ -588,6 +588,14 @@ code { font-size: 0.85em; }
   flex: 1 1 0;
   max-width: 42%;
 }
+.sc-dt-combo--time-only {
+  justify-content: flex-start;
+}
+.sc-dt-combo--time-only .sc-dt-combo-part--time {
+  flex: 0 1 auto;
+  width: min(11.5rem, 48%);
+  max-width: 11.5rem;
+}
 .sc-dt-combo-label {
   font-size: 13px;
   font-weight: 500;

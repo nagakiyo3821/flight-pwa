@@ -598,6 +598,27 @@ function wireSeqNavButtons(
   })
 }
 
+/** 先頭ナビ: 戻る ＋（順次時）前の項目／モード／次の項目 */
+function topNavBarHtml(
+  opts: { withBack?: boolean; seqNav?: SeqNavChrome } = {},
+): string {
+  const back = opts.withBack
+    ? `<button type="button" class="nav-back" id="sc-back" aria-label="${escapeHtml(ITEM_BACK)}">
+        <span class="nav-back-chevron" aria-hidden="true"></span>
+        <span>${escapeHtml(ITEM_BACK)}</span>
+      </button>`
+    : ''
+  const seq = opts.seqNav
+    ? `<div class="sc-seq-nav" role="group" aria-label="項目移動">
+        <button type="button" class="sc-seq-nav-btn" id="sc-seq-prev"${opts.seqNav.canPrev ? '' : ' disabled aria-disabled="true"'}>${escapeHtml(SEQ_NAV_PREV)}</button>
+        <span class="sc-seq-nav-mode">${escapeHtml(opts.seqNav.modeLabel)}</span>
+        <button type="button" class="sc-seq-nav-btn" id="sc-seq-next"${opts.seqNav.canNext ? '' : ' disabled aria-disabled="true"'}>${escapeHtml(SEQ_NAV_NEXT)}</button>
+      </div>`
+    : ''
+  if (!back && !seq) return ''
+  return `<div class="sc-dialog-top-nav">${back}${seq}</div>`
+}
+
 function dialogShell(
   promptHtml: string,
   bodyHtml: string,
@@ -616,30 +637,17 @@ function dialogShell(
     : ''
   const guide = opts.guideHtml ?? ''
   const panelCls = panelClass ? ` sc-dialog-panel ${panelClass}` : ' sc-dialog-panel'
-  const back = opts.withHeadBack
-    ? `<button type="button" class="nav-back" id="sc-back" aria-label="${escapeHtml(ITEM_BACK)}">
-        <span class="nav-back-chevron" aria-hidden="true"></span>
-        <span>${escapeHtml(ITEM_BACK)}</span>
-      </button>`
-    : ''
-  const seq = opts.seqNav
-    ? `<div class="sc-seq-nav" role="group" aria-label="項目移動">
-        <button type="button" class="sc-seq-nav-btn" id="sc-seq-prev"${opts.seqNav.canPrev ? '' : ' disabled aria-disabled="true"'}>${escapeHtml(SEQ_NAV_PREV)}</button>
-        <span class="sc-seq-nav-mode">${escapeHtml(opts.seqNav.modeLabel)}</span>
-        <button type="button" class="sc-seq-nav-btn" id="sc-seq-next"${opts.seqNav.canNext ? '' : ' disabled aria-disabled="true"'}>${escapeHtml(SEQ_NAV_NEXT)}</button>
-      </div>`
-    : ''
-  const topNav =
-    opts.withHeadBack || opts.seqNav
-      ? `<div class="sc-dialog-top-nav">${back}${seq}</div>`
-      : ''
+  const topNav = topNavBarHtml({
+    withBack: opts.withHeadBack === true,
+    seqNav: opts.seqNav,
+  })
   const hasPrompt = String(promptHtml ?? '').trim().length > 0
   const sub = opts.subtitleHtml
     ? `<p class="prompt-sub sc-dialog-sub">${opts.subtitleHtml}</p>`
     : ''
   const head =
-    hasPrompt || opts.withHeadBack || opts.seqNav
-      ? `<header class="sc-dialog-head${opts.withHeadBack || opts.seqNav ? ' top--with-back' : ''}">
+    hasPrompt || topNav
+      ? `<header class="sc-dialog-head${topNav ? ' top--with-back' : ''}">
         ${topNav}
         <div class="top-titles">
           <div class="sc-dialog-title-row">
@@ -1324,7 +1332,17 @@ type LatLngAlt = {
 }
 
 /** askDualPlaceGeo の戻り。deleted / delete-cancelled は既存場所プレビュー */
-type DualPlaceGeoResult = LatLngAlt | 'deleted' | 'delete-cancelled' | null
+type DualPlaceGeoResult =
+  | LatLngAlt
+  | 'deleted'
+  | 'delete-cancelled'
+  | typeof FIELD_NAV_PREV
+  | typeof FIELD_NAV_NEXT
+  | null
+
+function isLatLngAltResult(v: DualPlaceGeoResult): v is LatLngAlt {
+  return !!v && typeof v === 'object' && 'lat' in v && 'lng' in v
+}
 type GeoParts = { lat?: number; lng?: number; alt?: number }
 
 function isFiniteNum(n: unknown): n is number {
@@ -2304,6 +2322,8 @@ function askDualPlaceGeo(opts: {
   blankAlt?: boolean
   /** 地点の修正。GPSマーカーと青のボタンを出さない */
   hideGps?: boolean
+  /** 全項目／?項目の順次ナビ */
+  seqNav?: SeqNavChrome
 }): Promise<DualPlaceGeoResult> {
   return new Promise((resolve) => {
     const root = openDialogRoot()
@@ -2479,14 +2499,26 @@ function askDualPlaceGeo(opts: {
         ? '橙＝タップ（精度円あり）、緑＝最寄（精度円あり）'
         : '青＝GPS、橙＝タップ（精度円あり）、緑＝最寄（精度円あり）'
     const nearOkLabel = isPlaceReview ? '選択場所確定' : '最寄地点確定'
+    const hideCancel = !!opts.seqNav
     const actionsMod = isPlaceReview
-      ? ' sc-geopick-actions--quad'
-      : ' sc-geopick-actions--triple'
+      ? hideCancel
+        ? ' sc-geopick-actions--triple sc-geopick-actions--fill'
+        : ' sc-geopick-actions--quad'
+      : hideCancel
+        ? ' sc-geopick-actions--dual sc-geopick-actions--fill'
+        : ' sc-geopick-actions--triple'
+    const topNav = topNavBarHtml({
+      withBack: hideCancel,
+      seqNav: opts.seqNav,
+    })
 
     root.innerHTML = `
       <div class="sc-geopick-stack">
         <div class="sc-geopick-body">
-          <h1 class="prompt sc-geopick-title">${titleHtml}</h1>
+          <div class="sc-geopick-title-block">
+            ${topNav}
+            <h1 class="prompt sc-geopick-title">${titleHtml}</h1>
+          </div>
           ${geopickFormPaneHtml(fieldsHtml)}
           <p class="sc-map-hint" id="sc-map-hint">${escapeHtml(defaultMapHint)}</p>
           <div class="sc-geopick-map-block">
@@ -2500,7 +2532,11 @@ function askDualPlaceGeo(opts: {
                 ? `<button type="button" class="sc-btn sc-btn-del" id="sc-del">削除</button>`
                 : ''
             }
-            <button type="button" class="sc-btn sc-btn-back" id="sc-back">${escapeHtml(ITEM_CANCEL)}</button>
+            ${
+              hideCancel
+                ? ''
+                : `<button type="button" class="sc-btn sc-btn-back" id="sc-back">${escapeHtml(ITEM_CANCEL)}</button>`
+            }
           </div>
         </div>
       </div>`
@@ -3964,7 +4000,10 @@ function askDualPlaceGeo(opts: {
     root.querySelector('#sc-del')?.addEventListener('click', () => {
       void confirmDelete()
     })
-    root.querySelector('#sc-back')!.addEventListener('click', () => finish(null))
+    root.querySelector('#sc-back')?.addEventListener('click', () => finish(null))
+    wireSeqNavButtons(root, (v) => {
+      if (v === FIELD_NAV_PREV || v === FIELD_NAV_NEXT) finish(v)
+    })
   })
 }
 
@@ -4436,8 +4475,18 @@ async function runSequentialFields(
       : undefined
 
     if (item.kind === 'site') {
-      const ok = await reviseFlightSite(item.side, rec)
-      if (!ok) return 'abort'
+      const siteResult = await reviseFlightSite(item.side, rec, seqNav)
+      if (siteResult === 'abort') return 'abort'
+      if (siteResult === 'prev') {
+        if (i > 0) i--
+        ;({ rec } = await getWorking())
+        continue
+      }
+      if (siteResult === 'next') {
+        if (i < items.length - 1) i++
+        ;({ rec } = await getWorking())
+        continue
+      }
       ;({ rec } = await getWorking())
       i++
       continue
@@ -4672,31 +4721,35 @@ async function resolveReviseSeed(
 async function reviseFlightSite(
   action: 'takeoff' | 'landing',
   rec: FlightRecord,
-): Promise<boolean> {
+  seqNav?: SeqNavChrome,
+): Promise<'ok' | 'abort' | 'prev' | 'next'> {
   const msg = () => app.querySelector('#msg')
   const verb = action === 'takeoff' ? '離陸' : '着陸'
   const seed = await resolveReviseSeed(action, rec)
   if (!seed) {
     flashMsg = `${verb}地点の座標がないため修正画面を開けません`
-    return false
+    return 'abort'
   }
   const coords = await pickPlaceRegistrationGeo({
     titleLine: action === 'takeoff' ? TAKEOFF_REVISE_LINE : LANDING_REVISE_LINE,
     flightSite: true,
     revise: seed,
+    seqNav,
     status: (text) => {
       const el = msg()
       if (el) el.textContent = text
     },
   })
-  if (!coords) return false
+  if (coords === FIELD_NAV_PREV) return 'prev'
+  if (coords === FIELD_NAV_NEXT) return 'next'
+  if (!coords || coords === 'deleted' || coords === 'delete-cancelled') return 'abort'
   const saved = await applyFlightSiteToPlaces(coords)
-  if (!saved) return false
+  if (!saved) return 'abort'
   const { rec: cur } = await getWorking()
   writeFlightSiteFields(cur, action, saved)
   await saveWorking(cur)
   flashMsg = `${verb}地点を修正しました（${saved.placeNote}）`
-  return true
+  return 'ok'
 }
 
 async function runTakeoffLanding(action: 'takeoff' | 'landing'): Promise<void> {
@@ -4713,7 +4766,7 @@ async function runTakeoffLanding(action: 'takeoff' | 'landing'): Promise<void> {
         if (el) el.textContent = text
       },
     })
-    if (!coords) {
+    if (!isLatLngAltResult(coords)) {
       flashMsg = cancelMsg
       await render()
       return
@@ -5535,6 +5588,12 @@ async function onPlaceMenu(id: string): Promise<void> {
     await render()
     return
   }
+  if (!isLatLngAltResult(coords)) {
+    notifyPlaceHub(PLACE_REVIEW_CANCEL_MSG)
+    view = 'places'
+    await render()
+    return
+  }
   const newName = String(coords.name ?? name).trim() || name
   const newAdrs = String(coords.adrs ?? '').trim()
   let newPosac =
@@ -5599,7 +5658,8 @@ async function pickPlaceRegistrationGeo(opts?: {
     altac?: string
   }
   status?: (text: string) => void
-}): Promise<LatLngAlt | null> {
+  seqNav?: SeqNavChrome
+}): Promise<DualPlaceGeoResult> {
   const status = opts?.status ?? (() => {})
   if (opts?.revise) {
     const seed = opts.revise
@@ -5631,6 +5691,7 @@ async function pickPlaceRegistrationGeo(opts?: {
       hideGps: true,
       tapUnset: unset,
       blankAlt: !unset && seed.alt == null,
+      seqNav: opts.seqNav,
     })
     if (!coords || coords === 'deleted' || coords === 'delete-cancelled') return null
     return coords
@@ -5692,6 +5753,7 @@ async function pickPlaceRegistrationGeo(opts?: {
       altac: PLACE_DEFAULT_ALTAC,
       titleLine: opts?.titleLine,
       flightSite: opts?.flightSite,
+      seqNav: opts?.seqNav,
     })
   } else {
     status('マップで登録点を選択…（GPSなし）')
@@ -5710,6 +5772,7 @@ async function pickPlaceRegistrationGeo(opts?: {
       altac: PLACE_DEFAULT_ALTAC,
       titleLine: opts?.titleLine,
       flightSite: opts?.flightSite,
+      seqNav: opts?.seqNav,
     })
   }
 
@@ -5728,7 +5791,7 @@ async function runPlaceNewRegister(): Promise<void> {
         showToast(text, 8000)
       },
     })
-    if (!coords) {
+    if (!isLatLngAltResult(coords)) {
       notifyPlaceHub(PLACE_NEW_CANCEL_MSG)
       view = 'places'
       return

@@ -920,6 +920,17 @@ code { font-size: 0.85em; }
 .sc-geopick-body > .sc-geopick-title {
   grid-area: title;
 }
+.sc-geopick-body > .sc-geopick-title-block {
+  grid-area: title;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.15rem;
+  min-width: 0;
+}
+.sc-geopick-title-block > .sc-geopick-title {
+  margin: 0;
+}
 .sc-geopick-body > .sc-geopick-form-pane {
   grid-area: form;
 }
@@ -1677,6 +1688,24 @@ code { font-size: 0.85em; }
   padding: 0.48rem 0.4rem;
   font-size: 0.85rem;
 }
+/* 順次ナビ時: キャンセル無し。残りボタンを等幅で画面幅いっぱいに */
+.sc-actions.sc-geopick-actions--dual,
+.sc-actions.sc-geopick-actions--fill {
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: 0.35rem;
+}
+.sc-actions.sc-geopick-actions--dual .sc-btn,
+.sc-actions.sc-geopick-actions--fill .sc-btn {
+  flex: 1 1 0;
+  width: auto;
+  min-width: 0;
+  padding: 0.5rem 0.4rem;
+  font-size: 0.85rem;
+  line-height: 1.2;
+  white-space: nowrap;
+}
 /* ケース2: 確定4ボタンは1行に横並び（文言短縮前提で幅バランス） */
 .sc-actions.sc-geopick-actions--quad {
   flex-direction: row;
@@ -1721,6 +1750,10 @@ code { font-size: 0.85em; }
     gap: 0.28rem 0.5rem;
   }
   .sc-dialog--geopick .sc-geopick-body > .sc-geopick-title {
+    min-width: 0;
+    align-self: start;
+  }
+  .sc-dialog--geopick .sc-geopick-body > .sc-geopick-title-block {
     min-width: 0;
     align-self: start;
   }

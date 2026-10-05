@@ -1510,7 +1510,7 @@ function pickerInputHtml(id: string, inputAttrs: string, value: string): string 
 const ICON_CALENDAR = `<svg class="sc-dt-combo-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V10h14v10zm0-12H5V6h14v2z"/></svg>`
 const ICON_CLOCK = `<svg class="sc-dt-combo-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm0 18c-4.4 0-8-3.6-8-8s3.6-8 8-8 8 3.6 8 8-3.6 8-8 8zm.5-13H11v6l5.2 3.2.8-1.3-4.5-2.7V7z"/></svg>`
 
-/** 文字入力＋×消去＋ネイティブピッカー（日付／時刻） */
+/** 文字入力（数字のみ自動整形）＋×消去＋ネイティブピッカー（アイコン上に重ねる） */
 function dtComboFieldHtml(
   kind: 'date' | 'time',
   textId: string,
@@ -1520,18 +1520,45 @@ function dtComboFieldHtml(
   const isDate = kind === 'date'
   const pickLabel = isDate ? 'カレンダーから選択' : '時刻ピッカーから選択'
   const icon = isDate ? ICON_CALENDAR : ICON_CLOCK
-  const placeholder = isDate ? '2026/10/05' : '00:00'
+  const placeholder = isDate ? '20261005' : '0000'
   const nativeAttrs = isDate ? 'type="date"' : 'type="time" step="60"'
   return `<div class="sc-dt-combo-field" data-kind="${kind}">
-    <input id="${textId}" class="sc-input sc-dt-combo-text" type="text" inputmode="numeric" autocomplete="off" placeholder="${placeholder}" value="${escapeHtml(textValue)}" />
+    <input id="${textId}" class="sc-input sc-dt-combo-text" type="text" inputmode="numeric" pattern="[0-9/:]*" autocomplete="off" enterkeyhint="done" placeholder="${placeholder}" value="${escapeHtml(textValue)}" />
     <button type="button" class="sc-dt-combo-clear" aria-label="消去" tabindex="-1" hidden>&times;</button>
-    <button type="button" class="sc-dt-combo-pick" aria-label="${escapeHtml(pickLabel)}" title="${escapeHtml(pickLabel)}">${icon}</button>
-    <input class="sc-dt-combo-native" ${nativeAttrs} value="${escapeHtml(nativeValue)}" tabindex="-1" aria-hidden="true" />
+    <span class="sc-dt-combo-pick" title="${escapeHtml(pickLabel)}">
+      <input class="sc-dt-combo-native" ${nativeAttrs} value="${escapeHtml(nativeValue)}" aria-label="${escapeHtml(pickLabel)}" />
+      ${icon}
+    </span>
   </div>`
 }
 
-/** yyyy/mm/dd・yyyy-mm-dd などを正規化（失敗時は空） */
+/** 数字だけ抜き出す */
+function digitsOnly(raw: string, max: number): string {
+  return raw.replace(/\D/g, '').slice(0, max)
+}
+
+/** 入力中の日付表示: 20261005 → 2026/10/05 */
+function formatYmdTyping(raw: string): string {
+  const d = digitsOnly(raw, 8)
+  if (d.length <= 4) return d
+  if (d.length <= 6) return `${d.slice(0, 4)}/${d.slice(4)}`
+  return `${d.slice(0, 4)}/${d.slice(4, 6)}/${d.slice(6)}`
+}
+
+/** 入力中の時刻表示: 1430 → 14:30、930 → 9:30 */
+function formatHmTyping(raw: string): string {
+  const d = digitsOnly(raw, 4)
+  if (d.length <= 2) return d
+  return `${d.slice(0, d.length === 3 ? 1 : 2)}:${d.slice(d.length === 3 ? 1 : 2)}`
+}
+
+/** yyyy/mm/dd・8桁数字などを正規化（失敗時は空） */
 function normalizeYmdText(raw: string): string {
+  const digits = digitsOnly(raw, 8)
+  if (digits.length === 8) {
+    const ymd = `${digits.slice(0, 4)}/${digits.slice(4, 6)}/${digits.slice(6, 8)}`
+    return parseFlightDate(`${ymd} 00:00`) ? ymd : ''
+  }
   const s = raw.trim().replace(/-/g, '/').replace(/\./g, '/')
   const m = s.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/)
   if (!m) return ''
@@ -1544,8 +1571,15 @@ function normalizeYmdText(raw: string): string {
   return parseFlightDate(`${ymd} 00:00`) ? ymd : ''
 }
 
-/** HH:mm を正規化（失敗時は空） */
+/** HH:mm・3〜4桁数字を正規化（失敗時は空） */
 function normalizeHmText(raw: string): string {
+  const digits = digitsOnly(raw, 4)
+  if (digits.length === 3 || digits.length === 4) {
+    const h = digits.length === 3 ? Number(digits[0]) : Number(digits.slice(0, 2))
+    const min = digits.length === 3 ? Number(digits.slice(1)) : Number(digits.slice(2))
+    if (h < 0 || h > 23 || min < 0 || min > 59) return ''
+    return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`
+  }
   const s = raw.trim()
   const m = s.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/)
   if (!m) return ''
@@ -1555,20 +1589,6 @@ function normalizeHmText(raw: string): string {
   return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`
 }
 
-function openNativePicker(native: HTMLInputElement): void {
-  try {
-    const anyEl = native as HTMLInputElement & { showPicker?: () => void }
-    if (typeof anyEl.showPicker === 'function') {
-      anyEl.showPicker()
-      return
-    }
-  } catch {
-    /* ignore — fall through to click */
-  }
-  native.focus()
-  native.click()
-}
-
 function wireDtComboField(field: HTMLElement): {
   text: HTMLInputElement
   getNormalized: () => string
@@ -1576,7 +1596,6 @@ function wireDtComboField(field: HTMLElement): {
 } {
   const text = field.querySelector<HTMLInputElement>('.sc-dt-combo-text')!
   const clearBtn = field.querySelector<HTMLButtonElement>('.sc-dt-combo-clear')!
-  const pickBtn = field.querySelector<HTMLButtonElement>('.sc-dt-combo-pick')!
   const native = field.querySelector<HTMLInputElement>('.sc-dt-combo-native')!
   const kind = field.dataset.kind === 'time' ? 'time' : 'date'
 
@@ -1596,6 +1615,19 @@ function wireDtComboField(field: HTMLElement): {
     }
   }
 
+  const applyTypingFormat = () => {
+    const next = kind === 'date' ? formatYmdTyping(text.value) : formatHmTyping(text.value)
+    if (next !== text.value) {
+      const end = next.length
+      text.value = next
+      try {
+        text.setSelectionRange(end, end)
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
   clearBtn.addEventListener('click', (e) => {
     e.preventDefault()
     e.stopPropagation()
@@ -1605,11 +1637,15 @@ function wireDtComboField(field: HTMLElement): {
     syncClear()
     text.focus()
   })
-  pickBtn.addEventListener('click', (e) => {
-    e.preventDefault()
-    e.stopPropagation()
-    syncNativeFromText()
-    openNativePicker(native)
+  // ピッカーはアイコン上の native が直接タップを受ける（iOS で showPicker 不可対策）
+  native.addEventListener('input', () => {
+    if (kind === 'date') {
+      text.value = native.value ? fromDateInputValue(native.value) : ''
+    } else {
+      text.value = native.value ? native.value.trim().slice(0, 5) : ''
+    }
+    text.setCustomValidity('')
+    syncClear()
   })
   native.addEventListener('change', () => {
     if (kind === 'date') {
@@ -1622,6 +1658,7 @@ function wireDtComboField(field: HTMLElement): {
   })
   text.addEventListener('input', () => {
     text.setCustomValidity('')
+    applyTypingFormat()
     syncClear()
     syncNativeFromText()
   })
@@ -4543,6 +4580,7 @@ function askDateTimeField(
           ${dtComboFieldHtml('time', 'sc-dt-time', hmText, timeNative)}
         </div>
       </div>
+      <p class="sc-dt-combo-hint">数字のみ入力可（例: 20261005／1430）。右アイコンでカレンダー・時計</p>
     </div>`
     const root = openDialogRoot()
     root.classList.add('sc-dialog--hub')
@@ -4578,7 +4616,7 @@ function askDateTimeField(
       if (!ymd) {
         dateCtl.setError(
           dateCtl.text.value.trim()
-            ? '日付は 2026/10/05 の形式で入力してください'
+            ? '日付は数字8桁（例: 20261005）で入力してください'
             : '日付を入力または選択してください',
         )
         return
@@ -4587,7 +4625,7 @@ function askDateTimeField(
       if (!hm) {
         timeCtl.setError(
           timeCtl.text.value.trim()
-            ? '時刻は 00:00 の形式で入力してください'
+            ? '時刻は数字3〜4桁（例: 1430）で入力してください'
             : '時刻を入力または選択してください',
         )
         return

@@ -446,9 +446,7 @@ async function renderMenu(): Promise<void> {
   </header>
   <main class="places-ui-main">
     <section class="card places-ui-card">
-      <div class="places-ui-list-wrap">
-        <div class="places-ui-list">${list}</div>
-      </div>
+      ${placesListPaneHtml(list)}
     </section>
   </main>`
 
@@ -460,6 +458,8 @@ async function renderMenu(): Promise<void> {
     showToast(toastMsg)
     toastMsg = ''
   }
+
+  wireListScrollCue()
 
   app.querySelectorAll<HTMLButtonElement>('[data-action]').forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -1830,14 +1830,32 @@ function syncGeopickScrollCue(root: ParentNode): void {
     pane?.querySelector<HTMLElement>('.sc-geopick-scroll') ??
     root.querySelector<HTMLElement>('.sc-geopick-scroll')
   if (!el) return
-  const overflow = el.scrollHeight > el.clientHeight + 1
-  const more = overflow && el.scrollTop + el.clientHeight < el.scrollHeight - 2
-  const less = overflow && el.scrollTop > 2
-  el.classList.toggle('sc-geopick-scroll--overflow', overflow)
-  const host = pane ?? el
+  syncScrollCueHost(pane ?? el, el)
+}
+
+/** 一覧リスト（ホーム／場所／登録データ）のスクロール溢れ目印 */
+function syncListScrollCue(root: ParentNode = app): void {
+  const pane = root.querySelector<HTMLElement>('.places-ui-list-pane')
+  const el = pane?.querySelector<HTMLElement>('.places-ui-list-wrap')
+  if (!pane || !el) return
+  syncScrollCueHost(pane, el)
+}
+
+function syncScrollCueHost(host: HTMLElement, scroller: HTMLElement): void {
+  const overflow = scroller.scrollHeight > scroller.clientHeight + 1
+  const more =
+    overflow && scroller.scrollTop + scroller.clientHeight < scroller.scrollHeight - 2
+  const less = overflow && scroller.scrollTop > 2
+  scroller.classList.toggle('sc-geopick-scroll--overflow', overflow)
   host.classList.toggle('is-scroll-overflow', overflow)
   host.classList.toggle('is-scroll-more', more)
   host.classList.toggle('is-scroll-less', less)
+}
+
+function scrollCueOverlayHtml(): string {
+  return `<div class="sc-geopick-scroll-fade sc-geopick-scroll-fade--top" aria-hidden="true"></div>
+          <div class="sc-geopick-scroll-fade sc-geopick-scroll-fade--bottom" aria-hidden="true"></div>
+          <div class="sc-geopick-scroll-hint" aria-hidden="true">▼</div>`
 }
 
 function geopickFormPaneHtml(innerScrollHtml: string): string {
@@ -1845,10 +1863,35 @@ function geopickFormPaneHtml(innerScrollHtml: string): string {
           <div class="sc-geopick-scroll sc-geopick-scroll--fill">
             ${innerScrollHtml}
           </div>
-          <div class="sc-geopick-scroll-fade sc-geopick-scroll-fade--top" aria-hidden="true"></div>
-          <div class="sc-geopick-scroll-fade sc-geopick-scroll-fade--bottom" aria-hidden="true"></div>
-          <div class="sc-geopick-scroll-hint" aria-hidden="true">▼</div>
+          ${scrollCueOverlayHtml()}
         </div>`
+}
+
+function placesListPaneHtml(listInnerHtml: string): string {
+  return `<div class="places-ui-list-pane">
+      <div class="places-ui-list-wrap">
+        <div class="places-ui-list">${listInnerHtml}</div>
+      </div>
+      ${scrollCueOverlayHtml()}
+    </div>`
+}
+
+let listScrollCueAbort: AbortController | null = null
+
+/** 一覧の溢れ目印を scroll / resize に接続（描画のたびに付け直し） */
+function wireListScrollCue(root: ParentNode = app): void {
+  listScrollCueAbort?.abort()
+  listScrollCueAbort = new AbortController()
+  const { signal } = listScrollCueAbort
+  const pane = root.querySelector<HTMLElement>('.places-ui-list-pane')
+  const wrap = pane?.querySelector<HTMLElement>('.places-ui-list-wrap')
+  if (!pane || !wrap) return
+  const sync = () => syncListScrollCue(root)
+  wrap.addEventListener('scroll', sync, { passive: true, signal })
+  window.addEventListener('resize', sync, { signal })
+  window.visualViewport?.addEventListener('resize', sync, { signal })
+  requestAnimationFrame(sync)
+  window.setTimeout(sync, 120)
 }
 
 function fitGeopickMapHeight(
@@ -4488,9 +4531,7 @@ async function renderRecords(): Promise<void> {
   <main class="places-ui-main">
     <section class="card places-ui-card">
       <h2 class="places-ui-section">${escapeHtml(REC_HUB_SECTION(keys.length))}</h2>
-      <div class="places-ui-list-wrap">
-        <div class="places-ui-list">${rowsHtml}</div>
-      </div>
+      ${placesListPaneHtml(rowsHtml)}
     </section>
   </main>`
 
@@ -4502,6 +4543,8 @@ async function renderRecords(): Promise<void> {
     showToast(toastMsg)
     toastMsg = ''
   }
+
+  wireListScrollCue()
 
   app.querySelector('#records-back')!.addEventListener('click', () => {
     view = 'menu'
@@ -4929,9 +4972,7 @@ async function renderPlaces(): Promise<void> {
     <button type="button" class="places-ui-new" id="places-ui-new">${escapeHtml(PLACE_HUB_NEW)}</button>
     <section class="card places-ui-card">
       <h2 class="places-ui-section">${escapeHtml(PLACE_HUB_SECTION(names.length))}</h2>
-      <div class="places-ui-list-wrap">
-        <div class="places-ui-list">${rowsHtml}</div>
-      </div>
+      ${placesListPaneHtml(rowsHtml)}
     </section>
   </main>`
 
@@ -4939,6 +4980,8 @@ async function renderPlaces(): Promise<void> {
     showToast(toastMsg)
     toastMsg = ''
   }
+
+  wireListScrollCue()
 
   app.querySelector('#places-ui-back')!.addEventListener('click', () => {
     view = 'menu'

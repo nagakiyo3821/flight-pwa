@@ -2139,6 +2139,10 @@ html.places-ui-lock body {
   padding: 0;
   overflow: hidden;
 }
+/* ホームなどセクション無しカードは余り高さをリストに渡す */
+.places-ui-card:not(:has(.places-ui-section)) {
+  flex: 1 1 auto;
+}
 .places-ui-section {
   flex: 0 0 auto;
   margin: 0;
@@ -2150,14 +2154,50 @@ html.places-ui-lock body {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
+/* 一覧スクロール＋溢れ目印（geopick と同系の ▼／フェード） */
+.places-ui-list-pane {
+  position: relative;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
 .places-ui-list-wrap {
   position: relative;
-  flex: 0 1 auto;
+  flex: 1 1 auto;
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgb(90 109 120 / 55%) transparent;
+}
+.places-ui-list-wrap::-webkit-scrollbar {
+  width: 5px;
+}
+.places-ui-list-wrap::-webkit-scrollbar-thumb {
+  background: rgb(90 109 120 / 45%);
+  border-radius: 4px;
+}
+.places-ui-list-pane .sc-geopick-scroll-fade--top {
+  background: linear-gradient(to bottom, var(--card) 10%, transparent);
+}
+.places-ui-list-pane .sc-geopick-scroll-fade--bottom {
+  background: linear-gradient(to top, var(--card) 18%, transparent);
+}
+.places-ui-list-pane.is-scroll-more .sc-geopick-scroll-fade--bottom,
+.places-ui-list-pane.is-scroll-less .sc-geopick-scroll-fade--top {
+  opacity: 1;
+}
+.places-ui-list-pane.is-scroll-more .sc-geopick-scroll-hint {
+  opacity: 0.95;
+}
+.places-ui-list-pane .sc-geopick-scroll-hint {
+  text-shadow:
+    0 0 0.35rem var(--card),
+    0 0 0.7rem var(--card);
 }
 .places-ui-list {
   display: flex;

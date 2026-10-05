@@ -4612,7 +4612,7 @@ async function renderEditList(kind: 'A' | 'B' | 'F'): Promise<void> {
           { id: 'empty', text: CMD_EMPTY },
         ]
 
-  const cmdGrid = cmdRows.length > 3 ? ' places-ui-cmds--grid' : ''
+  const cmdWrap = cmdRows.length > 3 ? ' places-ui-cmds--wrap' : ''
   const cmdHtml = cmdRows
     .map(
       (it) =>
@@ -4646,7 +4646,7 @@ async function renderEditList(kind: 'A' | 'B' | 'F'): Promise<void> {
     </div>
   </header>
   <main class="places-ui-main">
-    <div class="places-ui-cmds${cmdGrid}">${cmdHtml}</div>
+    <div class="places-ui-cmds${cmdWrap}">${cmdHtml}</div>
     <section class="card places-ui-card">
       <h2 class="places-ui-section">${escapeHtml(EDIT_HUB_SECTION_ITEMS(fields.length))}</h2>
       ${placesListPaneHtml(fieldHtml)}

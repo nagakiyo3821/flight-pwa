@@ -2135,38 +2135,44 @@ html.places-ui-lock body {
     filter: brightness(1.06);
   }
 }
-/* 項目修正: 操作コマンド（場所の「新規」と同系・アウトライン） */
+/* 項目修正: 操作コマンド（geopick 確定 .sc-btn-ok と同色・横1行） */
 .places-ui-cmds {
   flex: 0 0 auto;
   display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: 0.35rem;
 }
-.places-ui-cmds--grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.4rem;
+.places-ui-cmds--wrap {
+  flex-wrap: wrap;
 }
 .places-ui-cmd {
+  flex: 1 1 0;
   display: block;
-  width: 100%;
+  width: auto;
+  min-width: 0;
   margin: 0;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid var(--accent);
+  padding: 0.48rem 0.35rem;
+  border: none;
   border-radius: 8px;
-  background: #fff;
-  color: var(--accent);
+  background: var(--accent);
+  color: #fff;
   font: inherit;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
-  line-height: 1.25;
+  line-height: 1.2;
+  white-space: nowrap;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
+.places-ui-cmds--wrap .places-ui-cmd {
+  flex: 1 1 calc(33.333% - 0.25rem);
+}
 .places-ui-cmd:active {
-  background: var(--accent-soft);
+  opacity: 0.88;
 }
 .places-ui-cmd:focus {
   outline: none;
@@ -2176,21 +2182,15 @@ html.places-ui-lock body {
   outline-offset: 2px;
 }
 .places-ui-cmd--danger {
-  color: #e53935;
-  border-color: #e53935;
-}
-.places-ui-cmd--danger:active {
-  background: rgb(229 57 53 / 10%);
+  background: #e53935;
+  color: #fff;
 }
 .places-ui-cmd--danger:focus-visible {
   outline-color: #e53935;
 }
 @media (hover: hover) and (pointer: fine) {
   .places-ui-cmd:hover {
-    background: var(--accent-soft);
-  }
-  .places-ui-cmd--danger:hover {
-    background: rgb(229 57 53 / 10%);
+    filter: brightness(1.06);
   }
 }
 .places-ui-card {

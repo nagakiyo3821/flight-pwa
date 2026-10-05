@@ -164,12 +164,21 @@ export function fieldEntryGuide(no: number, fallbackLabel?: string): string {
   return FIELD_PROMPT_BODY[no] ?? `${no}.${fallbackLabel ?? ''}`
 }
 
-/** 説明文内の現在値行（字幕には出さない） */
+/** 説明文内の現在値行（「・」箇条書きの本文位置に字下げ） */
 export function currentValueLine(currentDisplay: string): string {
   const raw = String(currentDisplay ?? '').trim()
   const shown =
     raw.startsWith('(') || raw === '(-)' ? raw : parenData(raw)
-  return `現在値${shown}`
+  // 全角スペース1つ = 「・」の幅に合わせ、先頭を箇条本文と揃える
+  return `　現在値${shown}`
+}
+
+/** A_DRONE「機種_識別」から機種／識別を取り出す */
+function droneParts(current: string): { type: string; id: string } {
+  const s = String(current ?? '').trim()
+  const i = s.indexOf('_')
+  if (i < 0) return { type: s, id: '' }
+  return { type: s.slice(0, i).trim(), id: s.slice(i + 1).trim() }
 }
 
 export type FieldEntryChrome = {
@@ -179,7 +188,7 @@ export type FieldEntryChrome = {
   guide: string
 }
 
-/** 1〜63 個別入力のヘッダ。現在値は説明文へ */
+/** 1〜63 個別入力のヘッダ。現在値は説明文へ（字下げ） */
 export function fieldEntryChrome(
   no: number,
   label: string,
@@ -195,17 +204,20 @@ export function fieldEntryChrome(
 
 /** 項目1 機種選択の説明 */
 export function droneTypeGuide(current: string): string {
-  return `${FIELD_PROMPT_BODY[1]}\n${currentValueLine(current)}\n・機種名を選択`
+  const { type } = droneParts(current)
+  return `${FIELD_PROMPT_BODY[1]}\n${currentValueLine(current)}\n・機種名を選択\n${currentValueLine(type || '?')}`
 }
 
 /** 項目1 識別番号選択の説明 */
 export function droneIdGuide(current: string, typeName: string): string {
-  return `${FIELD_PROMPT_BODY[1]}\n${currentValueLine(current)}\n・機種名を選択\n${currentValueLine(typeName)}\n・機体識別番号を選択`
+  const { id } = droneParts(current)
+  return `${FIELD_PROMPT_BODY[1]}\n${currentValueLine(current)}\n・機種名を選択\n${currentValueLine(typeName)}\n・機体識別番号を選択\n${currentValueLine(id || '?')}`
 }
 
 /** 項目1 識別番号任意入力の説明 */
 export function droneIdInputGuide(current: string, typeName: string): string {
-  return `${FIELD_PROMPT_BODY[1]}\n${currentValueLine(current)}\n・機種名を選択\n${currentValueLine(typeName)}\n・機体識別番号を入力`
+  const { id } = droneParts(current)
+  return `${FIELD_PROMPT_BODY[1]}\n${currentValueLine(current)}\n・機種名を選択\n${currentValueLine(typeName)}\n・機体識別番号を入力\n${currentValueLine(id || '?')}`
 }
 
 /** 項目1 機種選択プロンプト（ショートカット19 テキスト158 系・フォールバック用） */

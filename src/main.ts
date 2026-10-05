@@ -532,13 +532,13 @@ function promptToFieldChrome(prompt: string): FieldEntryChrome {
   const content: string[] = []
   for (const line of lines) {
     const t = line.trim()
-    // `(値)` だけの行は説明文内の「現在値(…)」へ（字幕には出さない）
+    // `(値)` / 現在値(値) は説明文内へ字下げ（字幕には出さない）
     if (/^\([^)]*\)$/.test(t)) {
-      content.push(`現在値${t}`)
+      content.push(`　現在値${t}`)
       continue
     }
-    if (/^現在値\s*\(/.test(t)) {
-      content.push(t.replace(/^現在値\s*/, '現在値'))
+    if (/^　?現在値\s*\(/.test(t)) {
+      content.push(`　${t.replace(/^　?現在値\s*/, '現在値')}`)
       continue
     }
     content.push(line)

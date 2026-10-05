@@ -28,6 +28,12 @@ export const CMD_BACK = '#戻る'
 export const CMD_DATASET = '#データセット'
 export const CMD_ALL = '#全項目'
 export const CMD_EMPTY = '#?項目'
+
+/** 順次編集ナビ（# なし表示） */
+export const SEQ_NAV_PREV = '＜前の項目'
+export const SEQ_NAV_NEXT = '次の項目＞'
+export const SEQ_NAV_MODE_ALL = '全項目'
+export const SEQ_NAV_MODE_EMPTY = '?項目'
 export const CMD_DELETE = '#データ削除'
 export const CMD_COMMIT = '#データ登録'
 export const CMD_RESET = '#データリセット'

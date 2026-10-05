@@ -87,6 +87,10 @@ import {
   CMD_DATASET,
   CMD_DELETE,
   CMD_EMPTY,
+  SEQ_NAV_MODE_ALL,
+  SEQ_NAV_MODE_EMPTY,
+  SEQ_NAV_NEXT,
+  SEQ_NAV_PREV,
   CMD_LANDING,
   CMD_RESET,
   CMD_TAKEOFF,
@@ -560,13 +564,52 @@ function promptToFieldChrome(prompt: string): FieldEntryChrome {
   }
 }
 
+/** 全項目／?項目の順次ナビ。個別編集時は未設定 */
+type SeqNavChrome = {
+  modeLabel: string
+  canPrev: boolean
+  canNext: boolean
+}
+
+const FIELD_NAV_PREV = '__FIELD_NAV__:prev'
+const FIELD_NAV_NEXT = '__FIELD_NAV__:next'
+
+function isFieldNavToken(v: string | null | undefined): boolean {
+  return v === FIELD_NAV_PREV || v === FIELD_NAV_NEXT
+}
+
+function wireSeqNavButtons(
+  root: ParentNode,
+  finish: (value: string | null) => void,
+): void {
+  root.querySelector('#sc-seq-prev')?.addEventListener('click', (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const btn = e.currentTarget as HTMLButtonElement
+    if (btn.disabled) return
+    finish(FIELD_NAV_PREV)
+  })
+  root.querySelector('#sc-seq-next')?.addEventListener('click', (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const btn = e.currentTarget as HTMLButtonElement
+    if (btn.disabled) return
+    finish(FIELD_NAV_NEXT)
+  })
+}
+
 function dialogShell(
   promptHtml: string,
   bodyHtml: string,
   actionsHtml: string,
   detailHtml = '',
   panelClass = '',
-  opts: { withHeadBack?: boolean; subtitleHtml?: string; guideHtml?: string } = {},
+  opts: {
+    withHeadBack?: boolean
+    subtitleHtml?: string
+    guideHtml?: string
+    seqNav?: SeqNavChrome
+  } = {},
 ): string {
   const detail = detailHtml
     ? `<div class="sc-dialog-detail">${detailHtml}</div>`
@@ -579,14 +622,25 @@ function dialogShell(
         <span>${escapeHtml(ITEM_BACK)}</span>
       </button>`
     : ''
+  const seq = opts.seqNav
+    ? `<div class="sc-seq-nav" role="group" aria-label="項目移動">
+        <button type="button" class="sc-seq-nav-btn" id="sc-seq-prev"${opts.seqNav.canPrev ? '' : ' disabled aria-disabled="true"'}>${escapeHtml(SEQ_NAV_PREV)}</button>
+        <span class="sc-seq-nav-mode">${escapeHtml(opts.seqNav.modeLabel)}</span>
+        <button type="button" class="sc-seq-nav-btn" id="sc-seq-next"${opts.seqNav.canNext ? '' : ' disabled aria-disabled="true"'}>${escapeHtml(SEQ_NAV_NEXT)}</button>
+      </div>`
+    : ''
+  const topNav =
+    opts.withHeadBack || opts.seqNav
+      ? `<div class="sc-dialog-top-nav">${back}${seq}</div>`
+      : ''
   const hasPrompt = String(promptHtml ?? '').trim().length > 0
   const sub = opts.subtitleHtml
     ? `<p class="prompt-sub sc-dialog-sub">${opts.subtitleHtml}</p>`
     : ''
   const head =
-    hasPrompt || opts.withHeadBack
-      ? `<header class="sc-dialog-head${opts.withHeadBack ? ' top--with-back' : ''}">
-        ${back}
+    hasPrompt || opts.withHeadBack || opts.seqNav
+      ? `<header class="sc-dialog-head${opts.withHeadBack || opts.seqNav ? ' top--with-back' : ''}">
+        ${topNav}
         <div class="top-titles">
           <div class="sc-dialog-title-row">
             <h1 class="prompt sc-dialog-prompt places-ui-title-text">${hasPrompt ? promptHtml : '&nbsp;'}</h1>
@@ -853,6 +907,7 @@ function chooseFromList(
     withBackButton?: boolean
     detail?: string
     chrome?: FieldEntryChrome
+    seqNav?: SeqNavChrome
   } = { withBackButton: true },
 ): Promise<string | null> {
   return new Promise((resolve) => {
@@ -880,6 +935,7 @@ function chooseFromList(
         withHeadBack: withBack,
         subtitleHtml: head.subtitleHtml,
         guideHtml: head.guidePrefix,
+        seqNav: opts.seqNav,
       },
     )
     wireListScrollCue(root)
@@ -902,16 +958,18 @@ function chooseFromList(
       e.stopPropagation()
       finish(null)
     })
+    wireSeqNavButtons(root, finish)
   })
 }
 
-/** 複数選択（飛行条件など）。確定／戻るは下部ボタン */
+/** 複数選択（飛行条件など）。確定／戻るは下部ボタン。順次ナビ時は prev/next トークンも返す */
 function chooseFromListMulti(
   prompt: string,
   choices: string[],
   preselected: string[] = [],
   chrome?: FieldEntryChrome,
-): Promise<string[] | null> {
+  seqNav?: SeqNavChrome,
+): Promise<string[] | typeof FIELD_NAV_PREV | typeof FIELD_NAV_NEXT | null> {
   return new Promise((resolve) => {
     const selected = new Set(preselected.filter((x) => choices.includes(x)))
     const root = openDialogRoot()
@@ -940,6 +998,7 @@ function chooseFromListMulti(
         withHeadBack: true,
         subtitleHtml: hub.subtitleHtml,
         guideHtml: hub.guidePrefix,
+        seqNav,
       },
     )
     wireListScrollCue(root)
@@ -958,15 +1017,24 @@ function chooseFromListMulti(
       })
     }
     wire()
+    let done = false
+    const finish = (value: string[] | typeof FIELD_NAV_PREV | typeof FIELD_NAV_NEXT | null) => {
+      if (done) return
+      done = true
+      closeDialogSafely(root, () => resolve(value))
+    }
     root.querySelector('#sc-ok')!.addEventListener('click', (e) => {
       e.preventDefault()
       e.stopPropagation()
-      closeDialogSafely(root, () => resolve([...selected]))
+      finish([...selected])
     })
     root.querySelector('#sc-back')!.addEventListener('click', (e) => {
       e.preventDefault()
       e.stopPropagation()
-      closeDialogSafely(root, () => resolve(null))
+      finish(null)
+    })
+    wireSeqNavButtons(root, (v) => {
+      if (v === FIELD_NAV_PREV || v === FIELD_NAV_NEXT) finish(v)
     })
   })
 }
@@ -1004,7 +1072,7 @@ function askText(
   initial: string,
   mode: 'text' | 'number' = 'text',
   chrome?: FieldEntryChrome,
-  opts?: { required?: boolean; requiredMessage?: string },
+  opts?: { required?: boolean; requiredMessage?: string; seqNav?: SeqNavChrome },
 ): Promise<string | null> {
   return new Promise((resolve) => {
     const root = openDialogRoot()
@@ -1025,6 +1093,7 @@ function askText(
         withHeadBack: true,
         subtitleHtml: hub.subtitleHtml,
         guideHtml: hub.guidePrefix,
+        seqNav: opts?.seqNav,
       },
     )
     wireClearableInputs(root)
@@ -1070,6 +1139,7 @@ function askText(
     })
     root.querySelector('#sc-ok')!.addEventListener('click', confirm)
     root.querySelector('#sc-back')!.addEventListener('click', () => finish(null))
+    wireSeqNavButtons(root, finish)
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') confirm()
       if (e.key === 'Escape') finish(null)
@@ -1111,6 +1181,7 @@ function askDate(
   prompt: string,
   initialYmd: string,
   chrome?: FieldEntryChrome,
+  seqNav?: SeqNavChrome,
 ): Promise<string | null> {
   return new Promise((resolve) => {
     const root = openDialogRoot()
@@ -1128,6 +1199,7 @@ function askDate(
         withHeadBack: true,
         subtitleHtml: hub.subtitleHtml,
         guideHtml: hub.guidePrefix,
+        seqNav,
       },
     )
     wireClearableInputs(root)
@@ -1150,6 +1222,7 @@ function askDate(
     }
     root.querySelector('#sc-ok')!.addEventListener('click', confirm)
     root.querySelector('#sc-back')!.addEventListener('click', () => finish(null))
+    wireSeqNavButtons(root, finish)
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') confirm()
       if (e.key === 'Escape') finish(null)
@@ -1165,6 +1238,7 @@ function askTime(
   prompt: string,
   initialHm: string,
   chrome?: FieldEntryChrome,
+  seqNav?: SeqNavChrome,
 ): Promise<string | null> {
   return new Promise((resolve) => {
     const root = openDialogRoot()
@@ -1182,6 +1256,7 @@ function askTime(
         withHeadBack: true,
         subtitleHtml: hub.subtitleHtml,
         guideHtml: hub.guidePrefix,
+        seqNav,
       },
     )
     wireClearableInputs(root)
@@ -1206,6 +1281,7 @@ function askTime(
     }
     root.querySelector('#sc-ok')!.addEventListener('click', confirm)
     root.querySelector('#sc-back')!.addEventListener('click', () => finish(null))
+    wireSeqNavButtons(root, finish)
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') confirm()
       if (e.key === 'Escape') finish(null)
@@ -4110,7 +4186,11 @@ function fieldChrome(f: FieldDef, rec: FlightRecord): FieldEntryChrome {
  * datetime / flightDuration は離着陸・飛行時間の3値同期。
  * 項目1（A_DRONE）は機種3択 → 識別番号選択（任意入力可）。
  */
-async function editOneField(f: FieldDef, rec: FlightRecord): Promise<string | null> {
+async function editOneField(
+  f: FieldDef,
+  rec: FlightRecord,
+  seqNav?: SeqNavChrome,
+): Promise<string | null> {
   if (f.input === 'readonly') return ''
 
   if (f.input === 'flightDuration') {
@@ -4120,8 +4200,8 @@ async function editOneField(f: FieldDef, rec: FlightRecord): Promise<string | nu
     }
     hydrateFlightDurationCache(rec.A_DATE, rec.B_DATE)
     const cur = displayFlightHm(rec.A_DATE, rec.B_DATE) || '00:00'
-    const raw = await askTime(fieldPrompt(f, cur), cur, fieldChrome(f, rec))
-    if (raw === null) return null
+    const raw = await askTime(fieldPrompt(f, cur), cur, fieldChrome(f, rec), seqNav)
+    if (raw === null || isFieldNavToken(raw)) return raw
     const synced = syncAfterFlightDuration(rec.A_DATE, rec.B_DATE, raw)
     if ('error' in synced) {
       flashMsg = synced.error
@@ -4134,16 +4214,16 @@ async function editOneField(f: FieldDef, rec: FlightRecord): Promise<string | nu
   const cur = rec[f.key] ?? ''
 
   if (f.input === 'datetime' && (f.key === 'A_DATE' || f.key === 'B_DATE')) {
-    return askDateTimeField(f, cur)
+    return askDateTimeField(f, cur, seqNav)
   }
 
   if (f.input === 'time') {
     const initial = toTimeInputValue(String(cur).trim()) || '00:00'
-    return askTime(fieldPrompt(f, cur), initial, fieldChrome(f, rec))
+    return askTime(fieldPrompt(f, cur), initial, fieldChrome(f, rec), seqNav)
   }
 
   if (f.key === 'A_DRONE') {
-    return editDroneField(cur, fieldChrome(f, rec))
+    return editDroneField(cur, fieldChrome(f, rec), seqNav)
   }
 
   const drone = droneTypeFrom(rec.A_DRONE)
@@ -4171,27 +4251,34 @@ async function editOneField(f: FieldDef, rec: FlightRecord): Promise<string | nu
 
     if (f.multi) {
       const pre = cur.split('+').map((s) => s.trim()).filter(Boolean)
-      const picked = await chooseFromListMulti(prompt, opts, pre, chrome)
+      const picked = await chooseFromListMulti(prompt, opts, pre, chrome, seqNav)
       if (picked === null) return null
+      if (picked === FIELD_NAV_PREV || picked === FIELD_NAV_NEXT) return picked
       return picked.join('+')
     }
 
     const customLabel = resolveCustomLabel(f)
     const choices = [...opts]
     if (f.allowCustom) choices.push(customLabel)
-    const selected = await chooseFromList(prompt, choices, { chrome })
-    if (selected === null) return null
+    const selected = await chooseFromList(prompt, choices, { chrome, seqNav })
+    if (selected === null || isFieldNavToken(selected)) return selected
     if (f.allowCustom && selected === customLabel) {
-      return askText(prompt, cur === '?' ? '' : cur, 'text', chrome)
+      return askText(prompt, cur === '?' ? '' : cur, 'text', chrome, { seqNav })
     }
     return selected
   }
 
-  return askText(prompt, cur, f.input === 'number' ? 'number' : 'text', chrome)
+  return askText(prompt, cur, f.input === 'number' ? 'number' : 'text', chrome, {
+    seqNav,
+  })
 }
 
 /** ショートカット同様: 月日（カレンダー）→ 時間（時分ピッカー） */
-async function askDateTimeField(f: FieldDef, current: string): Promise<string | null> {
+async function askDateTimeField(
+  f: FieldDef,
+  current: string,
+  seqNav?: SeqNavChrome,
+): Promise<string | null> {
   const parsed = parseFlightDate(current)
   const isTakeoff = f.key === 'A_DATE'
   const ymdPrompt = isTakeoff
@@ -4204,18 +4291,28 @@ async function askDateTimeField(f: FieldDef, current: string): Promise<string | 
   const hmDraft = parsed ? formatHmFromDate(parsed) : ''
 
   const baseChrome = fieldEntryChrome(f.no, f.label, parenData(current))
-  const ymd = await askDate(ymdPrompt, ymdDraft, {
-    ...baseChrome,
-    subtitle: '',
-    guide: `${ymdPrompt}\n${currentValueLine(current)}`,
-  })
-  if (ymd === null) return null
-  const hm = await askTime(hmPrompt, hmDraft || '00:00', {
-    ...baseChrome,
-    subtitle: '',
-    guide: `${hmPrompt}\n${currentValueLine(current)}`,
-  })
-  if (hm === null) return null
+  const ymd = await askDate(
+    ymdPrompt,
+    ymdDraft,
+    {
+      ...baseChrome,
+      subtitle: '',
+      guide: `${ymdPrompt}\n${currentValueLine(current)}`,
+    },
+    seqNav,
+  )
+  if (ymd === null || isFieldNavToken(ymd)) return ymd
+  const hm = await askTime(
+    hmPrompt,
+    hmDraft || '00:00',
+    {
+      ...baseChrome,
+      subtitle: '',
+      guide: `${hmPrompt}\n${currentValueLine(current)}`,
+    },
+    seqNav,
+  )
+  if (hm === null || isFieldNavToken(hm)) return hm
   const combined = combineYmdAndHm(ymd, hm)
   if (!combined) {
     flashMsg = '日時の組み合わせが不正です'
@@ -4228,12 +4325,15 @@ async function askDateTimeField(f: FieldDef, current: string): Promise<string | 
 async function editDroneField(
   current: string,
   chrome: FieldEntryChrome,
+  seqNav?: SeqNavChrome,
 ): Promise<string | null> {
   const types = getDroneTypes()
   const typeSel = await chooseFromList(droneTypePrompt(current), types, {
     chrome: { ...chrome, subtitle: '', guide: droneTypeGuide(current) },
+    seqNav,
   })
-  if (typeSel === null || !isKnownDroneType(typeSel)) return null
+  if (typeSel === null || isFieldNavToken(typeSel)) return typeSel
+  if (!isKnownDroneType(typeSel)) return null
 
   const customId = getLabel('droneIdCustom')
   const ids = [...getDroneIds(typeSel), customId]
@@ -4244,8 +4344,9 @@ async function editDroneField(
   }
   const idSel = await chooseFromList(droneIdPrompt(current, typeSel), ids, {
     chrome: idChrome,
+    seqNav,
   })
-  if (idSel === null) return null
+  if (idSel === null || isFieldNavToken(idSel)) return idSel
 
   let id = idSel
   if (idSel === customId) {
@@ -4261,9 +4362,10 @@ async function editDroneField(
       {
         required: true,
         requiredMessage: '機体識別番号を入力してください',
+        seqNav,
       },
     )
-    if (typed === null) return null
+    if (typed === null || isFieldNavToken(typed)) return typed
     id = typed.trim()
   }
 
@@ -4286,25 +4388,74 @@ function flightSiteSide(key: string | null | undefined): 'takeoff' | 'landing' |
   return null
 }
 
-/** #全項目 / #?項目 / 個別: 1項目ずつ設定して保存 */
-async function runSequentialFields(fields: FieldDef[]): Promise<'done' | 'abort'> {
-  let { rec } = await getWorking()
-  hydrateFlightDurationCache(rec.A_DATE, rec.B_DATE)
-  const revisedSite = new Set<'takeoff' | 'landing'>()
+type SeqWorkItem =
+  | { kind: 'field'; f: FieldDef }
+  | { kind: 'site'; side: 'takeoff' | 'landing' }
+
+function buildSeqWorkItems(fields: FieldDef[]): SeqWorkItem[] {
+  const items: SeqWorkItem[] = []
+  const seenSite = new Set<'takeoff' | 'landing'>()
   for (const f of fields) {
     if (f.input === 'readonly') continue
     if (!f.key && f.input !== 'flightDuration') continue
     const side = flightSiteSide(f.key)
     if (side) {
-      if (revisedSite.has(side)) continue
-      const ok = await reviseFlightSite(side, rec)
+      if (seenSite.has(side)) continue
+      seenSite.add(side)
+      items.push({ kind: 'site', side })
+      continue
+    }
+    items.push({ kind: 'field', f })
+  }
+  return items
+}
+
+/** #全項目 / #?項目 / 個別: 1項目ずつ設定して保存 */
+async function runSequentialFields(
+  fields: FieldDef[],
+  mode: 'all' | 'empty' | 'one' = 'one',
+): Promise<'done' | 'abort'> {
+  let { rec } = await getWorking()
+  hydrateFlightDurationCache(rec.A_DATE, rec.B_DATE)
+  const items = buildSeqWorkItems(fields)
+  if (items.length === 0) return 'done'
+
+  const modeLabel =
+    mode === 'all' ? SEQ_NAV_MODE_ALL : mode === 'empty' ? SEQ_NAV_MODE_EMPTY : ''
+  const showSeqNav = mode === 'all' || mode === 'empty'
+
+  let i = 0
+  while (i >= 0 && i < items.length) {
+    const item = items[i]!
+    const seqNav: SeqNavChrome | undefined = showSeqNav
+      ? {
+          modeLabel,
+          canPrev: i > 0,
+          canNext: i < items.length - 1,
+        }
+      : undefined
+
+    if (item.kind === 'site') {
+      const ok = await reviseFlightSite(item.side, rec)
       if (!ok) return 'abort'
-      revisedSite.add(side)
+      ;({ rec } = await getWorking())
+      i++
+      continue
+    }
+
+    const f = item.f
+    const next = await editOneField(f, rec, seqNav)
+    if (next === null) return 'abort'
+    if (next === FIELD_NAV_PREV) {
+      if (i > 0) i--
       ;({ rec } = await getWorking())
       continue
     }
-    const next = await editOneField(f, rec)
-    if (next === null) return 'abort'
+    if (next === FIELD_NAV_NEXT) {
+      if (i < items.length - 1) i++
+      ;({ rec } = await getWorking())
+      continue
+    }
 
     if (f.input === 'flightDuration' && next.startsWith('__FLIGHT__:')) {
       const payload = next.slice('__FLIGHT__:'.length)
@@ -4312,10 +4463,14 @@ async function runSequentialFields(fields: FieldDef[]): Promise<'done' | 'abort'
       rec = { ...rec, A_DATE: a ?? rec.A_DATE, B_DATE: b ?? rec.B_DATE }
       await saveWorking(rec)
       ;({ rec } = await getWorking())
+      i++
       continue
     }
 
-    if (!f.key) continue
+    if (!f.key) {
+      i++
+      continue
+    }
 
     if (f.key === 'A_DATE') {
       const synced = syncAfterTakeoffDate(next, rec.B_DATE)
@@ -4328,6 +4483,7 @@ async function runSequentialFields(fields: FieldDef[]): Promise<'done' | 'abort'
     }
     await saveWorking(rec)
     ;({ rec } = await getWorking())
+    i++
   }
   return 'done'
 }
@@ -5035,7 +5191,7 @@ async function onEditList(kind: 'A' | 'B' | 'F', id: string): Promise<void> {
     const meta = await getMeta()
     const { rec } = await getWorking()
     const drone = droneTypeFrom(rec.A_DRONE, meta.tmp.DRONE)
-    await runSequentialFields(editFieldsFor(kind, drone))
+    await runSequentialFields(editFieldsFor(kind, drone), 'all')
     await render()
     return
   }
@@ -5044,7 +5200,7 @@ async function onEditList(kind: 'A' | 'B' | 'F', id: string): Promise<void> {
     const { rec } = await getWorking()
     const drone = droneTypeFrom(rec.A_DRONE, meta.tmp.DRONE)
     const fields = editFieldsFor(kind, drone).filter((f) => isFieldEmpty(rec, f))
-    await runSequentialFields(fields)
+    await runSequentialFields(fields, 'empty')
     await render()
     return
   }
@@ -5055,7 +5211,7 @@ async function onEditList(kind: 'A' | 'B' | 'F', id: string): Promise<void> {
       await render()
       return
     }
-    await runSequentialFields([f])
+    await runSequentialFields([f], 'one')
     await render()
   }
 }

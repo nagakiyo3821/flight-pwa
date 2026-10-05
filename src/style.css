@@ -272,6 +272,74 @@ code { font-size: 0.85em; }
   gap: 0.2rem;
   padding-top: 0.55rem;
 }
+.sc-dialog-top-nav {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
+  width: 100%;
+  min-width: 0;
+}
+.sc-seq-nav {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.25rem;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.sc-seq-nav-mode {
+  flex: 0 0 auto;
+  padding: 0 0.15rem;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+.sc-seq-nav-btn {
+  flex: 0 1 auto;
+  margin: 0;
+  padding: 0.2rem 0.25rem;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.2;
+  white-space: nowrap;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+.sc-seq-nav-btn:active:not(:disabled) {
+  opacity: 0.65;
+}
+.sc-seq-nav-btn:focus {
+  outline: none;
+}
+.sc-seq-nav-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.sc-seq-nav-btn:disabled,
+.sc-seq-nav-btn[aria-disabled='true'] {
+  color: #b0b8bf;
+  cursor: default;
+  pointer-events: none;
+  opacity: 1;
+}
+@media (hover: hover) and (pointer: fine) {
+  .sc-seq-nav-btn:hover:not(:disabled) {
+    opacity: 0.8;
+  }
+}
 .sc-dialog-title-row {
   display: flex;
   flex-wrap: nowrap;

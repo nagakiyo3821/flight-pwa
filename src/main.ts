@@ -2196,6 +2196,27 @@ function placesListPaneHtml(listInnerHtml: string): string {
 
 let listScrollCueAbort: AbortController | null = null
 let placesUiViewportLockAbort: AbortController | null = null
+/** 項目編集リストへ戻るとき、編集前のスクロール位置を復元する */
+let pendingEditListScrollTop: number | null = null
+
+function captureEditListScroll(): void {
+  const wrap = app.querySelector<HTMLElement>('.places-ui-list-wrap')
+  pendingEditListScrollTop = wrap?.scrollTop ?? 0
+}
+
+function restoreEditListScrollIfNeeded(): void {
+  if (pendingEditListScrollTop == null) return
+  const y = pendingEditListScrollTop
+  pendingEditListScrollTop = null
+  const wrap = app.querySelector<HTMLElement>('.places-ui-list-wrap')
+  if (!wrap) return
+  const apply = () => {
+    wrap.scrollTop = y
+    syncListScrollCue(app)
+  }
+  requestAnimationFrame(apply)
+  window.setTimeout(apply, 0)
+}
 
 /** 縦画面 iOS 等で document ごとスクロールしないよう、リスト枠以外の touchmove を抑止 */
 function wirePlacesUiViewportLock(enabled: boolean): void {
@@ -5163,6 +5184,7 @@ async function renderEditList(kind: 'A' | 'B' | 'F'): Promise<void> {
   }
 
   wireListScrollCue()
+  restoreEditListScrollIfNeeded()
 
   app.querySelector('#edit-hub-back')!.addEventListener('click', () => {
     void onEditList(kind, 'back').catch((e) => {
@@ -5245,6 +5267,7 @@ async function onEditList(kind: 'A' | 'B' | 'F', id: string): Promise<void> {
     const meta = await getMeta()
     const { rec } = await getWorking()
     const drone = droneTypeFrom(rec.A_DRONE, meta.tmp.DRONE)
+    captureEditListScroll()
     await runSequentialFields(editFieldsFor(kind, drone), 'all')
     await render()
     return
@@ -5254,6 +5277,7 @@ async function onEditList(kind: 'A' | 'B' | 'F', id: string): Promise<void> {
     const { rec } = await getWorking()
     const drone = droneTypeFrom(rec.A_DRONE, meta.tmp.DRONE)
     const fields = editFieldsFor(kind, drone).filter((f) => isFieldEmpty(rec, f))
+    captureEditListScroll()
     await runSequentialFields(fields, 'empty')
     await render()
     return
@@ -5265,6 +5289,7 @@ async function onEditList(kind: 'A' | 'B' | 'F', id: string): Promise<void> {
       await render()
       return
     }
+    captureEditListScroll()
     await runSequentialFields([f], 'one')
     await render()
   }

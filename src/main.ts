@@ -456,10 +456,10 @@ async function renderMenu(): Promise<void> {
   resetViewportScroll()
   app.innerHTML = `
   <header class="top places-ui-home-top">
-    ${topNavBarHtml({ always: true })}
     <div class="top-titles">
-      <h1 class="prompt places-ui-title">
+      <h1 class="prompt places-ui-title places-ui-title--home">
         <span class="places-ui-title-text">${escapeHtml(APP_NAME)}</span>
+        ${versionBadgeHtml('sc-dialog-top-nav-ver')}
       </h1>
       <p class="prompt-sub" id="promptSub">${titleSubtitle(t.A_SR, t.A_SS, t.TIME)}</p>
     </div>

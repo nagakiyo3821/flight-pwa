@@ -2502,7 +2502,7 @@ html.places-ui-lock body {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
-/* ホーム: 先頭行に版、下にタイトル＋SR/SS/T */
+/* ホーム（戻るなし）: 先頭行にタイトル＋版、下に SR/SS/T */
 #app.places-ui-app > .top.places-ui-home-top {
   flex-direction: column;
   align-items: stretch;
@@ -2511,6 +2511,16 @@ html.places-ui-lock body {
 }
 #app.places-ui-app > .top .sc-dialog-top-nav {
   width: 100%;
+}
+#app.places-ui-app .places-ui-title--home {
+  align-items: center;
+}
+#app.places-ui-app .places-ui-title--home .sc-geopick-ver {
+  flex: 0 0 auto;
+  margin: 0;
+  font-size: var(--sc-top-nav-fs, 14px);
+  line-height: var(--sc-top-nav-lh, 1.25);
+  font-weight: 500;
 }
 .places-ui-row.locked {
   color: var(--muted);

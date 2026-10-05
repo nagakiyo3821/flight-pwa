@@ -1115,7 +1115,6 @@ function askText(
     wireClearableInputs(root)
     const input = root.querySelector<HTMLInputElement>('#sc-input')!
     input.focus()
-    input.select()
     let done = false
     const finish = (value: string | null) => {
       if (done) return

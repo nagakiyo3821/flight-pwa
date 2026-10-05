@@ -281,6 +281,23 @@ code { font-size: 0.85em; }
   width: 100%;
   min-width: 0;
 }
+.sc-dialog-top-nav-end {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.25rem;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.sc-dialog-top-nav-ver {
+  flex: 0 0 auto;
+  margin: 0;
+  margin-top: 0;
+  font-size: 12px;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
 .sc-seq-nav {
   display: flex;
   flex-wrap: nowrap;

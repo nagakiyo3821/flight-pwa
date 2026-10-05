@@ -597,7 +597,7 @@ function wireSeqNavButtons(
   })
 }
 
-/** 先頭ナビ: 戻る ＋（順次時）前の項目／モード／次の項目 */
+/** 先頭ナビ: 戻る ＋（順次時）前の項目／モード／次の項目 ＋ 版（右端） */
 function topNavBarHtml(
   opts: { withBack?: boolean; seqNav?: SeqNavChrome } = {},
 ): string {
@@ -614,8 +614,9 @@ function topNavBarHtml(
         <button type="button" class="sc-seq-nav-btn" id="sc-seq-next"${opts.seqNav.canNext ? '' : ' disabled aria-disabled="true"'}>${escapeHtml(SEQ_NAV_NEXT)}</button>
       </div>`
     : ''
+  const ver = `<span class="sc-geopick-ver sc-dialog-top-nav-ver">v${APP_VERSION}</span>`
   if (!back && !seq) return ''
-  return `<div class="sc-dialog-top-nav">${back}${seq}</div>`
+  return `<div class="sc-dialog-top-nav">${back}<div class="sc-dialog-top-nav-end">${seq}${ver}</div></div>`
 }
 
 function dialogShell(
@@ -644,6 +645,10 @@ function dialogShell(
   const sub = opts.subtitleHtml
     ? `<p class="prompt-sub sc-dialog-sub">${opts.subtitleHtml}</p>`
     : ''
+  // 版は戻る行へ。タイトル行は長い項目名を全幅で使う
+  const titleVer = topNav
+    ? ''
+    : `<span class="sc-geopick-ver">v${APP_VERSION}</span>`
   const head =
     hasPrompt || topNav
       ? `<header class="sc-dialog-head${topNav ? ' top--with-back' : ''}">
@@ -651,7 +656,7 @@ function dialogShell(
         <div class="top-titles">
           <div class="sc-dialog-title-row">
             <h1 class="prompt sc-dialog-prompt places-ui-title-text">${hasPrompt ? promptHtml : '&nbsp;'}</h1>
-            <span class="sc-geopick-ver">v${APP_VERSION}</span>
+            ${titleVer}
           </div>
           ${sub}
         </div>
@@ -1632,7 +1637,7 @@ function askMissingGeo(
           <div class="sc-geopick-body">
             <div class="sc-geopick-title-block">
               ${topNavBarHtml({ withBack: true })}
-              <h1 class="prompt sc-geopick-title"><span class="sc-geopick-title-stack"><span class="sc-geopick-title-line sc-geopick-title-line--main"><span class="sc-geopick-title-text">${promptHtml}</span><span class="sc-geopick-ver">v${APP_VERSION}</span></span></span></h1>
+              <h1 class="prompt sc-geopick-title"><span class="sc-geopick-title-stack"><span class="sc-geopick-title-line sc-geopick-title-line--main"><span class="sc-geopick-title-text">${promptHtml}</span></span></span></h1>
             </div>
             ${geopickFormPaneHtml(fieldsHtml)}
             <p class="sc-map-hint" id="sc-map-hint">${hint}</p>
@@ -2373,8 +2378,8 @@ function askDualPlaceGeo(opts: {
     const titleNearestHtml = isPlaceReview
       ? ''
       : `<span class="sc-geopick-title-line sc-geopick-title-line--near" id="sc-title-nearest"><span class="sc-geopick-title-ico" aria-hidden="true"><span class="sc-map-ico sc-map-ico--near sc-map-ico--inline"></span></span><span class="sc-geopick-title-near-text">最寄場所(<span class="sc-geopick-title-near-name" id="sc-title-nearest-name">${escapeHtml(nearestTitleInit.name)}</span>)</span><span class="sc-geopick-title-dist" id="sc-title-nearest-dist">${escapeHtml(nearestTitleInit.distPart)}</span></span>`
-    const titleVer = `<span class="sc-geopick-ver">v${APP_VERSION}</span>`
-    const titleMain = `<span class="sc-geopick-title-line sc-geopick-title-line--main"><span class="sc-geopick-title-text">${escapeHtml(titleLine1)}</span>${titleVer}</span>`
+    // 版は先頭＜戻る行へ。タイトルは文言フル幅
+    const titleMain = `<span class="sc-geopick-title-line sc-geopick-title-line--main"><span class="sc-geopick-title-text">${escapeHtml(titleLine1)}</span></span>`
     const titleHtml = flightChrome
       ? `<span class="sc-geopick-title-stack">${titleMain}</span>`
       : `<span class="sc-geopick-title-stack">${titleMain}<span class="sc-geopick-title-line sc-geopick-title-line--gps-tap"><span class="sc-geopick-title-ico" aria-hidden="true"><span class="${refIcoClass}"></span></span><span class="sc-geopick-title-label">${escapeHtml(refTitleLabel)}</span><span class="sc-geopick-title-pair sc-geopick-title-pair--tap"><span class="sc-map-ico sc-map-ico--tap sc-map-ico--inline" aria-hidden="true"></span>タップ地点</span></span>${titleNearestHtml}</span>`

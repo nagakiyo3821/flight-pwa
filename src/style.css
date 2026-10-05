@@ -382,12 +382,13 @@ code { font-size: 0.85em; }
 .sc-field-guide {
   flex: 0 0 auto;
   margin: 0;
-  padding: 0.4rem var(--inset-x) 0.15rem;
+  padding: 0.4rem var(--inset-x) 0.35rem;
   font-size: 0.9rem;
   line-height: 1.4;
   color: var(--ink);
   white-space: normal;
   overflow-wrap: anywhere;
+  border-bottom: 1px solid var(--line);
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }

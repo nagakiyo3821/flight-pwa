@@ -308,6 +308,7 @@ async function render(): Promise<void> {
   clearStickyFocus()
   app.classList.remove('places-ui-app')
   document.documentElement.classList.remove('places-ui-lock')
+  wirePlacesUiViewportLock(false)
   // lock 解除後にリセット（overflow:hidden 中だと効かない端末がある）
   resetViewportScroll()
   await ensureBootstrap()
@@ -321,6 +322,7 @@ async function render(): Promise<void> {
   else if (view === 'place-edit') await renderPlaceEdit()
   else await renderIO()
   resetViewportScroll()
+  wirePlacesUiViewportLock(document.documentElement.classList.contains('places-ui-lock'))
   // iOS: 描画・lock 適用後に残スクロールが戻ることがある
   requestAnimationFrame(() => {
     resetViewportScroll()
@@ -1946,6 +1948,32 @@ function placesListPaneHtml(listInnerHtml: string): string {
 }
 
 let listScrollCueAbort: AbortController | null = null
+let placesUiViewportLockAbort: AbortController | null = null
+
+/** 縦画面 iOS 等で document ごとスクロールしないよう、リスト枠以外の touchmove を抑止 */
+function wirePlacesUiViewportLock(enabled: boolean): void {
+  placesUiViewportLockAbort?.abort()
+  placesUiViewportLockAbort = null
+  if (!enabled) return
+  placesUiViewportLockAbort = new AbortController()
+  const { signal } = placesUiViewportLockAbort
+  document.addEventListener(
+    'touchmove',
+    (e) => {
+      const el = e.target
+      if (!(el instanceof Element)) return
+      if (
+        el.closest(
+          '.places-ui-list-wrap, .sc-dialog-scroll, .sc-dialog-choice-pane .places-ui-list-wrap',
+        )
+      ) {
+        return
+      }
+      e.preventDefault()
+    },
+    { passive: false, signal, capture: true },
+  )
+}
 
 /** 一覧の溢れ目印を scroll / resize に接続（描画のたびに付け直し） */
 function wireListScrollCue(root: ParentNode = app): void {

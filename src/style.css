@@ -2073,19 +2073,33 @@ button.ghost.is-busy {
 }
 
 /* —— 8.場所データ管理（一覧） —— */
-/* 画面全体スクロール禁止。リスト枠だけが縦スクロール */
-html.places-ui-lock,
-html.places-ui-lock body {
+/* 画面全体スクロール禁止。リスト枠だけが縦スクロール（縦画面 iOS も横画面と同じ固定 chrome） */
+html.places-ui-lock {
+  position: fixed;
+  inset: 0;
+  width: 100%;
   height: 100%;
+  height: 100dvh;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+html.places-ui-lock body {
+  width: 100%;
+  height: 100%;
+  height: 100dvh;
+  min-height: 0;
+  max-height: 100dvh;
+  margin: 0;
   overflow: hidden;
   overscroll-behavior: none;
 }
 #app.places-ui-app {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  width: 100%;
+  height: 100%;
   height: 100dvh;
-  max-height: 100vh;
+  min-height: 0;
   max-height: 100dvh;
   overflow: hidden;
   padding-top: env(safe-area-inset-top, 0px);
@@ -2152,7 +2166,7 @@ html.places-ui-lock body {
   white-space: nowrap;
 }
 .places-ui-main {
-  flex: 1 1 auto;
+  flex: 1 1 0;
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -2262,6 +2276,10 @@ html.places-ui-lock body {
   max-height: 100%;
   padding: 0;
   overflow: hidden;
+}
+/* セクション付き（場所／登録／項目編集）: 残り高さをリストに渡す */
+.places-ui-card:has(.places-ui-section) {
+  flex: 1 1 auto;
 }
 .places-ui-section {
   flex: 0 0 auto;

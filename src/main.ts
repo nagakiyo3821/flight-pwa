@@ -616,7 +616,11 @@ function topNavBarHtml(
     : ''
   const ver = `<span class="sc-geopick-ver sc-dialog-top-nav-ver">v${APP_VERSION}</span>`
   if (!back && !seq) return ''
-  return `<div class="sc-dialog-top-nav">${back}<div class="sc-dialog-top-nav-end">${seq}${ver}</div></div>`
+  return `<div class="sc-dialog-top-nav">
+    <div class="sc-dialog-top-nav-slot sc-dialog-top-nav-slot--start">${back}</div>
+    <div class="sc-dialog-top-nav-center">${seq}</div>
+    <div class="sc-dialog-top-nav-slot sc-dialog-top-nav-slot--end">${ver}</div>
+  </div>`
 }
 
 function dialogShell(

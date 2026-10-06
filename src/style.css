@@ -2413,12 +2413,6 @@ button.ghost.is-busy,
 }
 
 /* システムデータ管理: 他画面と同系＋横でも文字サイズ固定 */
-.places-ui-main--scroll {
-  overflow-x: hidden;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
-}
 .places-ui-card--io {
   flex: 0 0 auto;
   max-height: none;
@@ -2664,6 +2658,14 @@ html.places-ui-lock body {
   overflow: hidden;
   gap: 0.5rem;
   margin-top: 0.25rem;
+}
+/* システムデータ管理など: 本体を縦スクロール（.places-ui-main より後に置く） */
+.places-ui-main.places-ui-main--scroll {
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
 }
 .places-ui-new {
   display: block;

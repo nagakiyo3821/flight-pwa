@@ -2508,7 +2508,7 @@ function wirePlacesUiViewportLock(enabled: boolean): void {
       if (!(el instanceof Element)) return
       if (
         el.closest(
-          '.places-ui-list-wrap, .sc-dialog-scroll, .sc-dialog-choice-pane .places-ui-list-wrap',
+          '.places-ui-list-wrap, .places-ui-main--scroll, .sc-dialog-scroll, .sc-dialog-choice-pane .places-ui-list-wrap',
         )
       ) {
         return

@@ -444,10 +444,25 @@ async function renderMenu(): Promise<void> {
     { action: 'io', text: '9.システムデータ管理' },
   ]
 
+  // 1〜5 の「今」より前は済（DATA1 が後段で 0 に戻っても ✓ を維持）
+  const seqFlags = items.map((it) => it.flag).filter((f): f is string => f !== undefined)
+  const seqNow = seqFlags.findIndex((f) => f === '2')
   const list = items
-    .map((it) => {
+    .map((it, idx) => {
       const locked = it.flag !== undefined && !canOpen(it.flag)
-      return `<button type="button" class="places-ui-row${locked ? ' locked' : ''}" data-action="${it.action}" data-flag="${it.flag ?? ''}"${locked ? ' aria-disabled="true"' : ''}><span class="places-ui-row-name">${escapeHtml(it.text)}</span><span class="places-ui-row-chevron" aria-hidden="true">›</span></button>`
+      let seqCls = ''
+      let seqMark = ''
+      if (it.flag !== undefined) {
+        if (it.flag === '2') {
+          seqCls = ' places-ui-row-seq--now'
+          seqMark = '▶'
+        } else if (it.flag === '1' || (seqNow >= 0 && idx < seqNow)) {
+          seqCls = ' places-ui-row-seq--done'
+          seqMark = '✓'
+        }
+      }
+      const seq = `<span class="places-ui-row-seq${seqCls}" aria-hidden="true">${seqMark}</span>`
+      return `<button type="button" class="places-ui-row places-ui-row--home${locked ? ' locked' : ''}" data-action="${it.action}" data-flag="${it.flag ?? ''}"${locked ? ' aria-disabled="true"' : ''}>${seq}<span class="places-ui-row-name">${escapeHtml(it.text)}</span><span class="places-ui-row-chevron" aria-hidden="true">›</span></button>`
     })
     .join('')
 

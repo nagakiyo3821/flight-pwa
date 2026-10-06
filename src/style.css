@@ -2528,6 +2528,33 @@ html.places-ui-lock body {
 .places-ui-row.locked .places-ui-row-chevron {
   opacity: 0.4;
 }
+/* ルートメニューのみ: 進捗マーク＋字下げ揃え */
+.places-ui-row--home {
+  gap: 0.35rem;
+  padding: 0.55rem 0.75rem 0.55rem 0.5rem;
+}
+.places-ui-row--home .places-ui-row-seq {
+  flex: 0 0 1.1rem;
+  width: 1.1rem;
+  margin: 0;
+  font-size: 11px;
+  line-height: 1;
+  text-align: center;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+.places-ui-row--home .places-ui-row-seq--now {
+  color: var(--accent);
+  font-weight: 700;
+}
+.places-ui-row--home .places-ui-row-seq--done {
+  color: var(--muted);
+  font-weight: 600;
+  opacity: 0.85;
+}
+.places-ui-row--home.locked .places-ui-row-seq--done {
+  opacity: 0.55;
+}
 /* タイトルは geopick 1行目と同じ 18px。ボタン／リストは geopick 確定行寄りに密にする */
 .places-ui-title {
   display: flex;

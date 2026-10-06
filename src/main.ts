@@ -2734,12 +2734,15 @@ function askDualPlaceGeo(opts: {
       <div class="sc-flight-grid">
         ${flightBtn('sc-near-move', `${mapIco('near')}へ${mapIco('tap')}をコピー`, FLIGHT_NEAR_MOVE, 'near')}
         ${flightBtn('sc-near-expand', `${mapIco('near')}位置精度拡大`, FLIGHT_NEAR_EXPAND, 'near')}
-        ${flightBtn('sc-near-reset', `${mapIco('near')}初期値へ戻す`, FLIGHT_NEAR_RESET, 'near')}
+        <div class="sc-flight-grid-stack">
+          ${flightBtn('sc-near-reset', `${mapIco('near')}初期値へ戻す`, FLIGHT_NEAR_RESET, 'near')}
+          ${flightBtn('sc-pt-undo', `${mapIco('tap')}１つ前へ戻す`, FLIGHT_TAP_UNDO, 'tap')}
+        </div>
       </div>
       <div class="sc-flight-grid">
-        ${flightCopyBlue}
+        ${flightCopyBlue || '<span class="sc-flight-grid-spacer" aria-hidden="true"></span>'}
         ${flightBtn('sc-copy-near', `${mapIco('tap')}へ${mapIco('near')}をコピー`, FLIGHT_TAP_FROM_NEAR, 'tap')}
-        ${flightBtn('sc-pt-undo', `${mapIco('tap')}１つ前へ戻す`, FLIGHT_TAP_UNDO, 'tap')}
+        <span class="sc-flight-grid-spacer" aria-hidden="true"></span>
       </div>
     </div>`
     const gpsNums = flightChrome
@@ -3104,9 +3107,13 @@ function askDualPlaceGeo(opts: {
     /** 円外の精度を既定にした座標。同じ位置なら手修正を残す */
     let outsideAccAt: { lat: number; lng: number } | null = null
     /** 直前のタップ座標。位置が変わったときだけ住所・場所の手修正を解除する */
-    let lastTapPos: { lat: number; lng: number } | null = null
-    let adrsManual = false
-    let nameManual = false
+    let lastTapPos: { lat: number; lng: number } | null =
+      flightRevise && !opts.tapUnset
+        ? { lat: gps.lat, lng: gps.lng }
+        : null
+    // ケース4: 開幕は飛行記録の住所・場所名をそのまま（最寄連番へ上書きしない）。橙を動かしたら解除
+    let adrsManual = !!(flightRevise && !opts.tapUnset)
+    let nameManual = !!(flightRevise && !opts.tapUnset)
     let syncingText = false
     const nearAdjustEl = root.querySelector<HTMLElement>('#sc-near-adjust')
     const nearPosacEl = root.querySelector<HTMLInputElement>('#sc-near-posac')
@@ -3440,6 +3447,18 @@ function askDualPlaceGeo(opts: {
     const applyOutsideDefaultAccuracy = () => {
       if (!flightChrome || viewMode !== 'tap') return
       if (flightRevise && !tapCoordsOpen()) return
+      // ケース4: 開幕の記録座標のままのあいだは精度も触らない
+      if (flightRevise && adrsManual && nameManual && lastTapPos) {
+        const curLat = parseField(latEl)
+        const curLng = parseField(lngEl)
+        if (
+          curLat != null &&
+          curLng != null &&
+          sameAccPoint(curLat, curLng, lastTapPos.lat, lastTapPos.lng)
+        ) {
+          return
+        }
+      }
       const rel = flightRelation()
       if (rel === 'inside') {
         outsideAccAt = null

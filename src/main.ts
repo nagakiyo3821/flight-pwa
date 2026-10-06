@@ -6414,49 +6414,63 @@ async function renderIO(): Promise<void> {
   const clientOk = isGoogleClientConfigured()
   const signedIn = isGoogleSignedIn()
   const syncNote = syncOn
-    ? `<p class="hint settings-stub">${escapeHtml(syncNotImplementedMessage())}</p>`
-    : `<p class="hint">${escapeHtml(SETTINGS_HINT_MANUAL)}</p>`
+    ? `<p class="places-ui-io-hint places-ui-io-hint--stub">${escapeHtml(syncNotImplementedMessage())}</p>`
+    : `<p class="places-ui-io-hint">${escapeHtml(SETTINGS_HINT_MANUAL)}</p>`
+  const cmd = (id: string, label: string, opts?: { disabled?: boolean; danger?: boolean }) => {
+    const danger = opts?.danger ? ' places-ui-cmd--danger' : ''
+    const dis = opts?.disabled ? ' disabled' : ''
+    return `<button type="button" class="places-ui-cmd${danger}" id="${id}"${dis}>${escapeHtml(label)}</button>`
+  }
   const googleBlock =
     syncOn && getSettings().active === 'google'
       ? `
-      <p class="hint">Client ID: ${clientOk ? '設定あり（.env）' : '未設定 — .env に VITE_GOOGLE_CLIENT_ID を入れて dev 再起動'}</p>
-      <p class="hint">Google セッション: ${signedIn ? 'ログイン中' : '未ログイン'}</p>
-      <div class="row settings-actions">
-        <button type="button" class="ghost" id="googleLogin"${clientOk ? '' : ' disabled'}>${escapeHtml(GOOGLE_LOGIN)}</button>
-        <button type="button" class="ghost" id="googleProbe"${clientOk ? '' : ' disabled'}>${escapeHtml(GOOGLE_PROBE)}</button>
-        <button type="button" class="ghost" id="googleLogout"${signedIn ? '' : ' disabled'}>${escapeHtml(GOOGLE_LOGOUT)}</button>
+      <p class="places-ui-io-hint">Client ID: ${clientOk ? '設定あり（.env）' : '未設定 — .env に VITE_GOOGLE_CLIENT_ID を入れて dev 再起動'}</p>
+      <p class="places-ui-io-hint">Google セッション: ${signedIn ? 'ログイン中' : '未ログイン'}</p>
+      <div class="places-ui-cmds places-ui-cmds--wrap">
+        ${cmd('googleLogin', GOOGLE_LOGIN, { disabled: !clientOk })}
+        ${cmd('googleProbe', GOOGLE_PROBE, { disabled: !clientOk })}
+        ${cmd('googleLogout', GOOGLE_LOGOUT, { disabled: !signedIn })}
       </div>
-      <div class="row settings-actions">
-        <button type="button" class="ghost" id="googlePull"${clientOk ? '' : ' disabled'}>${escapeHtml(GOOGLE_PULL)}</button>
-        <button type="button" class="ghost" id="googlePush"${clientOk ? '' : ' disabled'}>${escapeHtml(GOOGLE_PUSH)}</button>
-        <button type="button" class="ghost" id="googleSync"${clientOk ? '' : ' disabled'}>${escapeHtml(GOOGLE_SYNC)}</button>
+      <div class="places-ui-cmds places-ui-cmds--wrap">
+        ${cmd('googlePull', GOOGLE_PULL, { disabled: !clientOk })}
+        ${cmd('googlePush', GOOGLE_PUSH, { disabled: !clientOk })}
+        ${cmd('googleSync', GOOGLE_SYNC, { disabled: !clientOk })}
       </div>`
       : ''
 
-  app.innerHTML = shell(
-    SYS_DATA_TITLE,
-    `
-    <section class="card io-panel" id="ioPanel">
-      <p id="msg" class="msg io-status" role="status" aria-live="polite"></p>
-
-      <h2>同期（settings）</h2>
-      <p class="hint"><strong>いま:</strong> ${escapeHtml(status)}</p>
+  app.classList.add('places-ui-app')
+  document.documentElement.classList.add('places-ui-lock')
+  resetViewportScroll()
+  app.innerHTML = `
+  <header class="top top--with-back">
+    ${topNavBarHtml({ withBack: true, backId: 'io-back', backLabel: EDIT_HUB_BACK })}
+    <div class="top-titles">
+      <h1 class="prompt places-ui-title">
+        <span class="places-ui-title-text">${escapeHtml(SYS_DATA_TITLE)}</span>
+      </h1>
+    </div>
+  </header>
+  <main class="places-ui-main places-ui-main--scroll">
+    <p id="msg" class="msg io-status" role="status" aria-live="polite"></p>
+    <section class="card places-ui-card places-ui-card--io" id="ioPanel">
+      <h2 class="places-ui-io-h">同期（settings）</h2>
+      <p class="places-ui-io-hint"><strong>いま:</strong> ${escapeHtml(status)}</p>
       ${syncNote}
       <ul class="settings-detail">${detailHtml}</ul>
-      <div class="row settings-actions">
-        <button type="button" class="ghost" id="settingsOff"${syncOn ? '' : ' disabled'}>${escapeHtml(SETTINGS_OFF)}</button>
+      <div class="places-ui-cmds">
+        ${cmd('settingsOff', SETTINGS_OFF, { disabled: !syncOn, danger: true })}
       </div>
       ${googleBlock}
-      <p class="hint">オフは接続設定だけを none に戻します（飛行データは消しません）。有効化は下の settings 取込。</p>
+      <p class="places-ui-io-hint">オフは接続設定だけを none に戻します（飛行データは消しません）。有効化は下の settings 取込。</p>
 
-      <h2>取込</h2>
-      <p class="hint">JSON を選ぶと端末の最新として反映します。サーバー障害時の復旧にも使えます。</p>
-      <div class="row">
-        <button type="button" class="ghost" id="impLog">log</button>
-        <button type="button" class="ghost" id="impPos">pos</button>
-        <button type="button" class="ghost" id="impTmp">tmp</button>
-        <button type="button" class="ghost" id="impMasters">masters</button>
-        <button type="button" class="ghost" id="impSettings">settings</button>
+      <h2 class="places-ui-io-h">取込</h2>
+      <p class="places-ui-io-hint">JSON を選ぶと端末の最新として反映します。サーバー障害時の復旧にも使えます。</p>
+      <div class="places-ui-cmds places-ui-cmds--wrap">
+        ${cmd('impLog', 'log')}
+        ${cmd('impPos', 'pos')}
+        ${cmd('impTmp', 'tmp')}
+        ${cmd('impMasters', 'masters')}
+        ${cmd('impSettings', 'settings')}
       </div>
       <div class="io-file-inputs" aria-hidden="true">
         <input type="file" id="logFile" accept="application/json,.json" />
@@ -6466,32 +6480,30 @@ async function renderIO(): Promise<void> {
         <input type="file" id="settingsFile" accept="application/json,.json" />
       </div>
 
-      <h2>書出</h2>
-      <p class="hint">準備後に出力。保存完了は OS 側のため、終了後に確認ダイアログを出します。</p>
-      <div class="row">
-        <button type="button" class="ghost" id="exLog">log</button>
-        <button type="button" class="ghost" id="exPos">pos</button>
-        <button type="button" class="ghost" id="exTmp">tmp</button>
-        <button type="button" class="ghost" id="exMasters">masters</button>
-        <button type="button" class="ghost" id="exSettings">settings</button>
+      <h2 class="places-ui-io-h">書出</h2>
+      <p class="places-ui-io-hint">準備後に出力。保存完了は OS 側のため、終了後に確認ダイアログを出します。</p>
+      <div class="places-ui-cmds places-ui-cmds--wrap">
+        ${cmd('exLog', 'log')}
+        ${cmd('exPos', 'pos')}
+        ${cmd('exTmp', 'tmp')}
+        ${cmd('exMasters', 'masters')}
+        ${cmd('exSettings', 'settings')}
       </div>
 
-      <h2>初期化（端末）</h2>
-      <p class="hint">確認後に実行。端末のみ。settings の解除は上の「サーバー同期をオフ」を使う。</p>
-      <label class="choice" style="margin:0.5rem 0">
+      <h2 class="places-ui-io-h">初期化（端末）</h2>
+      <p class="places-ui-io-hint">確認後に実行。端末のみ。settings の解除は上の「サーバー同期をオフ」を使う。</p>
+      <label class="places-ui-io-choice">
         <input type="checkbox" id="wipeServer" disabled />
         <span>サーバー上も空で上書き（準備中・現在は無効）</span>
       </label>
-      <div class="row">
-        <button type="button" class="ghost" id="rstLog">log</button>
-        <button type="button" class="ghost" id="rstPos">pos</button>
-        <button type="button" class="ghost" id="rstTmp">tmp</button>
-        <button type="button" class="ghost" id="rstMasters">masters</button>
+      <div class="places-ui-cmds places-ui-cmds--wrap">
+        ${cmd('rstLog', 'log', { danger: true })}
+        ${cmd('rstPos', 'pos', { danger: true })}
+        ${cmd('rstTmp', 'tmp', { danger: true })}
+        ${cmd('rstMasters', 'masters', { danger: true })}
       </div>
-    </section>`,
-    '',
-    { backId: 'back' },
-  )
+    </section>
+  </main>`
 
   const msg = app.querySelector('#msg')!
   const panel = app.querySelector<HTMLElement>('#ioPanel')!
@@ -6545,7 +6557,7 @@ async function renderIO(): Promise<void> {
     flashMsg = ''
   }
 
-  app.querySelector('#back')!.addEventListener('click', () => {
+  app.querySelector('#io-back')!.addEventListener('click', () => {
     if (ioBusy) return
     view = 'menu'
     void render()

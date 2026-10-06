@@ -3040,10 +3040,8 @@ html.places-ui-lock body {
   padding: var(--popup-inset);
   padding-bottom: calc(var(--popup-inset) + env(safe-area-inset-bottom, 0px));
   box-sizing: border-box;
+  /* 常に透過: 表示中も下の操作を受け取り、操作で即閉じる */
   pointer-events: none;
-}
-.toast-root.toast-root--show {
-  pointer-events: auto;
 }
 .toast-backdrop {
   position: absolute;
@@ -3051,6 +3049,7 @@ html.places-ui-lock body {
   background: rgb(26 42 50 / 45%);
   opacity: 0;
   transition: opacity 0.18s ease;
+  pointer-events: none;
 }
 .toast-root.toast-root--show .toast-backdrop {
   opacity: 1;

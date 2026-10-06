@@ -287,11 +287,38 @@ let flashMsg = ''
 /** 場所一覧向けトースト（描画後に一度だけ） */
 let toastMsg = ''
 let toastTimer: number | undefined
+let toastDismissWired = false
 const app = document.querySelector<HTMLDivElement>('#app')!
+
+function hideToast(): void {
+  const root = document.getElementById('app-toast-root')
+  if (root) root.classList.remove('toast-root--show')
+  if (toastTimer !== undefined) {
+    window.clearTimeout(toastTimer)
+    toastTimer = undefined
+  }
+}
+
+/** 表示中に画面操作したら即閉じる（下の操作はそのまま有効） */
+function onToastUserInteract(): void {
+  const root = document.getElementById('app-toast-root')
+  if (!root?.classList.contains('toast-root--show')) return
+  hideToast()
+}
+
+function wireToastDismissOnInteract(): void {
+  if (toastDismissWired) return
+  toastDismissWired = true
+  const opts: AddEventListenerOptions = { capture: true, passive: true }
+  document.addEventListener('pointerdown', onToastUserInteract, opts)
+  document.addEventListener('keydown', onToastUserInteract, opts)
+  document.addEventListener('wheel', onToastUserInteract, opts)
+}
 
 function showToast(text: string, ms = 2500): void {
   const msg = String(text ?? '').trim()
   if (!msg) return
+  wireToastDismissOnInteract()
   let root = document.getElementById('app-toast-root')
   if (!root) {
     root = document.createElement('div')
@@ -310,8 +337,7 @@ function showToast(text: string, ms = 2500): void {
   root.classList.add('toast-root--show')
   if (toastTimer !== undefined) window.clearTimeout(toastTimer)
   toastTimer = window.setTimeout(() => {
-    root!.classList.remove('toast-root--show')
-    toastTimer = undefined
+    hideToast()
   }, ms)
 }
 

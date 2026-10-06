@@ -2763,7 +2763,9 @@ html.places-ui-lock body {
   flex: 1 1 calc(50% - 0.2rem);
   white-space: normal;
   text-align: center;
-  padding: 0.62rem 0.4rem;
+  /* 場所データ管理「新規場所登録」(.places-ui-new) と同系の縦幅 */
+  padding: 0.5rem 0.4rem;
+  font-size: 14px;
   line-height: 1.25;
 }
 .places-ui-cmd:active {

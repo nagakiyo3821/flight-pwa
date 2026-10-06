@@ -455,7 +455,7 @@ async function renderMenu(): Promise<void> {
       if (it.flag !== undefined) {
         if (it.flag === '2') {
           seqCls = ' places-ui-row-seq--now'
-          seqMark = '▶'
+          seqMark = '≫'
         } else if (it.flag === '1' || (seqNow >= 0 && idx < seqNow)) {
           seqCls = ' places-ui-row-seq--done'
           seqMark = '✓'

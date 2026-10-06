@@ -2534,10 +2534,10 @@ html.places-ui-lock body {
   padding: 0.55rem 0.75rem 0.55rem 0.5rem;
 }
 .places-ui-row--home .places-ui-row-seq {
-  flex: 0 0 1.1rem;
-  width: 1.1rem;
+  flex: 0 0 1.15rem;
+  width: 1.15rem;
   margin: 0;
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1;
   text-align: center;
   -webkit-text-size-adjust: 100%;
@@ -2546,6 +2546,7 @@ html.places-ui-lock body {
 .places-ui-row--home .places-ui-row-seq--now {
   color: var(--accent);
   font-weight: 700;
+  letter-spacing: -0.04em;
 }
 .places-ui-row--home .places-ui-row-seq--done {
   color: var(--muted);

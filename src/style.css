@@ -13,6 +13,11 @@
   --content-max: 42rem;
   --pad-x: 1rem;
   --inset-x: 1.1rem;
+  /* 操作ボタン共通（ホーム cmd のコンパクト高さを全体に） */
+  --btn-pad-y: 0.36rem;
+  --btn-pad-x: 0.35rem;
+  --btn-font: 13px;
+  --btn-line: 1.2;
   font-family: "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif;
   color: var(--ink);
   background:
@@ -725,8 +730,9 @@ code { font-size: 0.85em; }
   padding: 0.45rem 0.75rem calc(0.35rem + env(safe-area-inset-bottom, 0px));
 }
 .sc-actions.sc-actions--hub .sc-btn {
-  padding: 0.5rem 0.75rem;
-  font-size: 14px;
+  padding: var(--btn-pad-y) 0.75rem;
+  font-size: var(--btn-font);
+  line-height: var(--btn-line);
 }
 /* 親パディング＋ width:100%。calc(100%-余白)+margin は使わない */
 .sc-field-block {
@@ -1904,8 +1910,9 @@ code { font-size: 0.85em; }
   z-index: 5;
 }
 .sc-actions.sc-geopick-actions .sc-btn {
-  padding: 0.5rem 0.75rem;
-  font-size: 0.9rem;
+  padding: var(--btn-pad-y) 0.75rem;
+  font-size: var(--btn-font);
+  line-height: var(--btn-line);
 }
 .sc-actions.sc-geopick-actions--triple,
 .sc-actions.sc-geopick-actions--quad {
@@ -1913,8 +1920,9 @@ code { font-size: 0.85em; }
 }
 .sc-actions.sc-geopick-actions--triple .sc-btn,
 .sc-actions.sc-geopick-actions--quad .sc-btn {
-  padding: 0.48rem 0.4rem;
-  font-size: 0.85rem;
+  padding: var(--btn-pad-y) var(--btn-pad-x);
+  font-size: var(--btn-font);
+  line-height: var(--btn-line);
 }
 /* 順次ナビ時: キャンセル無し。残りボタンを等幅で画面幅いっぱいに */
 .sc-actions.sc-geopick-actions--dual,
@@ -1929,9 +1937,9 @@ code { font-size: 0.85em; }
   flex: 1 1 0;
   width: auto;
   min-width: 0;
-  padding: 0.5rem 0.4rem;
-  font-size: 0.85rem;
-  line-height: 1.2;
+  padding: var(--btn-pad-y) var(--btn-pad-x);
+  font-size: var(--btn-font);
+  line-height: var(--btn-line);
   white-space: nowrap;
 }
 /* ケース2: 確定4ボタンは1行に横並び（文言短縮前提で幅バランス） */
@@ -1944,9 +1952,9 @@ code { font-size: 0.85em; }
   flex: 1.1 1 0;
   width: auto;
   min-width: 0;
-  padding: 0.48rem 0.28rem;
-  font-size: 0.78rem;
-  line-height: 1.2;
+  padding: var(--btn-pad-y) 0.28rem;
+  font-size: var(--btn-font);
+  line-height: var(--btn-line);
   white-space: nowrap;
 }
 .sc-actions.sc-geopick-actions--quad .sc-btn-del {
@@ -2100,8 +2108,9 @@ code { font-size: 0.85em; }
   flex: 0 0 auto;
   width: auto;
   min-width: 5.5rem;
-  padding: 0.55rem 1.4rem;
-  font-size: 0.95rem;
+  padding: var(--btn-pad-y) 1.4rem;
+  font-size: var(--btn-font);
+  line-height: var(--btn-line);
 }
 
 /*
@@ -2201,14 +2210,14 @@ code { font-size: 0.85em; }
   display: block;
   width: 100%;
   margin: 0;
-  padding: 0.78rem 1rem;
+  padding: var(--btn-pad-y) 1rem;
   border: none;
   border-top: 1px solid var(--line);
   background: #fff;
   font: inherit;
-  font-size: var(--popup-font);
+  font-size: var(--btn-font);
   font-weight: 600;
-  line-height: 1.25;
+  line-height: var(--btn-line);
   text-align: center;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
@@ -2244,9 +2253,10 @@ code { font-size: 0.85em; }
   flex: 1 1 0;
   min-width: 0;
   font: inherit;
-  font-size: 1rem;
+  font-size: var(--btn-font);
   font-weight: 600;
-  padding: 0.75rem 1rem;
+  line-height: var(--btn-line);
+  padding: var(--btn-pad-y) 0.75rem;
   border-radius: 8px;
   cursor: pointer;
   border: 1px solid transparent;
@@ -2683,16 +2693,15 @@ html.places-ui-lock body {
   flex: 0 0 auto;
   width: 100%;
   margin: 0;
-  /* .sc-geopick-actions .sc-btn 相当 */
-  padding: 0.5rem 0.75rem;
+  padding: var(--btn-pad-y) 0.75rem;
   border: none;
   border-radius: 8px;
   background: var(--accent);
   color: #fff;
   font: inherit;
-  font-size: 14px;
+  font-size: var(--btn-font);
   font-weight: 600;
-  line-height: 1.25;
+  line-height: var(--btn-line);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   -webkit-text-size-adjust: 100%;
@@ -2731,15 +2740,15 @@ html.places-ui-lock body {
   width: auto;
   min-width: 0;
   margin: 0;
-  padding: 0.48rem 0.35rem;
+  padding: var(--btn-pad-y) var(--btn-pad-x);
   border: none;
   border-radius: 8px;
   background: var(--accent);
   color: #fff;
   font: inherit;
-  font-size: 13px;
+  font-size: var(--btn-font);
   font-weight: 600;
-  line-height: 1.2;
+  line-height: var(--btn-line);
   white-space: nowrap;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
@@ -2749,7 +2758,7 @@ html.places-ui-lock body {
 .places-ui-cmds--wrap .places-ui-cmd {
   flex: 1 1 calc(33.333% - 0.25rem);
 }
-/* ホーム 6〜9: 2×2 コマンド格子（places-ui-cmd と同系） */
+/* ホーム コマンド格子（places-ui-cmd と同系・2×2） */
 .places-ui-home-cmds {
   flex: 0 0 auto;
   padding: 0.55rem 0.85rem 0.55rem;
@@ -2763,10 +2772,6 @@ html.places-ui-lock body {
   flex: 1 1 calc(50% - 0.2rem);
   white-space: normal;
   text-align: center;
-  /* 新規場所登録より一段コンパクト */
-  padding: 0.36rem 0.35rem;
-  font-size: 13px;
-  line-height: 1.2;
 }
 .places-ui-cmd:active {
   opacity: 0.88;

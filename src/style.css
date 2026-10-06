@@ -13,6 +13,9 @@
   --content-max: 42rem;
   --pad-x: 1rem;
   --inset-x: 1.1rem;
+  /* 先頭ナビ（＜戻る）上余白: safe-area + 固定。全画面で共通 */
+  --top-nav-pad: 0.5rem;
+  --top-nav-inset-top: calc(env(safe-area-inset-top, 0px) + var(--top-nav-pad));
   /* 操作ボタン共通（ホーム cmd のコンパクト高さを全体に） */
   --btn-pad-y: 0.36rem;
   --btn-pad-x: 0.35rem;
@@ -56,13 +59,13 @@ body {
   display: flex;
   justify-content: space-between;
   gap: 1rem;
-  padding: 1.25rem 0 0.5rem;
+  padding: var(--top-nav-inset-top) 0 0.35rem;
 }
 .top--with-back {
   flex-direction: column;
   align-items: flex-start;
   gap: 0.35rem;
-  padding-top: 0.85rem;
+  padding-top: var(--top-nav-inset-top);
 }
 .top-titles {
   min-width: 0;
@@ -262,7 +265,7 @@ code { font-size: 0.85em; }
   box-sizing: border-box;
 }
 .sc-dialog-head {
-  padding: 0.65rem 0 0.35rem;
+  padding: var(--top-nav-inset-top) 0 0.35rem;
   flex: 0 0 auto;
   background: var(--bg);
   position: relative;
@@ -275,7 +278,7 @@ code { font-size: 0.85em; }
   flex-direction: column;
   align-items: stretch;
   gap: 0.2rem;
-  padding-top: 0.55rem;
+  padding-top: var(--top-nav-inset-top);
 }
 .sc-dialog-top-nav {
   display: grid;
@@ -399,7 +402,8 @@ code { font-size: 0.85em; }
   font-size: 12px;
 }
 .sc-dialog--hub {
-  padding-top: env(safe-area-inset-top, 0px);
+  /* 上余白は .sc-dialog-head の --top-nav-inset-top に統一 */
+  padding-top: 0;
   /* 下端 home 帯はダイアログ背景側。確定行（白）に載せない */
   padding-bottom: env(safe-area-inset-bottom, 0px);
   box-sizing: border-box;
@@ -1117,8 +1121,8 @@ code { font-size: 0.85em; }
   width: 100%;
   max-width: min(var(--content-max), 100%);
   margin: 0 auto;
-  /* ノッチ／角R／ホーム帯など端末差は safe-area に任せ、コンテンツは禁則帯の外へ */
-  padding-top: calc(0.2rem + env(safe-area-inset-top, 0px));
+  /* 先頭ナビ上余白は全画面共通（safe-area + 0.5rem） */
+  padding-top: var(--top-nav-inset-top);
   padding-right: max(0.65rem, env(safe-area-inset-right, 0px));
   padding-bottom: calc(0.4rem + env(safe-area-inset-bottom, 0px));
   padding-left: max(0.65rem, env(safe-area-inset-left, 0px));
@@ -2569,7 +2573,8 @@ html.places-ui-lock body {
   min-height: 0;
   max-height: 100dvh;
   overflow: hidden;
-  padding-top: env(safe-area-inset-top, 0px);
+  /* 上余白は > .top の --top-nav-inset-top に統一（二重加算しない） */
+  padding-top: 0;
   padding-bottom: calc(0.5rem + env(safe-area-inset-bottom, 0px));
   box-sizing: border-box;
   /* iOS 横画面の文字拡大を抑止（geopick と同様） */
@@ -2578,11 +2583,11 @@ html.places-ui-lock body {
 }
 #app.places-ui-app > .top {
   flex: 0 0 auto;
-  padding: 0.65rem 0 0.35rem;
+  padding: var(--top-nav-inset-top) 0 0.35rem;
 }
 #app.places-ui-app > .top.top--with-back {
   gap: 0.2rem;
-  padding-top: 0.55rem;
+  padding-top: var(--top-nav-inset-top);
 }
 #app.places-ui-app .nav-back {
   font-size: 14px;
@@ -2608,7 +2613,7 @@ html.places-ui-lock body {
   flex-direction: column;
   align-items: stretch;
   gap: 0.2rem;
-  padding: 0.55rem 0 0.35rem;
+  padding: var(--top-nav-inset-top) 0 0.35rem;
 }
 #app.places-ui-app > .top .sc-dialog-top-nav {
   width: 100%;

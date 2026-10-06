@@ -2412,13 +2412,17 @@ button.ghost.is-busy,
   pointer-events: none;
 }
 
-/* システムデータ管理: 他画面と同系＋横でも文字サイズ固定 */
-.places-ui-card--io {
-  flex: 0 0 auto;
-  max-height: none;
-  overflow: visible;
-  padding: 0.75rem 0.85rem 1.1rem;
-  gap: 0;
+/* システムデータ管理: 場所一覧と同系のカード＋ list-wrap スクロール */
+#app.places-ui-app .places-ui-card.places-ui-card--io {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: 100%;
+  overflow: hidden;
+  padding: 0;
+}
+.places-ui-io-body {
+  padding: 0.75rem 0.85rem 1.15rem;
+  box-sizing: border-box;
 }
 .places-ui-card--io .places-ui-cmds {
   margin: 0.35rem 0 0.65rem;
@@ -2434,7 +2438,7 @@ button.ghost.is-busy,
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
-.places-ui-card--io .places-ui-io-h:first-child {
+.places-ui-io-body > .places-ui-io-h:first-child {
   margin-top: 0;
 }
 .places-ui-io-hint {
@@ -2465,7 +2469,7 @@ button.ghost.is-busy,
 }
 #app.places-ui-app .msg.io-status {
   flex: 0 0 auto;
-  margin: 0 0 0.5rem;
+  margin: 0;
   font-size: 13px;
   line-height: 1.35;
   -webkit-text-size-adjust: 100%;
@@ -2658,14 +2662,6 @@ html.places-ui-lock body {
   overflow: hidden;
   gap: 0.5rem;
   margin-top: 0.25rem;
-}
-/* システムデータ管理など: 本体を縦スクロール（.places-ui-main より後に置く） */
-.places-ui-main.places-ui-main--scroll {
-  overflow-x: hidden;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
-  touch-action: pan-y;
 }
 .places-ui-new {
   display: block;

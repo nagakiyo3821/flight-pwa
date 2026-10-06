@@ -2508,7 +2508,7 @@ function wirePlacesUiViewportLock(enabled: boolean): void {
       if (!(el instanceof Element)) return
       if (
         el.closest(
-          '.places-ui-list-wrap, .places-ui-main--scroll, .sc-dialog-scroll, .sc-dialog-choice-pane .places-ui-list-wrap',
+          '.places-ui-list-wrap, .sc-dialog-scroll, .sc-dialog-choice-pane .places-ui-list-wrap',
         )
       ) {
         return
@@ -6450,60 +6450,66 @@ async function renderIO(): Promise<void> {
       </h1>
     </div>
   </header>
-  <main class="places-ui-main places-ui-main--scroll">
+  <main class="places-ui-main">
     <p id="msg" class="msg io-status" role="status" aria-live="polite"></p>
     <section class="card places-ui-card places-ui-card--io" id="ioPanel">
-      <h2 class="places-ui-io-h">同期（settings）</h2>
-      <p class="places-ui-io-hint"><strong>いま:</strong> ${escapeHtml(status)}</p>
-      ${syncNote}
-      <ul class="settings-detail">${detailHtml}</ul>
-      <div class="places-ui-cmds">
-        ${cmd('settingsOff', SETTINGS_OFF, { disabled: !syncOn, danger: true })}
-      </div>
-      ${googleBlock}
-      <p class="places-ui-io-hint">オフは接続設定だけを none に戻します（飛行データは消しません）。有効化は下の settings 取込。</p>
+      ${placesListScrollPane(`
+          <div class="places-ui-io-body">
+            <h2 class="places-ui-io-h">同期（settings）</h2>
+            <p class="places-ui-io-hint"><strong>いま:</strong> ${escapeHtml(status)}</p>
+            ${syncNote}
+            <ul class="settings-detail">${detailHtml}</ul>
+            <div class="places-ui-cmds">
+              ${cmd('settingsOff', SETTINGS_OFF, { disabled: !syncOn, danger: true })}
+            </div>
+            ${googleBlock}
+            <p class="places-ui-io-hint">オフは接続設定だけを none に戻します（飛行データは消しません）。有効化は下の settings 取込。</p>
 
-      <h2 class="places-ui-io-h">取込</h2>
-      <p class="places-ui-io-hint">JSON を選ぶと端末の最新として反映します。サーバー障害時の復旧にも使えます。</p>
-      <div class="places-ui-cmds places-ui-cmds--wrap">
-        ${cmd('impLog', 'log')}
-        ${cmd('impPos', 'pos')}
-        ${cmd('impTmp', 'tmp')}
-        ${cmd('impMasters', 'masters')}
-        ${cmd('impSettings', 'settings')}
-      </div>
-      <div class="io-file-inputs" aria-hidden="true">
-        <input type="file" id="logFile" accept="application/json,.json" />
-        <input type="file" id="posFile" accept="application/json,.json" />
-        <input type="file" id="tmpFile" accept="application/json,.json" />
-        <input type="file" id="mastersFile" accept="application/json,.json" />
-        <input type="file" id="settingsFile" accept="application/json,.json" />
-      </div>
+            <h2 class="places-ui-io-h">取込</h2>
+            <p class="places-ui-io-hint">JSON を選ぶと端末の最新として反映します。サーバー障害時の復旧にも使えます。</p>
+            <div class="places-ui-cmds places-ui-cmds--wrap">
+              ${cmd('impLog', 'log')}
+              ${cmd('impPos', 'pos')}
+              ${cmd('impTmp', 'tmp')}
+              ${cmd('impMasters', 'masters')}
+              ${cmd('impSettings', 'settings')}
+            </div>
+            <div class="io-file-inputs" aria-hidden="true">
+              <input type="file" id="logFile" accept="application/json,.json" />
+              <input type="file" id="posFile" accept="application/json,.json" />
+              <input type="file" id="tmpFile" accept="application/json,.json" />
+              <input type="file" id="mastersFile" accept="application/json,.json" />
+              <input type="file" id="settingsFile" accept="application/json,.json" />
+            </div>
 
-      <h2 class="places-ui-io-h">書出</h2>
-      <p class="places-ui-io-hint">準備後に出力。保存完了は OS 側のため、終了後に確認ダイアログを出します。</p>
-      <div class="places-ui-cmds places-ui-cmds--wrap">
-        ${cmd('exLog', 'log')}
-        ${cmd('exPos', 'pos')}
-        ${cmd('exTmp', 'tmp')}
-        ${cmd('exMasters', 'masters')}
-        ${cmd('exSettings', 'settings')}
-      </div>
+            <h2 class="places-ui-io-h">書出</h2>
+            <p class="places-ui-io-hint">準備後に出力。保存完了は OS 側のため、終了後に確認ダイアログを出します。</p>
+            <div class="places-ui-cmds places-ui-cmds--wrap">
+              ${cmd('exLog', 'log')}
+              ${cmd('exPos', 'pos')}
+              ${cmd('exTmp', 'tmp')}
+              ${cmd('exMasters', 'masters')}
+              ${cmd('exSettings', 'settings')}
+            </div>
 
-      <h2 class="places-ui-io-h">初期化（端末）</h2>
-      <p class="places-ui-io-hint">確認後に実行。端末のみ。settings の解除は上の「サーバー同期をオフ」を使う。</p>
-      <label class="places-ui-io-choice">
-        <input type="checkbox" id="wipeServer" disabled />
-        <span>サーバー上も空で上書き（準備中・現在は無効）</span>
-      </label>
-      <div class="places-ui-cmds places-ui-cmds--wrap">
-        ${cmd('rstLog', 'log', { danger: true })}
-        ${cmd('rstPos', 'pos', { danger: true })}
-        ${cmd('rstTmp', 'tmp', { danger: true })}
-        ${cmd('rstMasters', 'masters', { danger: true })}
-      </div>
+            <h2 class="places-ui-io-h">初期化（端末）</h2>
+            <p class="places-ui-io-hint">確認後に実行。端末のみ。settings の解除は上の「サーバー同期をオフ」を使う。</p>
+            <label class="places-ui-io-choice">
+              <input type="checkbox" id="wipeServer" disabled />
+              <span>サーバー上も空で上書き（準備中・現在は無効）</span>
+            </label>
+            <div class="places-ui-cmds places-ui-cmds--wrap">
+              ${cmd('rstLog', 'log', { danger: true })}
+              ${cmd('rstPos', 'pos', { danger: true })}
+              ${cmd('rstTmp', 'tmp', { danger: true })}
+              ${cmd('rstMasters', 'masters', { danger: true })}
+            </div>
+          </div>
+      `)}
     </section>
   </main>`
+
+  wireListScrollCue()
 
   const msg = app.querySelector('#msg')!
   const panel = app.querySelector<HTMLElement>('#ioPanel')!

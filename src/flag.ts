@@ -61,6 +61,7 @@ export function computeTmp(
   let DATA4 = '0'
   let DATA5 = '0'
 
+  // 2/3 は初回登録（flag=2）のみ。成功後はロック（0）。場所直しは 4.着陸後チェック内の項目修正へ
   if (!preOk) {
     DATA1 = '2'
   } else if (!takeoffOk) {
@@ -68,17 +69,17 @@ export function computeTmp(
     DATA2 = '2'
   } else if (!landingOk) {
     DATA1 = '1'
-    DATA2 = '1'
+    DATA2 = '0'
     DATA3 = '2'
   } else if (!postOk) {
     DATA1 = '0'
-    DATA2 = '1'
-    DATA3 = '1'
+    DATA2 = '0'
+    DATA3 = '0'
     DATA4 = '2'
   } else {
     DATA1 = '0'
-    DATA2 = '1'
-    DATA3 = '1'
+    DATA2 = '0'
+    DATA3 = '0'
     DATA4 = '1'
     DATA5 = '2'
   }

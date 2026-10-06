@@ -31,7 +31,7 @@ export function hydrateFlightDurationCache(aDate: string, bDate: string): void {
 export function parseFlightDate(raw: string): Date | null {
   const s = raw.trim().replace(/-/g, '/')
   const m = s.match(
-    /^(\d{4})\/(\d{1,2})\/(\d{1,2})(?:\s+|T)(\d{1,2}):(\d{2})(?::\d{2})?$/,
+    /^(\d{4})\/(\d{1,2})\/(\d{1,2})(?:\s+|T)(\d{1,2}):(\d{2})(?::(\d{2}))?$/,
   )
   if (!m) return null
   const y = Number(m[1])
@@ -39,14 +39,16 @@ export function parseFlightDate(raw: string): Date | null {
   const d = Number(m[3])
   const h = Number(m[4])
   const mi = Number(m[5])
-  if (mo < 1 || mo > 12 || d < 1 || d > 31 || h > 23 || mi > 59) return null
-  const dt = new Date(y, mo - 1, d, h, mi, 0, 0)
+  const sec = m[6] != null ? Number(m[6]) : 0
+  if (mo < 1 || mo > 12 || d < 1 || d > 31 || h > 23 || mi > 59 || sec > 59) return null
+  const dt = new Date(y, mo - 1, d, h, mi, sec, 0)
   if (
     dt.getFullYear() !== y ||
     dt.getMonth() !== mo - 1 ||
     dt.getDate() !== d ||
     dt.getHours() !== h ||
-    dt.getMinutes() !== mi
+    dt.getMinutes() !== mi ||
+    dt.getSeconds() !== sec
   ) {
     return null
   }

@@ -1,7 +1,7 @@
 import Dexie, { type Table } from 'dexie'
 import type { FlightRecord, LogFile, PosFile, PlaceRecord, TmpFlag } from './types'
 import { emptyRecord } from './fields'
-import { computeTmp, formatNow, formatNowSeconds, newWorkingKey } from './flag'
+import { computeTmp, formatNowSeconds, newWorkingKey } from './flag'
 import { parseFlightDate } from './flight-time'
 import {
   appendDroneId,
@@ -841,7 +841,8 @@ export async function applyWeatherSet(weather: {
   A_SS: string
 }): Promise<void> {
   const meta = await getMeta()
-  const when = formatNow()
+  // T 用: 秒まで残す（分切り捨てだとセット直後に T=20〜50 等になる）
+  const when = formatNowSeconds()
 
   await db.transaction('rw', db.flights, db.meta, async () => {
     const keys = (await db.flights.toArray()).map((r) => r.key)

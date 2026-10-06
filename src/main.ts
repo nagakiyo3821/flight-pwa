@@ -2734,15 +2734,15 @@ function askDualPlaceGeo(opts: {
       <div class="sc-flight-grid">
         ${flightBtn('sc-near-move', `${mapIco('near')}へ${mapIco('tap')}をコピー`, FLIGHT_NEAR_MOVE, 'near')}
         ${flightBtn('sc-near-expand', `${mapIco('near')}位置精度拡大`, FLIGHT_NEAR_EXPAND, 'near')}
-        <div class="sc-flight-grid-stack">
-          ${flightBtn('sc-near-reset', `${mapIco('near')}初期値へ戻す`, FLIGHT_NEAR_RESET, 'near')}
-          ${flightBtn('sc-pt-undo', `${mapIco('tap')}１つ前へ戻す`, FLIGHT_TAP_UNDO, 'tap')}
-        </div>
+        ${flightBtn('sc-near-reset', `${mapIco('near')}初期値へ戻す`, FLIGHT_NEAR_RESET, 'near')}
       </div>
       <div class="sc-flight-grid">
-        ${flightCopyBlue || '<span class="sc-flight-grid-spacer" aria-hidden="true"></span>'}
-        ${flightBtn('sc-copy-near', `${mapIco('tap')}へ${mapIco('near')}をコピー`, FLIGHT_TAP_FROM_NEAR, 'tap')}
-        <span class="sc-flight-grid-spacer" aria-hidden="true"></span>
+        ${
+          flightCopyBlue
+            ? `${flightCopyBlue}${flightBtn('sc-copy-near', `${mapIco('tap')}へ${mapIco('near')}をコピー`, FLIGHT_TAP_FROM_NEAR, 'tap')}`
+            : `${flightBtn('sc-copy-near', `${mapIco('tap')}へ${mapIco('near')}をコピー`, FLIGHT_TAP_FROM_NEAR, 'tap')}<span class="sc-flight-grid-spacer" aria-hidden="true"></span>`
+        }
+        ${flightBtn('sc-pt-undo', `${mapIco('tap')}１つ前へ戻す`, FLIGHT_TAP_UNDO, 'tap')}
       </div>
     </div>`
     const gpsNums = flightChrome

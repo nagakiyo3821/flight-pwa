@@ -3075,8 +3075,8 @@ html.places-ui-lock body {
   line-height: 1.35;
   text-align: center;
   box-shadow: var(--popup-shadow);
-  /* 1行優先。画面幅を超えるときだけ折り返す（横で … 省略しない） */
-  white-space: normal;
+  /* 括弧詳細の改行をそのまま表示（1行優先時も折り返し可） */
+  white-space: pre-line;
   overflow-wrap: anywhere;
   word-break: break-word;
   -webkit-text-size-adjust: 100%;

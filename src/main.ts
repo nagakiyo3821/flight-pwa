@@ -315,8 +315,16 @@ function wireToastDismissOnInteract(): void {
   document.addEventListener('wheel', onToastUserInteract, opts)
 }
 
+function formatToastText(raw: string): string {
+  // 「〜しました（xxx）」等の括弧詳細を改行して視認しやすくする
+  return String(raw ?? '')
+    .replace(/([^\n\s])（/g, '$1\n（')
+    .replace(/([^\n\s])\(/g, '$1\n(')
+    .replace(/(しました[:：])\s*/g, '$1\n')
+}
+
 function showToast(text: string, ms = 2500): void {
-  const msg = String(text ?? '').trim()
+  const msg = formatToastText(String(text ?? '').trim())
   if (!msg) return
   wireToastDismissOnInteract()
   let root = document.getElementById('app-toast-root')

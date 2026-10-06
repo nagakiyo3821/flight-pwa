@@ -452,9 +452,9 @@ async function renderMenu(): Promise<void> {
   ]
   const cmdItems: { action: string; label: string }[] = [
     { action: 'reset', label: 'データリセット' },
+    { action: 'io', label: 'システムデータ管理' },
     { action: 'records', label: '登録データ管理' },
     { action: 'places', label: '場所データ管理' },
-    { action: 'io', label: 'システムデータ管理' },
   ]
 
   // 1〜5 の「今」より前は済（DATA1 が後段で 0 に戻っても ✓ を維持）
@@ -498,10 +498,10 @@ async function renderMenu(): Promise<void> {
   </header>
   <main class="places-ui-main">
     <section class="card places-ui-card places-ui-card--home">
-      ${placesListPaneHtml(list)}
       <div class="places-ui-home-cmds">
         <div class="places-ui-cmds places-ui-cmds--grid2">${cmdGrid}</div>
       </div>
+      ${placesListPaneHtml(list)}
     </section>
   </main>`
 

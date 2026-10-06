@@ -2749,6 +2749,23 @@ html.places-ui-lock body {
 .places-ui-cmds--wrap .places-ui-cmd {
   flex: 1 1 calc(33.333% - 0.25rem);
 }
+/* ホーム 6〜9: 2×2 コマンド格子（places-ui-cmd と同系） */
+.places-ui-home-cmds {
+  flex: 0 0 auto;
+  padding: 0.55rem 0.85rem calc(0.65rem + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--line);
+  box-sizing: border-box;
+}
+.places-ui-cmds--grid2 {
+  flex-wrap: wrap;
+}
+.places-ui-cmds--grid2 .places-ui-cmd {
+  flex: 1 1 calc(50% - 0.2rem);
+  white-space: normal;
+  text-align: center;
+  padding: 0.62rem 0.4rem;
+  line-height: 1.25;
+}
 .places-ui-cmd:active {
   opacity: 0.88;
 }

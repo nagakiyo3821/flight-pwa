@@ -423,7 +423,7 @@ function stopMenuTick(): void {
 
 async function renderMenu(): Promise<void> {
   const t = await syncWorkingTmp()
-  const items: { action: string; text: string; flag?: string }[] = [
+  const flowItems: { action: string; text: string; flag: string }[] = [
     {
       action: 'pre',
       flag: t.DATA1,
@@ -449,32 +449,38 @@ async function renderMenu(): Promise<void> {
       flag: t.DATA5,
       text: `5.データ登録(${menuLabel(5, t.DATA5)})`,
     },
-    { action: 'reset', text: '6.データリセット' },
-    { action: 'records', text: '7.登録データ管理' },
-    { action: 'places', text: '8.場所データ管理' },
-    { action: 'io', text: '9.システムデータ管理' },
+  ]
+  const cmdItems: { action: string; label: string }[] = [
+    { action: 'reset', label: 'データリセット' },
+    { action: 'records', label: '登録データ管理' },
+    { action: 'places', label: '場所データ管理' },
+    { action: 'io', label: 'システムデータ管理' },
   ]
 
   // 1〜5 の「今」より前は済（DATA1 が後段で 0 に戻っても ✓ を維持）
-  const seqFlags = items.map((it) => it.flag).filter((f): f is string => f !== undefined)
+  const seqFlags = flowItems.map((it) => it.flag)
   const seqNow = seqFlags.findIndex((f) => f === '2')
-  const list = items
+  const list = flowItems
     .map((it, idx) => {
-      const locked = it.flag !== undefined && !canOpen(it.flag)
+      const locked = !canOpen(it.flag)
       let seqCls = ''
       let seqMark = ''
-      if (it.flag !== undefined) {
-        if (it.flag === '2') {
-          seqCls = ' places-ui-row-seq--now'
-          seqMark = '≫'
-        } else if (it.flag === '1' || (seqNow >= 0 && idx < seqNow)) {
-          seqCls = ' places-ui-row-seq--done'
-          seqMark = '✓'
-        }
+      if (it.flag === '2') {
+        seqCls = ' places-ui-row-seq--now'
+        seqMark = '≫'
+      } else if (it.flag === '1' || (seqNow >= 0 && idx < seqNow)) {
+        seqCls = ' places-ui-row-seq--done'
+        seqMark = '✓'
       }
       const seq = `<span class="places-ui-row-seq${seqCls}" aria-hidden="true">${seqMark}</span>`
-      return `<button type="button" class="places-ui-row places-ui-row--home${locked ? ' locked' : ''}" data-action="${it.action}" data-flag="${it.flag ?? ''}"${locked ? ' aria-disabled="true"' : ''}>${seq}<span class="places-ui-row-name">${escapeHtml(it.text)}</span><span class="places-ui-row-chevron" aria-hidden="true">›</span></button>`
+      return `<button type="button" class="places-ui-row places-ui-row--home${locked ? ' locked' : ''}" data-action="${it.action}" data-flag="${it.flag}"${locked ? ' aria-disabled="true"' : ''}>${seq}<span class="places-ui-row-name">${escapeHtml(it.text)}</span><span class="places-ui-row-chevron" aria-hidden="true">›</span></button>`
     })
+    .join('')
+  const cmdGrid = cmdItems
+    .map(
+      (it) =>
+        `<button type="button" class="places-ui-cmd" data-action="${it.action}">${escapeHtml(it.label)}</button>`,
+    )
     .join('')
 
   app.classList.add('places-ui-app')
@@ -491,8 +497,11 @@ async function renderMenu(): Promise<void> {
     </div>
   </header>
   <main class="places-ui-main">
-    <section class="card places-ui-card">
+    <section class="card places-ui-card places-ui-card--home">
       ${placesListPaneHtml(list)}
+      <div class="places-ui-home-cmds">
+        <div class="places-ui-cmds places-ui-cmds--grid2">${cmdGrid}</div>
+      </div>
     </section>
   </main>`
 
@@ -6558,7 +6567,7 @@ async function renderIO(): Promise<void> {
             </div>
 
             <h2 class="places-ui-io-h">${escapeHtml(TERMS_TITLE)}</h2>
-            <p class="places-ui-io-hint">個人・非商用。再配布・商用は事前許諾が必要です。詳細はリポジトリの LICENSE / TERMS.md。</p>
+            <p class="places-ui-io-hint">個人・非商用。再配布・商用は事前許諾が必要です。<br/>詳細はリポジトリの LICENSE / TERMS.md。</p>
             <p class="places-ui-io-hint">${escapeHtml(COPYRIGHT_NOTICE)}</p>
             <div class="places-ui-cmds places-ui-cmds--wrap">
               ${cmd('termsShow', TERMS_SHOW)}

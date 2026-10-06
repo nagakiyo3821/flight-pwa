@@ -292,6 +292,18 @@ export function compareFlightKeysNewestFirst(a: string, b: string): number {
   return b.localeCompare(a)
 }
 
+/** NEW 系を先頭。同一グループ内は文字列昇順（日時キーは古い方が先）。プレーン NEW は NEW 系の先頭 */
+export function compareFlightKeysOldestFirst(a: string, b: string): number {
+  const aNew = a.startsWith('NEW')
+  const bNew = b.startsWith('NEW')
+  if (aNew !== bNew) return aNew ? -1 : 1
+  if (aNew) {
+    if (a === PLAIN_NEW_KEY && b !== PLAIN_NEW_KEY) return -1
+    if (b === PLAIN_NEW_KEY && a !== PLAIN_NEW_KEY) return 1
+  }
+  return a.localeCompare(b)
+}
+
 export function isNewRecordKey(key: string): boolean {
   return key.startsWith('NEW')
 }

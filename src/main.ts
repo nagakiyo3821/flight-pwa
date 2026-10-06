@@ -38,6 +38,8 @@ import {
   isNewRecordKey,
   listFlightKeys,
   listPlaceNames,
+  compareFlightKeysNewestFirst,
+  compareFlightKeysOldestFirst,
   nextDerivedPlaceName,
   renamePlace,
   resetLog,
@@ -276,6 +278,10 @@ type View =
 let view: View = 'menu'
 let placeEditName: string | null = null
 let checklistFilter: 'pre' | 'post' | 'all' = 'pre'
+/** 登録／場所一覧の並び（既定は昇順） */
+type HubListSort = 'asc' | 'desc'
+let recordsListSort: HubListSort = 'asc'
+let placesListSort: HubListSort = 'asc'
 /** メニュー再描画後に一度だけ出すメッセージ */
 let flashMsg = ''
 /** 場所一覧向けトースト（描画後に一度だけ） */
@@ -2529,6 +2535,43 @@ function placesListPaneHtml(listInnerHtml: string): string {
   return placesListScrollPane(
     `<div class="places-ui-list">${listInnerHtml}</div>`,
   )
+}
+
+/** 登録済N件 + 昇順／降順トグル（右端） */
+function hubSectionWithSortHtml(label: string, sort: HubListSort): string {
+  const ascOn = sort === 'asc' ? ' is-on' : ''
+  const descOn = sort === 'desc' ? ' is-on' : ''
+  return `<div class="places-ui-section places-ui-section--sort">
+      <h2 class="places-ui-section-label">${escapeHtml(label)}</h2>
+      <div class="places-ui-sort" role="group" aria-label="並び順">
+        <button type="button" class="places-ui-sort-btn${ascOn}" data-sort="asc" aria-label="昇順" aria-pressed="${sort === 'asc' ? 'true' : 'false'}">▲</button>
+        <button type="button" class="places-ui-sort-btn${descOn}" data-sort="desc" aria-label="降順" aria-pressed="${sort === 'desc' ? 'true' : 'false'}">▼</button>
+      </div>
+    </div>`
+}
+
+function sortFlightKeysForHub(keys: string[], sort: HubListSort): string[] {
+  const cmp = sort === 'asc' ? compareFlightKeysOldestFirst : compareFlightKeysNewestFirst
+  return [...keys].sort(cmp)
+}
+
+function sortPlaceNamesForHub(names: string[], sort: HubListSort): string[] {
+  const sorted = [...names].sort((a, b) => a.localeCompare(b, 'ja'))
+  return sort === 'desc' ? sorted.reverse() : sorted
+}
+
+function wireHubListSort(
+  getSort: () => HubListSort,
+  setSort: (next: HubListSort) => void,
+): void {
+  app.querySelectorAll<HTMLButtonElement>('.places-ui-sort-btn[data-sort]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const next = btn.dataset.sort === 'desc' ? 'desc' : 'asc'
+      if (getSort() === next) return
+      setSort(next)
+      void render()
+    })
+  })
 }
 
 let listScrollCueAbort: AbortController | null = null
@@ -5453,7 +5496,7 @@ function editFieldsFor(kind: 'A' | 'B' | 'F', droneType: string): FieldDef[] {
 
 /** 7.登録データ管理（場所一覧と同系の L1＋トースト） */
 async function renderRecords(): Promise<void> {
-  const keys = await listFlightKeys()
+  const keys = sortFlightKeysForHub(await listFlightKeys(), recordsListSort)
   const rowsHtml = keys.length
     ? keys
         .map(
@@ -5477,7 +5520,7 @@ async function renderRecords(): Promise<void> {
   </header>
   <main class="places-ui-main">
     <section class="card places-ui-card">
-      <h2 class="places-ui-section">${escapeHtml(REC_HUB_SECTION(keys.length))}</h2>
+      ${hubSectionWithSortHtml(REC_HUB_SECTION(keys.length), recordsListSort)}
       ${placesListPaneHtml(rowsHtml)}
     </section>
   </main>`
@@ -5492,6 +5535,12 @@ async function renderRecords(): Promise<void> {
   }
 
   wireListScrollCue()
+  wireHubListSort(
+    () => recordsListSort,
+    (next) => {
+      recordsListSort = next
+    },
+  )
 
   app.querySelector('#records-back')!.addEventListener('click', () => {
     view = 'menu'
@@ -5925,7 +5974,7 @@ function fieldRow(f: FieldDef, rec: FlightRecord, places: string[], droneType: s
 
 /** 8.場所データ管理（L1 一覧＋トースト） */
 async function renderPlaces(): Promise<void> {
-  const names = await listPlaceNames()
+  const names = sortPlaceNamesForHub(await listPlaceNames(), placesListSort)
   const rowsHtml = names.length
     ? names
         .map(
@@ -5950,7 +5999,7 @@ async function renderPlaces(): Promise<void> {
   <main class="places-ui-main">
     <button type="button" class="places-ui-new" id="places-ui-new">${escapeHtml(PLACE_HUB_NEW)}</button>
     <section class="card places-ui-card">
-      <h2 class="places-ui-section">${escapeHtml(PLACE_HUB_SECTION(names.length))}</h2>
+      ${hubSectionWithSortHtml(PLACE_HUB_SECTION(names.length), placesListSort)}
       ${placesListPaneHtml(rowsHtml)}
     </section>
   </main>`
@@ -5961,6 +6010,12 @@ async function renderPlaces(): Promise<void> {
   }
 
   wireListScrollCue()
+  wireHubListSort(
+    () => placesListSort,
+    (next) => {
+      placesListSort = next
+    },
+  )
 
   app.querySelector('#places-ui-back')!.addEventListener('click', () => {
     view = 'menu'

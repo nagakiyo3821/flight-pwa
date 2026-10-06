@@ -23,6 +23,12 @@ export const GOOGLE_PULL = 'Driveから取得（マージ）'
 export const GOOGLE_PUSH = 'Driveへ送信'
 export const GOOGLE_SYNC = '双方向同期'
 
+/** 利用条件（初回同意・システムデータ管理から再表示） */
+export const TERMS_TITLE = '利用条件'
+export const TERMS_ACCEPT = '同意して使う'
+export const TERMS_SHOW = '利用条件を表示'
+export const TERMS_REPORT = '違反の報告（Issues）'
+
 /** 登録データ管理 NEWA（動作説明＋実機指摘） */
 export const CMD_BACK = '#戻る'
 export const CMD_DATASET = '#データセット'

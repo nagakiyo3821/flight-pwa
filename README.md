@@ -11,6 +11,18 @@ status: wip
 
 フォルダ: `C:\Projects\flight-pwa`（iCloud の Vault には置かない）
 
+## 利用条件（必須）
+
+| 項目 | 内容 |
+|---|---|
+| 許可 | **個人・非商用**での利用 |
+| 禁止 | **再配布・再公開**、**商用利用**（書面の事前許諾が無い場合） |
+| 正本 | [LICENSE](./LICENSE) / [TERMS.md](./TERMS.md) |
+| 許諾・違反報告 | [GitHub Issues](https://github.com/nagakiyo3821/flight-pwa/issues)（件名例: `[商用利用の許諾依頼]` / `[利用条件違反の報告]`） |
+
+公開 Pages: https://nagakiyo3821.github.io/flight-pwa/  
+アプリ初回起動時に同意を求めます。違反時の手順は TERMS.md §3。
+
 学習用の [[pwa-demo/README|pwa-demo]] とは別。**現行ショートカット互換の JSON**（log / pos / tmp）を端末内（IndexedDB）で扱い、ファイルとして出し入れする本番向け第1弾。
 
 アーキテクチャ対応（4 本ショートカット → 1 SPA）は [[ドローン飛行記録#PWA 構成（4 本 → 1 アプリ）]] と [[@DroneLog#PWA（flight-pwa）構成]]。

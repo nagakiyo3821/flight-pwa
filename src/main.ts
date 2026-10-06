@@ -188,6 +188,10 @@ import {
   GOOGLE_PULL,
   GOOGLE_PUSH,
   GOOGLE_SYNC,
+  TERMS_ACCEPT,
+  TERMS_REPORT,
+  TERMS_SHOW,
+  TERMS_TITLE,
   SYS_DATA_TITLE,
   TIMER_RESET_LATER,
   TIMER_RESET_OK,
@@ -213,6 +217,12 @@ import {
 import { fetchWeatherSet } from './weather'
 import { APP_VERSION } from './version'
 import { isIosDevice } from './platform'
+import {
+  TERMS_SUMMARY,
+  TERMS_VIOLATION_ISSUE_URL,
+  acceptTerms,
+  hasAcceptedTerms,
+} from './terms'
 import {
   fetchGroundElevation,
   resolveGpsOrDemAltitude,
@@ -857,6 +867,47 @@ function showNoticeDialog(prompt: string): Promise<void> {
       e.stopPropagation()
     })
   })
+}
+
+/** 利用条件の表示。requireAccept=true のときは同意するまで閉じられない */
+function showTermsDialog(opts?: { requireAccept?: boolean }): Promise<void> {
+  const requireAccept = opts?.requireAccept === true
+  return new Promise((resolve) => {
+    const root = openDialogRoot()
+    root.classList.add('sc-dialog--alert')
+    const appEl = document.getElementById('app')
+    appEl?.setAttribute('inert', '')
+    const bodyHtml = escapeHtml(TERMS_SUMMARY).replace(/\n/g, '<br/>')
+    const btnLabel = requireAccept ? TERMS_ACCEPT : 'OK'
+    root.innerHTML = `
+      <div class="sc-alert sc-alert--terms" role="document">
+        <p class="sc-alert-msg sc-alert-msg--terms-title">${escapeHtml(TERMS_TITLE)}</p>
+        <p class="sc-alert-msg sc-alert-msg--terms">${bodyHtml}</p>
+        <button type="button" class="sc-btn sc-btn-ok" id="sc-ok">${escapeHtml(btnLabel)}</button>
+        ${appVersionFoot()}
+      </div>`
+    let done = false
+    const finish = () => {
+      if (done) return
+      done = true
+      if (requireAccept) acceptTerms()
+      appEl?.removeAttribute('inert')
+      closeDialogSafely(root, () => resolve())
+    }
+    root.querySelector('#sc-ok')?.addEventListener('click', (e) => {
+      e.preventDefault()
+      e.stopPropagation()
+      finish()
+    })
+    root.querySelector('.sc-alert')?.addEventListener('click', (e) => {
+      e.stopPropagation()
+    })
+  })
+}
+
+async function ensureTermsAccepted(): Promise<void> {
+  if (hasAcceptedTerms()) return
+  await showTermsDialog({ requireAccept: true })
 }
 
 /**
@@ -6504,12 +6555,26 @@ async function renderIO(): Promise<void> {
               ${cmd('rstTmp', 'tmp', { danger: true })}
               ${cmd('rstMasters', 'masters', { danger: true })}
             </div>
+
+            <h2 class="places-ui-io-h">${escapeHtml(TERMS_TITLE)}</h2>
+            <p class="places-ui-io-hint">個人・非商用。再配布・商用は事前許諾が必要です。詳細はリポジトリの LICENSE / TERMS.md。</p>
+            <div class="places-ui-cmds places-ui-cmds--wrap">
+              ${cmd('termsShow', TERMS_SHOW)}
+              ${cmd('termsReport', TERMS_REPORT)}
+            </div>
           </div>
       `)}
     </section>
   </main>`
 
   wireListScrollCue()
+
+  app.querySelector('#termsShow')?.addEventListener('click', () => {
+    void showTermsDialog()
+  })
+  app.querySelector('#termsReport')?.addEventListener('click', () => {
+    window.open(TERMS_VIOLATION_ISSUE_URL, '_blank', 'noopener,noreferrer')
+  })
 
   const msg = app.querySelector('#msg')!
   const panel = app.querySelector<HTMLElement>('#ioPanel')!
@@ -6831,6 +6896,7 @@ function escapeHtml(s: string): string {
     .replace(/"/g, '&quot;')
 }
 
-void render().then(() => {
+void render().then(async () => {
+  await ensureTermsAccepted()
   wireAutoSync()
 })

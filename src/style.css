@@ -2069,6 +2069,21 @@ code { font-size: 0.85em; }
   -webkit-overflow-scrolling: touch;
   box-sizing: border-box;
 }
+.sc-alert.sc-alert--terms {
+  max-height: min(85vh, 28rem);
+  width: min(100%, 21rem);
+}
+.sc-alert-msg.sc-alert-msg--terms {
+  text-align: left;
+  font-weight: 400;
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+.sc-alert-msg.sc-alert-msg--terms-title {
+  font-weight: 600;
+  text-align: center;
+  margin: 0;
+}
 .sc-alert-msg {
   margin: 0;
   width: 100%;

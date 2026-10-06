@@ -218,6 +218,7 @@ import { fetchWeatherSet } from './weather'
 import { APP_VERSION } from './version'
 import { isIosDevice } from './platform'
 import {
+  COPYRIGHT_NOTICE,
   TERMS_SUMMARY,
   TERMS_VIOLATION_ISSUE_URL,
   acceptTerms,
@@ -375,7 +376,7 @@ function versionBadgeHtml(extraClass = 'sc-dialog-top-nav-ver'): string {
 
 /** 旧フッタ版（アラート等の狭いオーバーレイ向け） */
 function appVersionFoot(): string {
-  return `<footer class="foot">飛行記録 PWA · v${APP_VERSION}</footer>`
+  return `<footer class="foot">飛行記録 PWA · v${APP_VERSION}<br/>${escapeHtml(COPYRIGHT_NOTICE)}</footer>`
 }
 
 function shell(
@@ -6558,6 +6559,7 @@ async function renderIO(): Promise<void> {
 
             <h2 class="places-ui-io-h">${escapeHtml(TERMS_TITLE)}</h2>
             <p class="places-ui-io-hint">個人・非商用。再配布・商用は事前許諾が必要です。詳細はリポジトリの LICENSE / TERMS.md。</p>
+            <p class="places-ui-io-hint">${escapeHtml(COPYRIGHT_NOTICE)}</p>
             <div class="places-ui-cmds places-ui-cmds--wrap">
               ${cmd('termsShow', TERMS_SHOW)}
               ${cmd('termsReport', TERMS_REPORT)}

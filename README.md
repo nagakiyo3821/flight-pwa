@@ -20,6 +20,8 @@ status: wip
 | 正本 | [LICENSE](./LICENSE) / [TERMS.md](./TERMS.md) |
 | 許諾・違反報告 | [GitHub Issues](https://github.com/nagakiyo3821/flight-pwa/issues)（件名例: `[商用利用の許諾依頼]` / `[利用条件違反の報告]`） |
 
+Copyright (c) 2026 nagakiyo3821
+
 公開 Pages: https://nagakiyo3821.github.io/flight-pwa/  
 アプリ初回起動時に同意を求めます。違反時の手順は TERMS.md §3。
 

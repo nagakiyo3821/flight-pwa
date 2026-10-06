@@ -15,6 +15,9 @@ export const TERMS_LICENSE_URL =
 export const TERMS_DOC_URL =
   'https://github.com/nagakiyo3821/flight-pwa/blob/main/TERMS.md'
 
+/** LICENSE と同じ1行（README・画面表示用） */
+export const COPYRIGHT_NOTICE = 'Copyright (c) 2026 nagakiyo3821'
+
 /** 同意ダイアログ・再表示用の本文 */
 export const TERMS_SUMMARY = [
   '本アプリは個人・非商用での利用を想定しています。',
@@ -24,6 +27,7 @@ export const TERMS_SUMMARY = [
   '・違反の報告・許諾依頼は GitHub Issues へ',
   '',
   '詳細: LICENSE / TERMS.md（リポジトリ）',
+  COPYRIGHT_NOTICE,
 ].join('\n')
 
 export function hasAcceptedTerms(): boolean {

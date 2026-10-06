@@ -2763,10 +2763,10 @@ html.places-ui-lock body {
   flex: 1 1 calc(50% - 0.2rem);
   white-space: normal;
   text-align: center;
-  /* 場所データ管理「新規場所登録」(.places-ui-new) と同系の縦幅 */
-  padding: 0.5rem 0.4rem;
-  font-size: 14px;
-  line-height: 1.25;
+  /* 新規場所登録より一段コンパクト */
+  padding: 0.36rem 0.35rem;
+  font-size: 13px;
+  line-height: 1.2;
 }
 .places-ui-cmd:active {
   opacity: 0.88;

@@ -37,7 +37,44 @@
       margin: 1.6rem 0 0.55rem;
       padding-top: 0.4rem;
       border-top: 1px solid var(--line);
+      scroll-margin-top: 0.75rem;
     }
+    h2.sec {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+    }
+    h2.sec > span { min-width: 0; }
+    a.to-top {
+      flex: 0 0 auto;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 2rem;
+      height: 2rem;
+      border-radius: 6px;
+      color: var(--accent);
+      background: var(--card);
+      border: 1px solid var(--line);
+      text-decoration: none;
+    }
+    a.to-top svg { display: block; }
+    .toc {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 0.75rem 0.9rem 0.85rem;
+      margin: 0.9rem 0 0.4rem;
+    }
+    .toc-title {
+      margin: 0 0 0.35rem;
+      font-weight: 700;
+      font-size: 0.95rem;
+    }
+    .toc ol { margin: 0; padding-left: 1.3rem; }
+    .toc a { text-decoration: none; }
+    .toc a:hover { text-decoration: underline; }
     h3 { font-size: 1.02rem; margin: 1.1rem 0 0.35rem; }
     p { margin: 0.45rem 0; }
     a { color: var(--accent); }
@@ -84,13 +121,26 @@
   </style>
 </head>
 <body>
-  <header class="banner">
+  <header class="banner" id="top">
     <h1>飛行記録 PWA 使い方</h1>
-    <p>導入、準備するデータ、1回の飛行の操作</p>
-    <p><a href="./">アプリを開く</a></p>
+    <p><a href="./" data-open-app>アプリを開く</a></p>
   </header>
   <main>
     <p>ドローンの飛行前点検、離着陸地点、飛行後点検を、スマートフォンの中に残すアプリです。記録は端末のブラウザ内に保存され、サーバーへ自動では送られません。消えないように、このページの「書き出し」を習慣にしてください。</p>
+
+    <nav class="toc" aria-label="目次">
+      <p class="toc-title">目次</p>
+      <ol>
+        <li><a href="#sec-1">1. 導入</a></li>
+        <li><a href="#sec-2">2. 準備するデータ</a></li>
+        <li><a href="#sec-3">3. ホーム画面の見方</a></li>
+        <li><a href="#sec-4">4. 1 回の飛行</a></li>
+        <li><a href="#sec-5">5. 登録データ管理</a></li>
+        <li><a href="#sec-6">6. 場所データ管理</a></li>
+        <li><a href="#sec-7">7. システム設定</a></li>
+        <li><a href="#sec-8">8. うまくいかないとき</a></li>
+      </ol>
+    </nav>
 
     <h2>利用条件</h2>
     <ul>
@@ -101,7 +151,7 @@
       <li>全文はアプリの「システム設定」にある「利用条件を表示」から読めます。</li>
     </ul>
 
-    <h2>1. 導入</h2>
+    <h2 id="sec-1" class="sec"><span>1. 導入</span><a class="to-top" href="#top" data-to-top aria-label="先頭へ"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 3.2 2.6 9.2h3.1V13h4.6V9.2h3.1L8 3.2z"/></svg></a></h2>
     <h3>開く</h3>
     <p>スマートフォンのブラウザで <a href="https://nagakiyo3821.github.io/flight-pwa/">https://nagakiyo3821.github.io/flight-pwa/</a> を開きます。</p>
     <p>通信できる状態で一度開くと、その後は電波が弱い場所でも点検の入力ができます。気象の取得、住所の検索、地図、Google 同期だけは通信が必要です。</p>
@@ -126,7 +176,7 @@
     <h3>初回に出るもの</h3>
     <p>利用条件の同意だけです。飛行記録や場所は、ファイルを取り込むまで空です。サンプルデータは自動では入りません。</p>
 
-    <h2>2. 準備するデータ</h2>
+    <h2 id="sec-2" class="sec"><span>2. 準備するデータ</span><a class="to-top" href="#top" data-to-top aria-label="先頭へ"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 3.2 2.6 9.2h3.1V13h4.6V9.2h3.1L8 3.2z"/></svg></a></h2>
     <p>アプリが扱うファイルは 5 種類です。拡張子はすべて <code>.json</code> です。</p>
     <table>
       <thead>
@@ -262,7 +312,7 @@
     </ol>
     <p>iPhone では共有シートが開きます。保存できたかは、ファイルアプリで名前を確認してください。</p>
 
-    <h2>3. ホーム画面の見方</h2>
+    <h2 id="sec-3" class="sec"><span>3. ホーム画面の見方</span><a class="to-top" href="#top" data-to-top aria-label="先頭へ"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 3.2 2.6 9.2h3.1V13h4.6V9.2h3.1L8 3.2z"/></svg></a></h2>
     <p>上段のボタンは、いつでも開けます。このマニュアルは「システム設定」の先頭「操作設定方法」から開きます。</p>
     <table>
       <thead><tr><th>ボタン</th><th>用途</th></tr></thead>
@@ -290,7 +340,7 @@
     </ul>
     <p>T が空のあいだは、経過の催促は出ません。</p>
 
-    <h2>4. 1 回の飛行</h2>
+    <h2 id="sec-4" class="sec"><span>4. 1 回の飛行</span><a class="to-top" href="#top" data-to-top aria-label="先頭へ"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 3.2 2.6 9.2h3.1V13h4.6V9.2h3.1L8 3.2z"/></svg></a></h2>
     <h3>始める前（データリセット）</h3>
     <p>新しい飛行に入るとき、ホームの「データリセット」を押します。</p>
     <ol>
@@ -343,7 +393,7 @@
     <p>「5.データ登録」で確定します。確認のあと、記録の名前が離陸日時（<code>年/月/日 時:分</code>）になります。作業用の空に近い <code>NEW</code> が残り、次の飛行の下書きになります。</p>
     <p>離陸日時が空のままでは登録できません。登録すると工程は離陸前チェックに戻ります。登録済みの内容は「登録データ管理」に残ります。</p>
 
-    <h2>5. 登録データ管理</h2>
+    <h2 id="sec-5" class="sec"><span>5. 登録データ管理</span><a class="to-top" href="#top" data-to-top aria-label="先頭へ"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 3.2 2.6 9.2h3.1V13h4.6V9.2h3.1L8 3.2z"/></svg></a></h2>
     <p>ホームの「登録データ管理」は、記録の一覧です。新しいものが上です。作業中の <code>NEW</code>（と <code>NEW</code> に日時が付いたもの）が先頭に来ます。</p>
     <p>行を開くと、項目 1〜63 を直接直せます。</p>
     <ul>
@@ -352,7 +402,7 @@
       <li>削除は確認のあと、その 1 件だけ消します</li>
     </ul>
 
-    <h2>6. 場所データ管理</h2>
+    <h2 id="sec-6" class="sec"><span>6. 場所データ管理</span><a class="to-top" href="#top" data-to-top aria-label="先頭へ"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 3.2 2.6 9.2h3.1V13h4.6V9.2h3.1L8 3.2z"/></svg></a></h2>
     <p>離陸・着陸の地点は、毎回その場の GPS から記録します。同じ場所でも GPS は数メートルから数十メートルずれ、そのまま毎回新しい座標と場所名にすると、いつもの地点が別々の場所に分裂します。</p>
     <p>それを吸収するため、登録地点には場所名と位置精度（メートル）を付けます。登録地点を中心にした円の内側は、同じ場所です。円の半径が <code>POSAC</code> です。空のときは 15m です。高度のずれは <code>ALTAC</code>（空なら 5m）で見ます。境界線の上は円の外です。</p>
     <ul>
@@ -368,7 +418,7 @@
       <li>一覧の行 … 名前、住所、緯度、経度、高度、位置精度、高度精度を直す。削除もここから</li>
     </ul>
 
-    <h2>7. システム設定</h2>
+    <h2 id="sec-7" class="sec"><span>7. システム設定</span><a class="to-top" href="#top" data-to-top aria-label="先頭へ"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 3.2 2.6 9.2h3.1V13h4.6V9.2h3.1L8 3.2z"/></svg></a></h2>
     <table>
       <thead><tr><th>操作</th><th>結果</th></tr></thead>
       <tbody>
@@ -392,7 +442,7 @@
     </ol>
     <div class="note">ログイン情報は settings ファイルには書きません。トークンを人に渡したり、リポジトリに置いたりしないでください。手動に戻すときは「サーバー同期をオフ」です。</div>
 
-    <h2>8. うまくいかないとき</h2>
+    <h2 id="sec-8" class="sec"><span>8. うまくいかないとき</span><a class="to-top" href="#top" data-to-top aria-label="先頭へ"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 3.2 2.6 9.2h3.1V13h4.6V9.2h3.1L8 3.2z"/></svg></a></h2>
     <table>
       <thead><tr><th>状況</th><th>対処</th></tr></thead>
       <tbody>
@@ -406,8 +456,23 @@
       </tbody>
     </table>
     <p>アプリの版は画面右上の <code>v</code> で確認できます。</p>
-    <p class="back"><a href="./">アプリへ戻る</a></p>
+    <p class="back"><a href="./" data-open-app>アプリを開く</a></p>
     <footer>Copyright (c) 2026 nagakiyo3821</footer>
   </main>
+  <script>
+    document.querySelectorAll('[data-open-app]').forEach((el) => {
+      el.addEventListener('click', (event) => {
+        event.preventDefault()
+        const from = new URLSearchParams(location.search).get('from')
+        location.href = from === 'io' ? './?resume=io' : './'
+      })
+    })
+    document.querySelectorAll('[data-to-top]').forEach((el) => {
+      el.addEventListener('click', (event) => {
+        event.preventDefault()
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+      })
+    })
+  </script>
 </body>
 </html>

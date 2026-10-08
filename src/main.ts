@@ -6606,9 +6606,8 @@ async function renderIO(): Promise<void> {
       ${placesListScrollPane(`
           <div class="places-ui-io-body">
             <h2 class="places-ui-io-h">操作設定方法</h2>
-            <p class="places-ui-io-hint">導入、準備するデータ、1回の飛行の進め方、場所の精度で同じ地点にまとめる考え方をまとめています。</p>
             <div class="places-ui-cmds">
-              <a class="places-ui-cmd" href="./manual.html">マニュアル</a>
+              <a class="places-ui-cmd" id="openManual" href="./manual.html?from=io">マニュアル</a>
             </div>
 
             <h2 class="places-ui-io-h">同期（settings）</h2>
@@ -7002,6 +7001,18 @@ function escapeHtml(s: string): string {
     .replace(/"/g, '&quot;')
 }
 
+/** マニュアルの「アプリを開く」が ?resume=io で戻したとき、システム設定を開く */
+function consumeResumeView(): void {
+  const params = new URLSearchParams(location.search)
+  if (params.get('resume') !== 'io') return
+  view = 'io'
+  params.delete('resume')
+  const query = params.toString()
+  const next = location.pathname + (query ? `?${query}` : '') + location.hash
+  history.replaceState(null, '', next)
+}
+
+consumeResumeView()
 void render().then(async () => {
   await ensureTermsAccepted()
   wireAutoSync()

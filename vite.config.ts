@@ -35,6 +35,8 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,webmanifest}'],
+        // ?from= 付きでも manual.html を返し、アプリ本体へ吸われないようにする
+        ignoreURLParametersMatching: [/^utm_/, /^fbclid$/, /^from$/],
       },
     }),
   ],

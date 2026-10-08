@@ -6606,8 +6606,9 @@ async function renderIO(): Promise<void> {
       ${placesListScrollPane(`
           <div class="places-ui-io-body">
             <h2 class="places-ui-io-h">操作設定方法</h2>
+            <p class="places-ui-io-hint">導入、準備するデータ、1回の飛行の進め方、場所の精度で同じ地点にまとめる考え方をまとめています。</p>
             <div class="places-ui-cmds">
-              <a class="places-ui-cmd" id="openManual" href="./manual.html?from=io">マニュアル</a>
+              <a class="places-ui-cmd" id="openManual" href="./manual.html">マニュアル</a>
             </div>
 
             <h2 class="places-ui-io-h">同期（settings）</h2>
@@ -6673,6 +6674,14 @@ async function renderIO(): Promise<void> {
   </main>`
 
   wireListScrollCue()
+
+  app.querySelector('#openManual')?.addEventListener('click', () => {
+    try {
+      sessionStorage.setItem('flight-pwa-from', 'io')
+    } catch {
+      /* 記録できなくてもマニュアル自体は開く */
+    }
+  })
 
   app.querySelector('#termsShow')?.addEventListener('click', () => {
     void showTermsDialog()

@@ -460,11 +460,31 @@
     <footer>Copyright (c) 2026 nagakiyo3821</footer>
   </main>
   <script>
+    function openedFromSettings() {
+      try {
+        if (sessionStorage.getItem('flight-pwa-from') === 'io') return true
+      } catch {
+        /* 読めなければ参照元で判断する */
+      }
+      try {
+        if (!document.referrer) return false
+        const ref = new URL(document.referrer)
+        if (ref.origin !== location.origin) return false
+        return !ref.pathname.endsWith('/manual.html')
+      } catch {
+        return false
+      }
+    }
     document.querySelectorAll('[data-open-app]').forEach((el) => {
       el.addEventListener('click', (event) => {
         event.preventDefault()
-        const from = new URLSearchParams(location.search).get('from')
-        location.href = from === 'io' ? './?resume=io' : './'
+        const backToSettings = openedFromSettings()
+        try {
+          sessionStorage.removeItem('flight-pwa-from')
+        } catch {
+          /* 消せなくても遷移は続ける */
+        }
+        location.href = backToSettings ? './?resume=io' : './'
       })
     })
     document.querySelectorAll('[data-to-top]').forEach((el) => {

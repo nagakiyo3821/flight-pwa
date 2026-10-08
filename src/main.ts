@@ -492,7 +492,7 @@ async function renderMenu(): Promise<void> {
   ]
   const cmdItems: { action: string; label: string }[] = [
     { action: 'reset', label: 'データリセット' },
-    { action: 'io', label: 'システムデータ管理' },
+    { action: 'io', label: SYS_DATA_TITLE },
     { action: 'records', label: '登録データ管理' },
     { action: 'places', label: '場所データ管理' },
   ]
@@ -540,7 +540,6 @@ async function renderMenu(): Promise<void> {
     <section class="card places-ui-card places-ui-card--home">
       <div class="places-ui-home-cmds">
         <div class="places-ui-cmds places-ui-cmds--grid2">${cmdGrid}</div>
-        <a class="places-ui-cmd places-ui-home-manual" href="./manual.html">使い方</a>
       </div>
       ${placesListPaneHtml(list)}
     </section>
@@ -6606,6 +6605,12 @@ async function renderIO(): Promise<void> {
     <section class="card places-ui-card places-ui-card--io" id="ioPanel">
       ${placesListScrollPane(`
           <div class="places-ui-io-body">
+            <h2 class="places-ui-io-h">操作設定方法</h2>
+            <p class="places-ui-io-hint">導入、準備するデータ、1回の飛行の進め方、場所の精度で同じ地点にまとめる考え方をまとめています。</p>
+            <div class="places-ui-cmds">
+              <a class="places-ui-cmd" href="./manual.html">マニュアル</a>
+            </div>
+
             <h2 class="places-ui-io-h">同期（settings）</h2>
             <p class="places-ui-io-hint"><strong>いま:</strong> ${escapeHtml(status)}</p>
             ${syncNote}
@@ -6662,7 +6667,6 @@ async function renderIO(): Promise<void> {
             <div class="places-ui-cmds places-ui-cmds--wrap">
               ${cmd('termsShow', TERMS_SHOW)}
               ${cmd('termsReport', TERMS_REPORT)}
-              <a class="places-ui-cmd" href="./manual.html">使い方</a>
             </div>
           </div>
       `)}

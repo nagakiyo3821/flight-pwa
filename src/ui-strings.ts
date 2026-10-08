@@ -8,8 +8,8 @@ export const MENU_PROMPT = '項目を選択してください。'
 /** ホーム画面のアプリ名称（タイトル行） */
 export const APP_NAME = '飛行記録 PWA'
 
-/** 9.システムデータ管理（同期 settings ＋ JSON 入出力・初期化） */
-export const SYS_DATA_TITLE = 'システムデータ管理'
+/** システム設定（操作説明・同期 settings ＋ JSON 入出力・初期化） */
+export const SYS_DATA_TITLE = 'システム設定'
 export const SETTINGS_OFF = 'サーバー同期をオフ'
 export const SETTINGS_OFF_CONFIRM =
   'サーバー設定を解除して手動のみに戻しますか？\n（飛行データは消しません）'
@@ -23,7 +23,7 @@ export const GOOGLE_PULL = 'Driveから取得（マージ）'
 export const GOOGLE_PUSH = 'Driveへ送信'
 export const GOOGLE_SYNC = '双方向同期'
 
-/** 利用条件（初回同意・システムデータ管理から再表示） */
+/** 利用条件（初回同意・システム設定から再表示） */
 export const TERMS_TITLE = '利用条件'
 export const TERMS_ACCEPT = '同意して使う'
 export const TERMS_SHOW = '利用条件を表示'

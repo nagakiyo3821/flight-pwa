@@ -206,7 +206,7 @@ export async function maybeAutoSync(reason: 'launch' | 'online'): Promise<string
   if (reason === 'launch' && launchSyncDone) return null
   if (!isGoogleSignedIn()) {
     return reason === 'launch'
-      ? 'Google 同期: 未ログインのためスキップ（システムデータ管理でログイン可）'
+      ? 'Google 同期: 未ログインのためスキップ（システム設定でログイン可）'
       : null
   }
   if (onlineSyncRunning) return null

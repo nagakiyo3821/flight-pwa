@@ -2744,10 +2744,6 @@ a.places-ui-cmd {
   text-decoration: none;
   box-sizing: border-box;
 }
-.places-ui-home-manual {
-  width: 100%;
-  margin-top: 0.45rem;
-}
 .places-ui-cmd {
   flex: 1 1 0;
   display: block;

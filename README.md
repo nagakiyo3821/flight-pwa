@@ -42,7 +42,7 @@ Copyright (c) 2026 nagakiyo3821
 | 飛行時間↔離着陸日時の 3 値同期、日付・時刻ピッカー | 旧ショートカットの廃止 |
 | 8.場所データ管理（一覧・新規／修正・削除） | |
 | 7.登録データ管理（一覧→FREE 編集・場所一覧と同系 UI） | |
-| **9.システムデータ管理**（settings／JSON 入出力／Drive 同期） | **GitHub Pages 固定 URL（Phase 2c）** |
+| **システム設定**（操作説明／settings／JSON 入出力／Drive 同期） | **GitHub Pages 固定 URL（Phase 2c）** |
 | Google Drive pull/push（端末優先マージ・要 OAuth） | |
 | 種別ごとの端末初期化（確認付き） | サーバー空上書き |
 | セット／リセットタイマー（T・2h／24h） | |

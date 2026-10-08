@@ -2602,16 +2602,6 @@ html.places-ui-lock body {
 #app.places-ui-app .sc-geopick-ver:not(.sc-dialog-top-nav-ver) {
   font-size: 12px;
 }
-#app.places-ui-app .places-ui-manual {
-  margin: 0.35rem 0 0;
-  font-size: 13px;
-}
-#app.places-ui-app .places-ui-manual a {
-  color: var(--accent, #1e5a78);
-  font-weight: 600;
-  text-decoration: underline;
-  text-underline-offset: 0.15em;
-}
 #app.places-ui-app .prompt-sub {
   margin: 0.2rem 0 0;
   font-size: 12px;
@@ -2748,6 +2738,15 @@ html.places-ui-lock body {
 }
 .places-ui-cmds--wrap {
   flex-wrap: wrap;
+}
+a.places-ui-cmd {
+  text-align: center;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+.places-ui-home-manual {
+  width: 100%;
+  margin-top: 0.45rem;
 }
 .places-ui-cmd {
   flex: 1 1 0;

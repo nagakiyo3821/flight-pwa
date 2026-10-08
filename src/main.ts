@@ -534,6 +534,7 @@ async function renderMenu(): Promise<void> {
         ${versionBadgeHtml('sc-dialog-top-nav-ver')}
       </h1>
       <p class="prompt-sub" id="promptSub">${titleSubtitle(t.A_SR, t.A_SS, t.TIME)}</p>
+      <p class="places-ui-manual"><a href="./manual.html">使い方</a></p>
     </div>
   </header>
   <main class="places-ui-main">
@@ -6661,6 +6662,7 @@ async function renderIO(): Promise<void> {
             <div class="places-ui-cmds places-ui-cmds--wrap">
               ${cmd('termsShow', TERMS_SHOW)}
               ${cmd('termsReport', TERMS_REPORT)}
+              ${cmd('manualOpen', '使い方')}
             </div>
           </div>
       `)}
@@ -6674,6 +6676,9 @@ async function renderIO(): Promise<void> {
   })
   app.querySelector('#termsReport')?.addEventListener('click', () => {
     window.open(TERMS_VIOLATION_ISSUE_URL, '_blank', 'noopener,noreferrer')
+  })
+  app.querySelector('#manualOpen')?.addEventListener('click', () => {
+    window.open('./manual.html', '_blank', 'noopener,noreferrer')
   })
 
   const msg = app.querySelector('#msg')!

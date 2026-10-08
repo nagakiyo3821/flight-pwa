@@ -2602,6 +2602,16 @@ html.places-ui-lock body {
 #app.places-ui-app .sc-geopick-ver:not(.sc-dialog-top-nav-ver) {
   font-size: 12px;
 }
+#app.places-ui-app .places-ui-manual {
+  margin: 0.35rem 0 0;
+  font-size: 13px;
+}
+#app.places-ui-app .places-ui-manual a {
+  color: var(--accent, #1e5a78);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
 #app.places-ui-app .prompt-sub {
   margin: 0.2rem 0 0;
   font-size: 12px;

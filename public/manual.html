@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>飛行記録 PWA 使い方</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #1c2b33;
+      --muted: #5c6e78;
+      --line: #d5e0e6;
+      --bg: #f4f7f9;
+      --card: #fff;
+      --accent: #1e5a78;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+      line-height: 1.65;
+      font-size: 16px;
+    }
+    header.banner {
+      background: var(--accent);
+      color: #fff;
+      padding: 1.25rem 1.1rem 1.1rem;
+    }
+    header.banner p { margin: 0.35rem 0 0; font-size: 0.92rem; opacity: 0.92; }
+    header.banner a { color: #fff; }
+    main { max-width: 42rem; margin: 0 auto; padding: 1rem 1rem 3rem; }
+    h1 { font-size: 1.45rem; margin: 0; font-weight: 700; }
+    h2 {
+      font-size: 1.15rem;
+      margin: 1.6rem 0 0.55rem;
+      padding-top: 0.4rem;
+      border-top: 1px solid var(--line);
+    }
+    h3 { font-size: 1.02rem; margin: 1.1rem 0 0.35rem; }
+    p { margin: 0.45rem 0; }
+    a { color: var(--accent); }
+    ul, ol { margin: 0.35rem 0 0.6rem; padding-left: 1.25rem; }
+    li { margin: 0.2rem 0; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--card);
+      font-size: 0.92rem;
+      margin: 0.5rem 0 0.8rem;
+    }
+    th, td {
+      border: 1px solid var(--line);
+      padding: 0.45rem 0.5rem;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: #e8f2f6; }
+    code {
+      font-family: ui-monospace, Consolas, monospace;
+      font-size: 0.88em;
+      background: #e8eef1;
+      padding: 0.05em 0.3em;
+      border-radius: 4px;
+    }
+    .note {
+      background: var(--card);
+      border-left: 4px solid var(--accent);
+      padding: 0.7rem 0.85rem;
+      margin: 0.7rem 0;
+    }
+    .back { margin-top: 1.5rem; }
+    footer { color: var(--muted); font-size: 0.85rem; margin-top: 2rem; }
+  </style>
+</head>
+<body>
+  <header class="banner">
+    <h1>飛行記録 PWA 使い方</h1>
+    <p>導入、準備するデータ、1回の飛行の操作</p>
+    <p><a href="./">アプリを開く</a></p>
+  </header>
+  <main>
+    <p>ドローンの飛行前点検、離着陸地点、飛行後点検を、スマートフォンの中に残すアプリです。記録は端末のブラウザ内に保存され、サーバーへ自動では送られません。消えないように、このページの「書き出し」を習慣にしてください。</p>
+
+    <h2>利用条件</h2>
+    <ul>
+      <li>個人の、商用でない利用が対象です。</li>
+      <li>再配布・再公開はできません。</li>
+      <li>商用で使うときは、事前の許諾が必要です。</li>
+      <li>初回起動で「同意して使う」を押すと、次から同じ端末では同意画面は出ません。</li>
+      <li>全文はアプリの「システムデータ管理」にある「利用条件を表示」から読めます。</li>
+    </ul>
+
+    <h2>1. 導入</h2>
+    <h3>開く</h3>
+    <p>スマートフォンのブラウザで <a href="https://nagakiyo3821.github.io/flight-pwa/">https://nagakiyo3821.github.io/flight-pwa/</a> を開きます。</p>
+    <p>通信できる状態で一度開くと、その後は電波が弱い場所でも点検の入力ができます。気象の取得、住所の検索、地図、Google 同期だけは通信が必要です。</p>
+
+    <h3>ホーム画面に置く（推奨）</h3>
+    <p>毎回 URL を探さなくて済み、全画面で使えます。</p>
+    <p><strong>iPhone（Safari）</strong></p>
+    <ol>
+      <li>Safari でアプリを開く（Chrome からは追加できません）。</li>
+      <li>共有ボタンを押し、「ホーム画面に追加」を選ぶ。</li>
+      <li>名前は「飛行記録」のままで追加する。</li>
+      <li>以降はホーム画面のアイコンから開く。</li>
+    </ol>
+    <p><strong>Android（Chrome）</strong></p>
+    <ol>
+      <li>Chrome でアプリを開く。</li>
+      <li>メニューの「アプリをインストール」または「ホーム画面に追加」を選ぶ。</li>
+      <li>以降はアイコンから開く。</li>
+    </ol>
+    <p>位置情報は、離陸・着陸の登録と気象セットで使います。ブラウザ、またはインストールしたアプリに、位置情報を許可してください。</p>
+
+    <h3>初回に出るもの</h3>
+    <p>利用条件の同意だけです。飛行記録や場所は、ファイルを取り込むまで空です。サンプルデータは自動では入りません。</p>
+
+    <h2>2. 準備するデータ</h2>
+    <p>アプリが扱うファイルは 5 種類です。拡張子はすべて <code>.json</code> です。</p>
+    <table>
+      <thead>
+        <tr><th>ファイル</th><th>中身</th><th>いつ要るか</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>masters.json</code></td><td>操縦者名、機種、機体の識別番号、点検の選択肢</td><td>使い始める前</td></tr>
+        <tr><td><code>log.json</code></td><td>飛行ごとの点検記録</td><td>過去の記録を引き継ぐとき。無ければ空で開始</td></tr>
+        <tr><td><code>pos.json</code></td><td>場所（名前・住所・緯度経度・高度）</td><td>よく飛ぶ場所を先に入れておくとき。無くても当日登録できる</td></tr>
+        <tr><td><code>tmp.json</code></td><td>作業中の進行状態と、気象セットした時刻</td><td>作業の途中を別端末へ移すとき。通常はアプリが持つ</td></tr>
+        <tr><td><code>settings.json</code></td><td>Google ドライブ同期の有無</td><td>手動の書き出しだけなら不要</td></tr>
+      </tbody>
+    </table>
+    <p>旧ショートカットの <code>log03.json</code> のように、名前の末尾に番号が付いたファイルも、中身が同じ形式なら取り込めます。</p>
+
+    <h3>最初に作るもの（masters）</h3>
+    <p>点検の「誰が」「どの機体で」は <code>masters.json</code> に書いておきます。見本はリポジトリの <code>public/data/masters.sample.json</code> です。中身は架空です。氏名は「サンプル 一郎」「山田 太郎」、機体番号も例なので、必ず自分の値に書き換えてから取り込んでください。</p>
+    <p>見本に含まれる主な項目:</p>
+    <ul>
+      <li>操縦者・安全運航管理者の氏名（<code>names</code>）</li>
+      <li>機種（例: Mavic2Pro / Tello / Other）と、機種ごとの識別番号（<code>drones</code>）</li>
+      <li>飛行目的、飛行条件、障害物、風向、操縦モード、フェールセーフ、バッテリー番号などの選択肢</li>
+      <li>機種によって出さない点検項目（Tello はバッテリー関連の一部を出さない、など）</li>
+    </ul>
+    <p>編集はテキストエディタで行い、保存してからアプリへ取り込みます。氏名をその場で追加する欄もありますが、毎回使う名前と機体番号は masters に入れておくと、選択だけで済みます。</p>
+
+    <h3>取り込み手順</h3>
+    <ol>
+      <li>ホームの「システムデータ管理」を開く。</li>
+      <li>「取込」の <strong>masters</strong> を押し、書き換えた <code>masters.json</code> を選ぶ。</li>
+      <li>「取込完了」と出れば、その端末のマスタが置き換わります。</li>
+      <li>過去の <code>log.json</code> / <code>pos.json</code> がある場合は、同じ画面の <strong>log</strong> と <strong>pos</strong> も取り込む。</li>
+    </ol>
+    <div class="note">取り込みは、選んだファイルの内容で端末側を置き換えます。混ぜたいときは、先にいまのデータを書き出してから編集してください。何も引き継がない場合は、masters だけで始められます。</div>
+
+    <h3>端末の中だけが正本</h3>
+    <p>ブラウザのサイトデータを消す、別のブラウザに変える、機種変更する、と記録は続きません。飛ばない日でも、次を残してください。</p>
+    <ol>
+      <li>「システムデータ管理」→「書出」</li>
+      <li>少なくとも <strong>log</strong>・<strong>pos</strong>・<strong>masters</strong> を保存する</li>
+      <li>iCloud、Google ドライブ、PC など、端末の外に置く</li>
+    </ol>
+    <p>iPhone では共有シートが開きます。保存できたかは、ファイルアプリで名前を確認してください。</p>
+
+    <h2>3. ホーム画面の見方</h2>
+    <p>上段の 4 つのボタンは、いつでも開けます。</p>
+    <table>
+      <thead><tr><th>ボタン</th><th>用途</th></tr></thead>
+      <tbody>
+        <tr><td>データリセット</td><td>作業中の記録を空に戻し、続けて現在地の気象を入れ直す</td></tr>
+        <tr><td>システムデータ管理</td><td>ファイルの取込・書出、端末内の初期化、利用条件</td></tr>
+        <tr><td>登録データ管理</td><td>過去の飛行と、いま作業中の記録を開いて直す</td></tr>
+        <tr><td>場所データ管理</td><td>離着陸地点の一覧・新規・修正・削除</td></tr>
+      </tbody>
+    </table>
+    <p>その下の 1〜5 が、1 回の飛行の順番です。</p>
+    <table>
+      <thead><tr><th>表示</th><th>意味</th></tr></thead>
+      <tbody>
+        <tr><td>≫ と「設定待ち」または「時間場所設定」</td><td>いまやる段</td></tr>
+        <tr><td>✓ と「修正可能」または「場所のみ更新」</td><td>入力済み。開き直して修正できる</td></tr>
+        <tr><td>色が薄く「ロック中」</td><td>手前の段が終わるまで開けない</td></tr>
+      </tbody>
+    </table>
+    <p>タイトルの下の <strong>SR / SS / T</strong>:</p>
+    <ul>
+      <li><strong>SR</strong> … 日の出時刻（気象セットで入る）</li>
+      <li><strong>SS</strong> … 日の入時刻</li>
+      <li><strong>T</strong> … 最後に気象をセットした時刻からの経過秒。離陸時刻ではありません</li>
+    </ul>
+    <p>T が空のあいだは、経過の催促は出ません。</p>
+
+    <h2>4. 1 回の飛行</h2>
+    <h3>始める前（データリセット）</h3>
+    <p>新しい飛行に入るとき、ホームの「データリセット」を押します。</p>
+    <ol>
+      <li>確認で「リセット」を選ぶと、作業中の記録が空の <code>NEW</code> に戻ります。</li>
+      <li>続けて「現在地の気象データをセットしますか？」と出ます。「セット」を選びます。</li>
+      <li>位置情報を許可し、現在地が取れると、天候・降水確率・風向・風速・気温・日の出・日の入が入ります。</li>
+      <li>このときの時刻が T の起点です。</li>
+    </ol>
+    <p>位置の入力をやめると、気象セットは中止されます。通信に失敗したときもセットされません。点検画面の「データセット」からやり直せます。</p>
+    <p>セットから <strong>2 時間</strong>を超えてホームを開くと、気象の入れ直しを求められます。セットから <strong>24 時間</strong>を超えると、リセットして入れ直すことを求められます。「後で」も選べます。</p>
+
+    <h3>1. 離陸前チェック</h3>
+    <p>ロックが外れている「1.離陸前チェック」を開きます。項目はおおよそ次の塊です。</p>
+    <ul>
+      <li>環境 … 機種と識別番号、操縦者、体調、許可証・飛行日誌、安全運航管理者、飛行目的、飛行条件、障害物、第三者</li>
+      <li>気象 … 天候、降水、風、気温（セット済みなら値が入っている）</li>
+      <li>作動前・作動・飛行点検 … 取付、プロペラ、電源、バッテリー、リモート ID、GNSS、高度・距離の制限、灯火、カメラ、異音、スティック</li>
+    </ul>
+    <ul>
+      <li>行を押すとその項目だけ開く</li>
+      <li><strong>全項目</strong> … 表示中の項目を先頭から順に確認する</li>
+      <li><strong>?項目</strong> … 空の項目だけ順に開く</li>
+      <li><strong>データセット</strong> … 現在地の気象を入れ直す（記録の他の項目は消えない）</li>
+      <li>説明の末尾の <code>(?)</code> は未入力、<code>(値)</code> は入力済み</li>
+      <li>「正常 / 異常」は 2 択。飛行条件は複数選べます</li>
+      <li>リストに無い氏名・バッテリー番号は「任意の入力」から追加できます</li>
+      <li><strong>屋内</strong>を飛行条件に含めると、GNSS 捕捉数と地上風向は空でも次へ進めます</li>
+      <li>機種によっては最初から出ない項目があります（例: Tello のバッテリー詳細）</li>
+    </ul>
+    <p>必須が埋まると、ホームで 1 が ✓ になり、2 が開きます。備考（項目 63）は空でも構いません。</p>
+
+    <h3>2. 離陸登録</h3>
+    <p>「2.離陸登録」を開くと、地図で地点を決めます。</p>
+    <ul>
+      <li><strong>青</strong> … いまの GPS。位置そのものは動かせません。「再GPS計測」で取り直します</li>
+      <li><strong>橙</strong> … 記録する地点。地図をタップして動かせます。青や緑からコピーもできます</li>
+      <li><strong>緑</strong> … いちばん近い登録済みの場所</li>
+    </ul>
+    <p>橙を登録地点として確定すると、緯度・経度・高度・住所・場所名が記録され、離陸日時が入ります。はじめての場所名なら場所一覧にも残ります。同名があるときは上書き確認が出ます。</p>
+    <p>緑と橙がおよそ 50m 以上離れているときは、橙を緑へ寄せる操作は使えません。別の場所として扱います。</p>
+    <p>一度時刻まで入ったあと、同じ段が「場所のみ更新」のときは、場所だけ直し、離陸時刻は維持します。画面を閉じると「離陸登録をキャンセルしました」となり、記録は変わりません。</p>
+
+    <h3>3. 着陸登録</h3>
+    <p>飛び終わったら「3.着陸登録」です。画面の意味は離陸と同じで、入るのは着陸側の地点と着陸日時です。飛行時間は離陸日時と着陸日時から計算されます。</p>
+
+    <h3>4. 着陸後チェック</h3>
+    <p>着陸後のバッテリー、取付、汚れ、プロペラ、フレーム、発熱、操縦装置の電池、備考を入力します。やり方は離陸前チェックと同じです。</p>
+
+    <h3>5. データ登録</h3>
+    <p>「5.データ登録」で確定します。確認のあと、記録の名前が離陸日時（<code>年/月/日 時:分</code>）になります。作業用の空に近い <code>NEW</code> が残り、次の飛行の下書きになります。</p>
+    <p>離陸日時が空のままでは登録できません。登録すると工程は離陸前チェックに戻ります。登録済みの内容は「登録データ管理」に残ります。</p>
+
+    <h2>5. 登録データ管理</h2>
+    <p>ホームの「登録データ管理」は、記録の一覧です。新しいものが上です。作業中の <code>NEW</code>（と <code>NEW</code> に日時が付いたもの）が先頭に来ます。</p>
+    <p>行を開くと、項目 1〜63 を直接直せます。</p>
+    <ul>
+      <li>作業中（<code>NEW</code>）には、削除・データ登録・データリセット・データセット・離陸・着陸・全項目・?項目があります</li>
+      <li>本登録済みの記録には、削除・全項目・?項目があります。離陸日時を変えると、新しい日時の記録が追加され、古いキーの記録も残ります</li>
+      <li>削除は確認のあと、その 1 件だけ消します</li>
+    </ul>
+
+    <h2>6. 場所データ管理</h2>
+    <p>よく使う離着陸地点を、飛行の前に登録できます。</p>
+    <ul>
+      <li><strong>新規場所登録</strong> … 地図で地点を決めて名前を付ける</li>
+      <li>一覧の行 … 名前、住所、緯度、経度、高度、位置精度、高度精度を直す。削除もここから</li>
+    </ul>
+    <p>離陸・着陸の登録時に新しい名前を確定した場合も、この一覧に入ります。</p>
+
+    <h2>7. システムデータ管理</h2>
+    <table>
+      <thead><tr><th>操作</th><th>結果</th></tr></thead>
+      <tbody>
+        <tr><td>取込</td><td>選んだ JSON で、端末内のその種類を置き換える</td></tr>
+        <tr><td>書出</td><td>端末内の内容を <code>log.json</code> などに保存する</td></tr>
+        <tr><td>初期化</td><td>確認のあと、端末内のその種類だけ空（masters は初期状態）に戻す。飛行記録の初期化は空の <code>NEW</code> になる</td></tr>
+        <tr><td>サーバー同期をオフ</td><td>同期の設定だけ戻す。飛行データは消えない</td></tr>
+      </tbody>
+    </table>
+    <p>「サーバー上も空で上書き」は使えません。初期化は端末の中だけです。</p>
+
+    <h3>Google ドライブを使うとき</h3>
+    <p>既定は手動の取込・書出だけです。ドライブと揃える場合だけ、次を行います。</p>
+    <ol>
+      <li>見本 <code>settings.google.sample.json</code> を手元にコピーする</li>
+      <li>フォルダ名（既定は <code>drone</code>）を、自分のドライブのフォルダに合わせる</li>
+      <li>「取込」の <strong>settings</strong> でそのファイルを選ぶ</li>
+      <li>「Google でログイン」を押し、アカウントを許可する</li>
+      <li>「Drive 疎通テスト」でフォルダが見えることを確認する</li>
+      <li>「Driveから取得（マージ）」でクラウド側を取り込む。「Driveへ送信」で端末側を送る。「双方向同期」は取得してから送信する</li>
+    </ol>
+    <div class="note">ログイン情報は settings ファイルには書きません。トークンを人に渡したり、リポジトリに置いたりしないでください。手動に戻すときは「サーバー同期をオフ」です。</div>
+
+    <h2>8. うまくいかないとき</h2>
+    <table>
+      <thead><tr><th>状況</th><th>対処</th></tr></thead>
+      <tbody>
+        <tr><td>ボタンがロック中</td><td>手前の段の必須項目を埋める。場所の段なら離陸前、着陸後なら着陸登録</td></tr>
+        <tr><td>気象が入らない</td><td>通信と位置情報を確認し、「データセット」をやり直す</td></tr>
+        <tr><td>地図が出ない</td><td>通信できる場所で開く。タイルは国土地理院の地図</td></tr>
+        <tr><td>氏名や機種が出てこない</td><td>masters を取り込んだか、ブラウザを変えていないかを確認する</td></tr>
+        <tr><td>別の端末に記録が無い</td><td>書き出した log / pos / masters を、その端末の「取込」で読む</td></tr>
+        <tr><td>記録が消えた</td><td>サイトデータの削除や、別ブラウザで開いている。外に書き出したファイルから取り込む</td></tr>
+        <tr><td>24 時間たった</td><td>ホームの案内に従い、リセットして気象をセットし直す</td></tr>
+      </tbody>
+    </table>
+    <p>アプリの版は画面右上の <code>v</code> で確認できます。</p>
+    <p class="back"><a href="./">アプリへ戻る</a></p>
+    <footer>Copyright (c) 2026 nagakiyo3821</footer>
+  </main>
+</body>
+</html>

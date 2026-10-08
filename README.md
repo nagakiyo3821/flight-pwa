@@ -23,6 +23,7 @@ status: wip
 Copyright (c) 2026 nagakiyo3821
 
 公開 Pages: https://nagakiyo3821.github.io/flight-pwa/  
+利用者向け手順: [使い方](https://nagakiyo3821.github.io/flight-pwa/manual.html)（[MANUAL.md](./MANUAL.md)）  
 アプリ初回起動時に同意を求めます。違反時の手順は TERMS.md §3。
 
 学習用の [[pwa-demo/README|pwa-demo]] とは別。**現行ショートカット互換の JSON**（log / pos / tmp）を端末内（IndexedDB）で扱い、ファイルとして出し入れする本番向け第1弾。

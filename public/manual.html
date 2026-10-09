@@ -94,6 +94,20 @@
       vertical-align: top;
     }
     th { background: #e8f2f6; }
+    table.fields { table-layout: fixed; }
+    table.fields th:nth-child(1),
+    table.fields td:nth-child(1) { width: 26%; }
+    table.fields th:nth-child(2),
+    table.fields td:nth-child(2) { width: 22%; }
+    @media (max-width: 520px) {
+      table.fields th:nth-child(1),
+      table.fields td:nth-child(1) { width: 34%; }
+      table.fields th:nth-child(2),
+      table.fields td:nth-child(2) { width: 30%; }
+    }
+    table.fields th,
+    table.fields td,
+    table.fields code { overflow-wrap: break-word; }
     code {
       font-family: ui-monospace, Consolas, monospace;
       font-size: 0.88em;
@@ -279,29 +293,29 @@
       </tbody>
     </table>
     <p>同期がオンになるのは、<code>sync.enabled</code> が <code>true</code> で、<code>active</code> が <code>google</code> のときです。どちらかが違うと、手動の取込・書出だけになります。中身が空や壊れているときも、手動のみに戻ります。Google ドライブへ送る例は「7. システム設定」にあります。</p>
-    <table>
+    <table class="fields">
       <thead><tr><th>項目</th><th>設定値</th><th>意味</th></tr></thead>
       <tbody>
         <tr><td><code>version</code></td><td><code>1</code></td><td>このファイルの形式。いまのアプリは 1</td></tr>
-        <tr><td><code>sync.enabled</code></td><td><code>true</code> または <code>false</code></td><td><code>true</code> で同期を有効にする。<code>provider</code> が <code>none</code> のときは <code>true</code> でもオフになる</td></tr>
-        <tr><td><code>sync.provider</code></td><td><code>none</code> / <code>google</code> / <code>webdav</code> / <code>s3compatible</code></td><td>使う同期先。動くのは <code>google</code>。<code>webdav</code> と <code>s3compatible</code> は予約で、書いても同期は動かない</td></tr>
-        <tr><td><code>sync.mode</code></td><td><code>auto</code> または <code>manual</code></td><td>画面に出す区分。自動で同期するかは、この値ではなく <code>onLaunch</code> と <code>onOnline</code> で決まる</td></tr>
-        <tr><td><code>sync.onLaunch</code></td><td><code>true</code> または <code>false</code></td><td><code>true</code> なら、アプリを開いたとき、ログイン済みなら双方向同期を 1 回行う</td></tr>
-        <tr><td><code>sync.onOnline</code></td><td><code>true</code> または <code>false</code></td><td><code>true</code> なら、通信が戻ったとき、ログイン済みなら双方向同期する</td></tr>
-        <tr><td><code>sync.onEdit</code></td><td><code>true</code> または <code>false</code></td><td>値は保存され、設定画面に出る。点検を保存するたびに同期する処理はまだない。例では <code>false</code></td></tr>
-        <tr><td><code>active</code></td><td><code>sync.provider</code> と同じ</td><td>いま有効な同期先。同期オンのときは <code>google</code></td></tr>
-        <tr><td><code>providers.none</code></td><td><code>{}</code></td><td>手動のみのときの置き場。中身は空</td></tr>
-        <tr><td><code>providers.google.folderName</code></td><td>例: <code>flight-log</code></td><td>探すフォルダの名前。ゴミ箱以外で同名を探し、複数あるときは先頭の 1 件。見本ファイルの既定は <code>drone</code></td></tr>
-        <tr><td><code>providers.google.folderId</code></td><td>空、またはドライブが付ける ID</td><td>空なら名前で探す。見つかったあと、アプリがその端末の設定へ ID を書く。人に渡すファイルでは空にする</td></tr>
-        <tr><td><code>providers.google.files.log</code> など</td><td>例: <code>log.json</code></td><td>フォルダ内のファイル名。送受信するのは log / pos / tmp / masters。<code>settings</code> の名前は書いてあっても、このファイル自体はドライブへ送らない</td></tr>
-        <tr><td><code>providers.google.createFolderIfMissing</code></td><td><code>true</code> または <code>false</code></td><td><code>true</code> なら同名が無いとき、マイドライブ直下に作る。<code>false</code> なら見つからないとエラー</td></tr>
-        <tr><td><code>providers.webdav.baseUrl</code></td><td>例: <code>https://example.com/remote.php/webdav</code></td><td>予約。未使用</td></tr>
-        <tr><td><code>providers.webdav.username</code></td><td>例: <code>example-user</code></td><td>予約。パスワードは書かない</td></tr>
-        <tr><td><code>providers.webdav.path</code></td><td>例: <code>/flight-log</code></td><td>予約</td></tr>
-        <tr><td><code>providers.s3compatible.endpoint</code></td><td>例: <code>https://s3.example.com</code></td><td>予約</td></tr>
-        <tr><td><code>providers.s3compatible.bucket</code></td><td>例: <code>flight-log</code></td><td>予約</td></tr>
-        <tr><td><code>providers.s3compatible.prefix</code></td><td>例: <code>flight-log/</code></td><td>予約。秘密鍵は書かない</td></tr>
-        <tr><td><code>manualIoAlwaysAvailable</code></td><td><code>true</code></td><td><code>true</code> のあいだは、同期を使っていても手動の取込・書出が残る</td></tr>
+        <tr><td><code>sync.<wbr>enabled</code></td><td><code>true</code> または <code>false</code></td><td><code>true</code> で同期を有効にする。<code>provider</code> が <code>none</code> のときは <code>true</code> でもオフになる</td></tr>
+        <tr><td><code>sync.<wbr>provider</code></td><td><code>none</code> / <code>google</code> / <code>webdav</code> / <code>s3<wbr>compatible</code></td><td>使う同期先。動くのは <code>google</code>。<code>webdav</code> と <code>s3<wbr>compatible</code> は予約で、書いても同期は動かない</td></tr>
+        <tr><td><code>sync.<wbr>mode</code></td><td><code>auto</code> または <code>manual</code></td><td>画面に出す区分。自動で同期するかは、この値ではなく <code>onLaunch</code> と <code>onOnline</code> で決まる</td></tr>
+        <tr><td><code>sync.<wbr>onLaunch</code></td><td><code>true</code> または <code>false</code></td><td><code>true</code> なら、アプリを開いたとき、ログイン済みなら双方向同期を 1 回行う</td></tr>
+        <tr><td><code>sync.<wbr>onOnline</code></td><td><code>true</code> または <code>false</code></td><td><code>true</code> なら、通信が戻ったとき、ログイン済みなら双方向同期する</td></tr>
+        <tr><td><code>sync.<wbr>onEdit</code></td><td><code>true</code> または <code>false</code></td><td>値は保存され、設定画面に出る。点検を保存するたびに同期する処理はまだない。例では <code>false</code></td></tr>
+        <tr><td><code>active</code></td><td><code>sync.<wbr>provider</code> と同じ</td><td>いま有効な同期先。同期オンのときは <code>google</code></td></tr>
+        <tr><td><code>providers.<wbr>none</code></td><td><code>{}</code></td><td>手動のみのときの置き場。中身は空</td></tr>
+        <tr><td><code>providers.google.<wbr>folderName</code></td><td>例: <code>flight-log</code></td><td>探すフォルダの名前。ゴミ箱以外で同名を探し、複数あるときは先頭の 1 件。見本ファイルの既定は <code>drone</code></td></tr>
+        <tr><td><code>providers.google.<wbr>folderId</code></td><td>空、またはドライブが付ける ID</td><td>空なら名前で探す。見つかったあと、アプリがその端末の設定へ ID を書く。人に渡すファイルでは空にする</td></tr>
+        <tr><td><code>providers.google.<wbr>files.log</code> など</td><td>例: <code>log.<wbr>json</code></td><td>フォルダ内のファイル名。送受信するのは log / pos / tmp / masters。<code>settings</code> の名前は書いてあっても、このファイル自体はドライブへ送らない</td></tr>
+        <tr><td><code>providers.google.<wbr>create<wbr>Folder<wbr>If<wbr>Missing</code></td><td><code>true</code> または <code>false</code></td><td><code>true</code> なら同名が無いとき、マイドライブ直下に作る。<code>false</code> なら見つからないとエラー</td></tr>
+        <tr><td><code>providers.webdav.<wbr>baseUrl</code></td><td>例: <code>https://example.com/<wbr>remote.php/webdav</code></td><td>予約。未使用</td></tr>
+        <tr><td><code>providers.webdav.<wbr>username</code></td><td>例: <code>example-user</code></td><td>予約。パスワードは書かない</td></tr>
+        <tr><td><code>providers.webdav.<wbr>path</code></td><td>例: <code>/flight-log</code></td><td>予約</td></tr>
+        <tr><td><code>providers.s3<wbr>compatible.<wbr>endpoint</code></td><td>例: <code>https://<wbr>s3.example.com</code></td><td>予約</td></tr>
+        <tr><td><code>providers.s3<wbr>compatible.<wbr>bucket</code></td><td>例: <code>flight-log</code></td><td>予約</td></tr>
+        <tr><td><code>providers.s3<wbr>compatible.<wbr>prefix</code></td><td>例: <code>flight-log/</code></td><td>予約。秘密鍵は書かない</td></tr>
+        <tr><td><code>manual<wbr>Io<wbr>Always<wbr>Available</code></td><td><code>true</code></td><td><code>true</code> のあいだは、同期を使っていても手動の取込・書出が残る</td></tr>
         <tr><td><code>notes</code></td><td>短いメモ</td><td>同期の動作には使わない。氏名やメールアドレスは書かない</td></tr>
       </tbody>
     </table>

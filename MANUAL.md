@@ -140,7 +140,40 @@ https://nagakiyo3821.github.io/flight-pwa/
 
 **settings.json（同期）**
 
-`sync.enabled` が `false` なら手動の取込・書出だけです。`true` かつ `active` が `google` のとき、ドライブのフォルダ名と各ファイル名を使って同期します。ログインのトークンはこのファイルに書きません。
+同期の接続先だけを書くファイルです。操縦者の氏名、機体の登録記号、メールアドレス、パスワード、ログインのトークンは書きません。説明や例では、個人情報を次の一般的な形に置き換えます。
+
+| 種類 | 一般的な書き方 |
+|---|---|
+| メールアドレス | `pilot@example.com` |
+| ドライブのフォルダ名 | `flight-log` |
+| 利用者名 | `example-user` |
+| フォルダ ID | 空のまま（実在の ID は人に渡すファイルへ書かない） |
+
+同期がオンになるのは、`sync.enabled` が `true` で、`active` が `google` のときです。どちらかが違うと、手動の取込・書出だけになります。中身が空や壊れているときも、手動のみに戻ります。Google ドライブへ送る例は「7. システム設定」にあります。
+
+| 項目 | 設定値 | 意味 |
+|---|---|---|
+| `version` | `1` | このファイルの形式。いまのアプリは 1 |
+| `sync.enabled` | `true` または `false` | `true` で同期を有効にする。`provider` が `none` のときは `true` でもオフになる |
+| `sync.provider` | `none` / `google` / `webdav` / `s3compatible` | 使う同期先。動くのは `google`。`webdav` と `s3compatible` は予約で、書いても同期は動かない |
+| `sync.mode` | `auto` または `manual` | 画面に出す区分。自動で同期するかは、この値ではなく `onLaunch` と `onOnline` で決まる |
+| `sync.onLaunch` | `true` または `false` | `true` なら、アプリを開いたとき、ログイン済みなら双方向同期を 1 回行う |
+| `sync.onOnline` | `true` または `false` | `true` なら、通信が戻ったとき、ログイン済みなら双方向同期する |
+| `sync.onEdit` | `true` または `false` | 値は保存され、設定画面に出る。点検を保存するたびに同期する処理はまだない。例では `false` |
+| `active` | `sync.provider` と同じ | いま有効な同期先。同期オンのときは `google` |
+| `providers.none` | `{}` | 手動のみのときの置き場。中身は空 |
+| `providers.google.folderName` | 例: `flight-log` | 探すフォルダの名前。ゴミ箱以外で同名を探し、複数あるときは先頭の 1 件。見本ファイルの既定は `drone` |
+| `providers.google.folderId` | 空、またはドライブが付ける ID | 空なら名前で探す。見つかったあと、アプリがその端末の設定へ ID を書く。人に渡すファイルでは空にする |
+| `providers.google.files.log` など | 例: `log.json` | フォルダ内のファイル名。送受信するのは log / pos / tmp / masters。`settings` の名前は書いてあっても、このファイル自体はドライブへ送らない |
+| `providers.google.createFolderIfMissing` | `true` または `false` | `true` なら同名が無いとき、マイドライブ直下に作る。`false` なら見つからないとエラー |
+| `providers.webdav.baseUrl` | 例: `https://example.com/remote.php/webdav` | 予約。未使用 |
+| `providers.webdav.username` | 例: `example-user` | 予約。パスワードは書かない |
+| `providers.webdav.path` | 例: `/flight-log` | 予約 |
+| `providers.s3compatible.endpoint` | 例: `https://s3.example.com` | 予約 |
+| `providers.s3compatible.bucket` | 例: `flight-log` | 予約 |
+| `providers.s3compatible.prefix` | 例: `flight-log/` | 予約。秘密鍵は書かない |
+| `manualIoAlwaysAvailable` | `true` | `true` のあいだは、同期を使っていても手動の取込・書出が残る |
+| `notes` | 短いメモ | 同期の動作には使わない。氏名やメールアドレスは書かない |
 
 ### 準備しないときと、準備したとき
 
@@ -327,16 +360,60 @@ T が空のあいだは、経過の催促は出ません。
 
 ### Google ドライブを使うとき
 
-既定は手動の取込・書出だけです。ドライブと揃える場合だけ、次を行います。
+既定は手動の取込・書出だけです。ドライブと揃えるときは、次の例を `settings.json` として保存します。フォルダ名 `flight-log` は架空です。自分のマイドライブのフォルダ名に変えてください。見本 `settings.google.sample.json` の既定フォルダ名は `drone` です。メールアドレスはファイルに書きません。ブラウザで `pilot@example.com` のような自分のアカウントに入った状態でログインします。
 
-1. 見本 `settings.google.sample.json` を手元にコピーする
-2. フォルダ名（既定は `drone`）を、自分のドライブのフォルダに合わせる
+```json
+{
+  "version": 1,
+  "sync": {
+    "enabled": true,
+    "provider": "google",
+    "mode": "auto",
+    "onLaunch": true,
+    "onOnline": true,
+    "onEdit": false
+  },
+  "active": "google",
+  "providers": {
+    "none": {},
+    "google": {
+      "folderName": "flight-log",
+      "folderId": "",
+      "files": {
+        "log": "log.json",
+        "pos": "pos.json",
+        "tmp": "tmp.json",
+        "masters": "masters.json",
+        "settings": "settings.json"
+      },
+      "createFolderIfMissing": true
+    },
+    "webdav": {
+      "baseUrl": "https://example.com/remote.php/webdav",
+      "username": "example-user",
+      "path": "/flight-log"
+    },
+    "s3compatible": {
+      "endpoint": "https://s3.example.com",
+      "bucket": "flight-log",
+      "prefix": "flight-log/"
+    }
+  },
+  "manualIoAlwaysAvailable": true,
+  "notes": "Google ドライブ同期の例。ログイン情報は書かない。"
+}
+```
+
+`webdav` と `s3compatible` は形だけの予約です。消しても、アプリは空の予約として補います。
+
+1. 上の例、または見本 `settings.google.sample.json` を手元に保存する
+2. `folderName` を、自分のマイドライブのフォルダ名に合わせる。`folderId` は空のままにする
 3. 「取込」の **settings** でそのファイルを選ぶ
-4. 「Google でログイン」を押し、アカウントを許可する
+4. ブラウザで自分の Google アカウントに入る。「Google でログイン」を押し、アカウントを許可する
 5. 「Drive 疎通テスト」でフォルダが見えることを確認する
 6. 「Driveから取得（マージ）」でクラウド側を取り込む。「Driveへ送信」で端末側を送る。「双方向同期」は取得してから送信する
 
-ログイン情報は settings ファイルには書きません。トークンを人に渡したり、リポジトリに置いたりしないでください。
+同じ記録が端末とドライブの両方にあるときは、端末側を残します。ドライブにしか無い記録は残ります。`settings.json` 自体はドライブへ送りません。ログイン情報は settings ファイルには書きません。トークンを人に渡したり、リポジトリに置いたりしないでください。
 
 手動に戻すときは「サーバー同期をオフ」です。
 

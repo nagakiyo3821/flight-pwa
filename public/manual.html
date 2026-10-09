@@ -268,7 +268,43 @@
       </tbody>
     </table>
     <p><strong>settings.json（同期）</strong></p>
-    <p><code>sync.enabled</code> が <code>false</code> なら手動の取込・書出だけです。<code>true</code> かつ <code>active</code> が <code>google</code> のとき、ドライブのフォルダ名と各ファイル名を使って同期します。ログインのトークンはこのファイルに書きません。</p>
+    <p>同期の接続先だけを書くファイルです。操縦者の氏名、機体の登録記号、メールアドレス、パスワード、ログインのトークンは書きません。説明や例では、個人情報を次の一般的な形に置き換えます。</p>
+    <table>
+      <thead><tr><th>種類</th><th>一般的な書き方</th></tr></thead>
+      <tbody>
+        <tr><td>メールアドレス</td><td><code>pilot@example.com</code></td></tr>
+        <tr><td>ドライブのフォルダ名</td><td><code>flight-log</code></td></tr>
+        <tr><td>利用者名</td><td><code>example-user</code></td></tr>
+        <tr><td>フォルダ ID</td><td>空のまま（実在の ID は人に渡すファイルへ書かない）</td></tr>
+      </tbody>
+    </table>
+    <p>同期がオンになるのは、<code>sync.enabled</code> が <code>true</code> で、<code>active</code> が <code>google</code> のときです。どちらかが違うと、手動の取込・書出だけになります。中身が空や壊れているときも、手動のみに戻ります。Google ドライブへ送る例は「7. システム設定」にあります。</p>
+    <table>
+      <thead><tr><th>項目</th><th>設定値</th><th>意味</th></tr></thead>
+      <tbody>
+        <tr><td><code>version</code></td><td><code>1</code></td><td>このファイルの形式。いまのアプリは 1</td></tr>
+        <tr><td><code>sync.enabled</code></td><td><code>true</code> または <code>false</code></td><td><code>true</code> で同期を有効にする。<code>provider</code> が <code>none</code> のときは <code>true</code> でもオフになる</td></tr>
+        <tr><td><code>sync.provider</code></td><td><code>none</code> / <code>google</code> / <code>webdav</code> / <code>s3compatible</code></td><td>使う同期先。動くのは <code>google</code>。<code>webdav</code> と <code>s3compatible</code> は予約で、書いても同期は動かない</td></tr>
+        <tr><td><code>sync.mode</code></td><td><code>auto</code> または <code>manual</code></td><td>画面に出す区分。自動で同期するかは、この値ではなく <code>onLaunch</code> と <code>onOnline</code> で決まる</td></tr>
+        <tr><td><code>sync.onLaunch</code></td><td><code>true</code> または <code>false</code></td><td><code>true</code> なら、アプリを開いたとき、ログイン済みなら双方向同期を 1 回行う</td></tr>
+        <tr><td><code>sync.onOnline</code></td><td><code>true</code> または <code>false</code></td><td><code>true</code> なら、通信が戻ったとき、ログイン済みなら双方向同期する</td></tr>
+        <tr><td><code>sync.onEdit</code></td><td><code>true</code> または <code>false</code></td><td>値は保存され、設定画面に出る。点検を保存するたびに同期する処理はまだない。例では <code>false</code></td></tr>
+        <tr><td><code>active</code></td><td><code>sync.provider</code> と同じ</td><td>いま有効な同期先。同期オンのときは <code>google</code></td></tr>
+        <tr><td><code>providers.none</code></td><td><code>{}</code></td><td>手動のみのときの置き場。中身は空</td></tr>
+        <tr><td><code>providers.google.folderName</code></td><td>例: <code>flight-log</code></td><td>探すフォルダの名前。ゴミ箱以外で同名を探し、複数あるときは先頭の 1 件。見本ファイルの既定は <code>drone</code></td></tr>
+        <tr><td><code>providers.google.folderId</code></td><td>空、またはドライブが付ける ID</td><td>空なら名前で探す。見つかったあと、アプリがその端末の設定へ ID を書く。人に渡すファイルでは空にする</td></tr>
+        <tr><td><code>providers.google.files.log</code> など</td><td>例: <code>log.json</code></td><td>フォルダ内のファイル名。送受信するのは log / pos / tmp / masters。<code>settings</code> の名前は書いてあっても、このファイル自体はドライブへ送らない</td></tr>
+        <tr><td><code>providers.google.createFolderIfMissing</code></td><td><code>true</code> または <code>false</code></td><td><code>true</code> なら同名が無いとき、マイドライブ直下に作る。<code>false</code> なら見つからないとエラー</td></tr>
+        <tr><td><code>providers.webdav.baseUrl</code></td><td>例: <code>https://example.com/remote.php/webdav</code></td><td>予約。未使用</td></tr>
+        <tr><td><code>providers.webdav.username</code></td><td>例: <code>example-user</code></td><td>予約。パスワードは書かない</td></tr>
+        <tr><td><code>providers.webdav.path</code></td><td>例: <code>/flight-log</code></td><td>予約</td></tr>
+        <tr><td><code>providers.s3compatible.endpoint</code></td><td>例: <code>https://s3.example.com</code></td><td>予約</td></tr>
+        <tr><td><code>providers.s3compatible.bucket</code></td><td>例: <code>flight-log</code></td><td>予約</td></tr>
+        <tr><td><code>providers.s3compatible.prefix</code></td><td>例: <code>flight-log/</code></td><td>予約。秘密鍵は書かない</td></tr>
+        <tr><td><code>manualIoAlwaysAvailable</code></td><td><code>true</code></td><td><code>true</code> のあいだは、同期を使っていても手動の取込・書出が残る</td></tr>
+        <tr><td><code>notes</code></td><td>短いメモ</td><td>同期の動作には使わない。氏名やメールアドレスは書かない</td></tr>
+      </tbody>
+    </table>
 
     <h3>準備しないときと、準備したとき</h3>
     <p>ファイルを何も取り込まなくても、飛行の記録は始められます。アプリには初期の選択肢（飛行目的、飛行条件、障害物、正常／異常、機種名 Mavic2Pro / Tello / Other など）が入っています。</p>
@@ -431,16 +467,56 @@
     <p>「サーバー上も空で上書き」は使えません。初期化は端末の中だけです。</p>
 
     <h3>Google ドライブを使うとき</h3>
-    <p>既定は手動の取込・書出だけです。ドライブと揃える場合だけ、次を行います。</p>
+    <p>既定は手動の取込・書出だけです。ドライブと揃えるときは、次の例を <code>settings.json</code> として保存します。フォルダ名 <code>flight-log</code> は架空です。自分のマイドライブのフォルダ名に変えてください。見本 <code>settings.google.sample.json</code> の既定フォルダ名は <code>drone</code> です。メールアドレスはファイルに書きません。ブラウザで <code>pilot@example.com</code> のような自分のアカウントに入った状態でログインします。</p>
+    <pre><code>{
+  "version": 1,
+  "sync": {
+    "enabled": true,
+    "provider": "google",
+    "mode": "auto",
+    "onLaunch": true,
+    "onOnline": true,
+    "onEdit": false
+  },
+  "active": "google",
+  "providers": {
+    "none": {},
+    "google": {
+      "folderName": "flight-log",
+      "folderId": "",
+      "files": {
+        "log": "log.json",
+        "pos": "pos.json",
+        "tmp": "tmp.json",
+        "masters": "masters.json",
+        "settings": "settings.json"
+      },
+      "createFolderIfMissing": true
+    },
+    "webdav": {
+      "baseUrl": "https://example.com/remote.php/webdav",
+      "username": "example-user",
+      "path": "/flight-log"
+    },
+    "s3compatible": {
+      "endpoint": "https://s3.example.com",
+      "bucket": "flight-log",
+      "prefix": "flight-log/"
+    }
+  },
+  "manualIoAlwaysAvailable": true,
+  "notes": "Google ドライブ同期の例。ログイン情報は書かない。"
+}</code></pre>
+    <p><code>webdav</code> と <code>s3compatible</code> は形だけの予約です。消しても、アプリは空の予約として補います。</p>
     <ol>
-      <li>見本 <code>settings.google.sample.json</code> を手元にコピーする</li>
-      <li>フォルダ名（既定は <code>drone</code>）を、自分のドライブのフォルダに合わせる</li>
+      <li>上の例、または見本 <code>settings.google.sample.json</code> を手元に保存する</li>
+      <li><code>folderName</code> を、自分のマイドライブのフォルダ名に合わせる。<code>folderId</code> は空のままにする</li>
       <li>「取込」の <strong>settings</strong> でそのファイルを選ぶ</li>
-      <li>「Google でログイン」を押し、アカウントを許可する</li>
+      <li>ブラウザで自分の Google アカウントに入る。「Google でログイン」を押し、アカウントを許可する</li>
       <li>「Drive 疎通テスト」でフォルダが見えることを確認する</li>
       <li>「Driveから取得（マージ）」でクラウド側を取り込む。「Driveへ送信」で端末側を送る。「双方向同期」は取得してから送信する</li>
     </ol>
-    <div class="note">ログイン情報は settings ファイルには書きません。トークンを人に渡したり、リポジトリに置いたりしないでください。手動に戻すときは「サーバー同期をオフ」です。</div>
+    <div class="note">同じ記録が端末とドライブの両方にあるときは、端末側を残します。ドライブにしか無い記録は残ります。<code>settings.json</code> 自体はドライブへ送りません。ログイン情報は settings ファイルには書きません。トークンを人に渡したり、リポジトリに置いたりしないでください。手動に戻すときは「サーバー同期をオフ」です。</div>
 
     <h2 id="sec-8" class="sec"><span>8. うまくいかないとき</span><a class="to-top" href="#top" data-to-top aria-label="先頭へ"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 3.2 2.6 9.2h3.1V13h4.6V9.2h3.1L8 3.2z"/></svg></a></h2>
     <table>

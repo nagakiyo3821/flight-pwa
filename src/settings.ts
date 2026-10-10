@@ -78,12 +78,20 @@ export function normalizeSettings(raw: unknown): SettingsFile {
   if (!raw || typeof raw !== 'object') return base
   const o = raw as Record<string, unknown>
   const syncIn = (o.sync && typeof o.sync === 'object' ? o.sync : {}) as Record<string, unknown>
-  const activeRaw = String(o.active ?? syncIn.provider ?? 'none')
-  const provider = (['none', 'google', 'webdav', 's3compatible'].includes(activeRaw)
-    ? activeRaw
-    : 'none') as SyncProviderId
-
-  const enabled = Boolean(syncIn.enabled) && provider !== 'none'
+  const known = ['none', 'google', 'webdav', 's3compatible']
+  const asProvider = (value: unknown): SyncProviderId | '' => {
+    const s = String(value ?? '')
+    return known.includes(s) ? (s as SyncProviderId) : ''
+  }
+  const fromActive = asProvider(o.active)
+  const fromSync = asProvider(syncIn.provider)
+  // 書出ファイルは active が none のまま残ることがある。enabled で同期を求めていれば provider を優先する。
+  let provider: SyncProviderId = 'none'
+  if (Boolean(syncIn.enabled)) {
+    if (fromSync && fromSync !== 'none') provider = fromSync
+    else if (fromActive && fromActive !== 'none') provider = fromActive
+  }
+  const enabled = provider !== 'none'
   const mode = syncIn.mode === 'auto' ? 'auto' : 'manual'
 
   const providersIn =

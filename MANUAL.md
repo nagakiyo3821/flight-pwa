@@ -149,7 +149,7 @@ https://nagakiyo3821.github.io/flight-pwa/
 | 利用者名 | `example-user` |
 | フォルダ ID | 空のまま（実在の ID は人に渡すファイルへ書かない） |
 
-同期がオンになるのは、`sync.enabled` が `true` で、`active` が `google` のときです。どちらかが違うと、手動の取込・書出だけになります。中身が空や壊れているときも、手動のみに戻ります。Google ドライブへ送る例は「7. システム設定」にあります。
+同期がオンになるのは、`sync.enabled` が `true` で、`sync.provider` が `google` のときです。`active` が `none` のままでも、この2つが揃っていれば Google 同期になります。`enabled` が `false` のときは手動の取込・書出だけです。中身が空や壊れているときも、手動のみに戻ります。Google ドライブへ送る例は「7. システム設定」にあります。
 
 | 項目 | 設定値 | 意味 |
 |---|---|---|

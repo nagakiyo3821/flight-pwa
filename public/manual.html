@@ -292,7 +292,7 @@
         <tr><td>フォルダ ID</td><td>空のまま（実在の ID は人に渡すファイルへ書かない）</td></tr>
       </tbody>
     </table>
-    <p>同期がオンになるのは、<code>sync.enabled</code> が <code>true</code> で、<code>active</code> が <code>google</code> のときです。どちらかが違うと、手動の取込・書出だけになります。中身が空や壊れているときも、手動のみに戻ります。Google ドライブへ送る例は「7. システム設定」にあります。</p>
+    <p>同期がオンになるのは、<code>sync.enabled</code> が <code>true</code> で、<code>sync.provider</code> が <code>google</code> のときです。<code>active</code> が <code>none</code> のままでも、この2つが揃っていれば Google 同期になります。<code>enabled</code> が <code>false</code> のときは手動の取込・書出だけです。中身が空や壊れているときも、手動のみに戻ります。Google ドライブへ送る例は「7. システム設定」にあります。</p>
     <table class="fields">
       <thead><tr><th>項目</th><th>設定値</th><th>意味</th></tr></thead>
       <tbody>

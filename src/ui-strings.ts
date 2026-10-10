@@ -16,9 +16,9 @@ export const SETTINGS_OFF_CONFIRM =
 export const SETTINGS_HINT_MANUAL =
   '既定は手動のみ。Google 同期を使うときは下の「取込」で settings（sample）を取り込んでください。'
 export const SETTINGS_HINT_OFF_DONE = 'サーバー同期をオフにしました（手動のみ）'
-export const GOOGLE_LOGIN = 'Google でログイン'
-export const GOOGLE_LOGOUT = 'Google ログアウト'
-export const GOOGLE_PROBE = 'Drive 疎通テスト'
+export const GOOGLE_LOGIN = 'ログイン'
+export const GOOGLE_LOGOUT = 'ログアウト'
+export const GOOGLE_PROBE = '疎通テスト'
 export const GOOGLE_PULL = 'Driveから取得（マージ）'
 export const GOOGLE_PUSH = 'Driveへ送信'
 export const GOOGLE_SYNC = '双方向同期'

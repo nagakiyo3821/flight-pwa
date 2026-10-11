@@ -71,7 +71,7 @@ import {
   syncNotImplementedMessage,
   syncStatusLabel,
 } from './settings'
-import { pickDirectory } from './local-dirs'
+import { pickDirectory, pickerWasCancelled } from './local-dirs'
 import {
   internalIsInitialEmpty,
   needsLocalGate,
@@ -408,9 +408,12 @@ async function render(): Promise<void> {
 }
 
 let localRestoreDone = false
+let localGateNote = ''
 
 async function renderLocalGate(): Promise<void> {
   const pending = localStorage.getItem('flight-local-export-pending') === '1'
+  const note = localGateNote
+  localGateNote = ''
   app.classList.add('places-ui-app')
   document.documentElement.classList.add('places-ui-lock')
   app.innerHTML = `
@@ -423,8 +426,9 @@ async function renderLocalGate(): Promise<void> {
     <p class="places-ui-io-hint">${
       pending
         ? '前回の本登録が自動ローカルへ書けていません。フォルダを確認して書き出します。'
-        : '点検に入る前に、書き出し先のフォルダを選びます。無いフォルダは作りません。'
+        : '点検に入る前に、書き出し先のフォルダを選びます。無いフォルダは作りません。選ぶまでこの画面のままです。閉じたときは、アプリを開き直すと再びこの案内が出ます。'
     }</p>
+    ${note ? `<p id="msg" class="msg bad" role="status">${escapeHtml(note)}</p>` : ''}
     <div class="places-ui-cmds">
       <button type="button" class="places-ui-cmd" id="pickAutoFolder">フォルダを選ぶ</button>
     </div>
@@ -440,7 +444,9 @@ async function renderLocalGate(): Promise<void> {
         flashMsg = `自動ローカル: ${name}${extra}`
         await render()
       } catch (e) {
-        flashMsg = `フォルダを選べませんでした: ${(e as Error).message}`
+        localGateNote = pickerWasCancelled(e)
+          ? 'フォルダはまだ選ばれていません。点検に入るには、もう一度「フォルダを選ぶ」を押してください。'
+          : `フォルダを選べませんでした: ${(e as Error).message}`
         await render()
       }
     })()

@@ -57,13 +57,9 @@ async function idbSet(key: string, handle: DirHandle): Promise<void> {
 async function permission(handle: DirHandle): Promise<PermissionState> {
   const h = handle as FileSystemDirectoryHandle & {
     queryPermission?: (d: { mode: 'readwrite' }) => Promise<PermissionState>
-    requestPermission?: (d: { mode: 'readwrite' }) => Promise<PermissionState>
   }
   if (!h.queryPermission) return 'granted'
-  const q = await h.queryPermission({ mode: 'readwrite' })
-  if (q === 'granted') return q
-  if (!h.requestPermission) return q
-  return h.requestPermission({ mode: 'readwrite' })
+  return h.queryPermission({ mode: 'readwrite' })
 }
 
 export async function storedDirectory(kind: DirKind): Promise<DirHandle | null> {
@@ -77,11 +73,15 @@ export async function storedDirectory(kind: DirKind): Promise<DirHandle | null> 
   }
 }
 
+export function pickerWasCancelled(error: unknown): boolean {
+  const name = error instanceof DOMException ? error.name : ''
+  return name === 'AbortError' || name === 'NotAllowedError'
+}
+
 export async function pickDirectory(kind: DirKind): Promise<string> {
   const pick = picker()
   if (!pick) {
-    sessionStorage.setItem(SESSION_OK, '1')
-    return 'この端末のフォルダ（この起動中）'
+    throw new Error('このブラウザはフォルダの選択に対応していません')
   }
   const handle = await pick({ mode: 'readwrite' })
   await idbSet(kind, handle)

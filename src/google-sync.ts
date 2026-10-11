@@ -25,7 +25,6 @@ import {
 import {
   ensureGoogleAccessToken,
   isGoogleClientConfigured,
-  isGoogleSignedIn,
 } from './google-auth'
 import { getSettings, isServerSyncConfigured, normalizeSettings, setSettings } from './settings'
 import type { LogFile, PosFile, TmpFlag } from './types'
@@ -193,35 +192,7 @@ export async function runGoogleDriveSync(direction: SyncDirection): Promise<Sync
   return { ok: true, folderId, folderName, lines }
 }
 
-let launchSyncDone = false
-let onlineSyncRunning = false
-
-/** 起動時・オンライン復帰。未ログインなら静かにスキップ */
-export async function maybeAutoSync(reason: 'launch' | 'online'): Promise<string | null> {
-  if (!isServerSyncConfigured() || getSettings().active !== 'google') return null
-  if (!isGoogleClientConfigured()) return null
-  const s = getSettings().sync
-  if (reason === 'launch' && !s.onLaunch) return null
-  if (reason === 'online' && !s.onOnline) return null
-  if (reason === 'launch' && launchSyncDone) return null
-  if (!isGoogleSignedIn()) {
-    return reason === 'launch'
-      ? 'Google 同期: 未ログインのためスキップ（システム設定でログイン可）'
-      : null
-  }
-  if (onlineSyncRunning) return null
-  onlineSyncRunning = true
-  try {
-    const report = await runGoogleDriveSync('both')
-    if (reason === 'launch') launchSyncDone = true
-    return `Google 同期完了（${reason}）\n` + report.lines.join('\n')
-  } catch (e) {
-    return `Google 同期失敗（${reason}）: ${(e as Error).message}`
-  } finally {
-    onlineSyncRunning = false
-  }
-}
-
-export function resetLaunchSyncFlag(): void {
-  launchSyncDone = false
+/** 起動時・通信復帰の自動同期はしない。書き出しは 5.データ登録のあと。 */
+export async function maybeAutoSync(_reason: 'launch' | 'online'): Promise<string | null> {
+  return null
 }

@@ -18,7 +18,6 @@ import {
   exportLog,
   exportMasters,
   exportPos,
-  exportSettings,
   exportTmp,
   closestPlace3dFromList,
   ecefDistanceM,
@@ -68,9 +67,18 @@ import {
   getSettings,
   isServerSyncConfigured,
   settingsDetailLines,
+  settingsDocument,
   syncNotImplementedMessage,
   syncStatusLabel,
 } from './settings'
+import { pickDirectory } from './local-dirs'
+import {
+  internalIsInitialEmpty,
+  needsLocalGate,
+  restoreFromAutoIfEmpty,
+  writeAfterCommit,
+  writeManualLocal,
+} from './place-backup'
 import {
   clearGoogleSession,
   isGoogleClientConfigured,
@@ -372,6 +380,15 @@ async function render(): Promise<void> {
   // lock 解除後にリセット（overflow:hidden 中だと効かない端末がある）
   resetViewportScroll()
   await ensureBootstrap()
+  if (await needsLocalGate()) {
+    await renderLocalGate()
+    return
+  }
+  if (!localRestoreDone) {
+    localRestoreDone = true
+    const restored = await restoreFromAutoIfEmpty(await internalIsInitialEmpty())
+    if (restored) flashMsg = restored
+  }
   if (view === 'menu') await renderMenu()
   else if (view === 'newa') await renderEditList('A')
   else if (view === 'newb') await renderEditList('B')
@@ -388,6 +405,46 @@ async function render(): Promise<void> {
     resetViewportScroll()
   })
   clearStickyFocus()
+}
+
+let localRestoreDone = false
+
+async function renderLocalGate(): Promise<void> {
+  const pending = localStorage.getItem('flight-local-export-pending') === '1'
+  app.classList.add('places-ui-app')
+  document.documentElement.classList.add('places-ui-lock')
+  app.innerHTML = `
+  <header class="top">
+    <div class="top-titles">
+      <h1 class="prompt places-ui-title"><span class="places-ui-title-text">自動ローカル</span></h1>
+    </div>
+  </header>
+  <main class="places-ui-main">
+    <p class="places-ui-io-hint">${
+      pending
+        ? '前回の本登録が自動ローカルへ書けていません。フォルダを確認して書き出します。'
+        : '点検に入る前に、書き出し先のフォルダを選びます。無いフォルダは作りません。'
+    }</p>
+    <div class="places-ui-cmds">
+      <button type="button" class="places-ui-cmd" id="pickAutoFolder">フォルダを選ぶ</button>
+    </div>
+  </main>`
+  app.querySelector('#pickAutoFolder')!.addEventListener('click', () => {
+    void (async () => {
+      try {
+        const name = await pickDirectory('auto')
+        let extra = ''
+        if (localStorage.getItem('flight-local-export-pending') === '1') {
+          extra = '\n' + (await writeAfterCommit())
+        }
+        flashMsg = `自動ローカル: ${name}${extra}`
+        await render()
+      } catch (e) {
+        flashMsg = `フォルダを選べませんでした: ${(e as Error).message}`
+        await render()
+      }
+    })()
+  })
 }
 
 let autoSyncWired = false
@@ -5392,7 +5449,12 @@ async function onMenu(action: string): Promise<void> {
     })
     if (ok) {
       const k = await commitWorking()
-      flashMsg = k ? `登録しました: ${k}` : 'A_DATE が空のため登録できません'
+      if (k) {
+        const wrote = await writeAfterCommit()
+        flashMsg = `登録しました: ${k}\n${wrote}`
+      } else {
+        flashMsg = 'A_DATE が空のため登録できません'
+      }
     }
     await render()
   }
@@ -5726,7 +5788,12 @@ async function onEditList(kind: 'A' | 'B' | 'F', id: string): Promise<void> {
     })
     if (ok) {
       const k = await commitWorking()
-      flashMsg = k ? `登録しました: ${k}` : 'A_DATE が空のため登録できません'
+      if (k) {
+        const wrote = await writeAfterCommit()
+        flashMsg = `登録しました: ${k}\n${wrote}`
+      } else {
+        flashMsg = 'A_DATE が空のため登録できません'
+      }
     }
     await render()
     return
@@ -6611,6 +6678,15 @@ async function renderIO(): Promise<void> {
               <a class="places-ui-cmd" id="openManual" href="./manual.html">マニュアル</a>
             </div>
 
+            <h2 class="places-ui-io-h">自動ローカル</h2>
+            <p class="places-ui-io-hint">本登録の直後に、このフォルダへ 4 ファイルを書き出します。手動・iCloud とは別のフォルダです。</p>
+            <div class="places-ui-cmds places-ui-cmds--wrap">
+              ${cmd('pickAuto', '自動ローカルを変更')}
+              ${cmd('pickManual', '手動ローカルを選ぶ')}
+              ${cmd('pickIcloud', 'iCloud フォルダを選ぶ')}
+              ${cmd('writeManual', '手動ローカルへ書き出す')}
+            </div>
+
             <h2 class="places-ui-io-h">同期（settings）</h2>
             <p class="places-ui-io-hint"><strong>いま:</strong> ${escapeHtml(status)}</p>
             ${syncNote}
@@ -6746,6 +6822,35 @@ async function renderIO(): Promise<void> {
     if (ioBusy) return
     view = 'menu'
     void render()
+  })
+
+  const bindFolder = (id: string, kind: 'auto' | 'manual' | 'icloud', label: string) => {
+    app.querySelector(`#${id}`)?.addEventListener('click', () => {
+      if (ioBusy) return
+      void (async () => {
+        try {
+          const name = await pickDirectory(kind)
+          flashMsg = `${label}: ${name}`
+        } catch (e) {
+          flashMsg = `${label}を選べませんでした: ${(e as Error).message}`
+        }
+        await render()
+      })()
+    })
+  }
+  bindFolder('pickAuto', 'auto', '自動ローカル')
+  bindFolder('pickManual', 'manual', '手動ローカル')
+  bindFolder('pickIcloud', 'icloud', 'iCloud')
+  app.querySelector('#writeManual')?.addEventListener('click', () => {
+    if (ioBusy) return
+    void (async () => {
+      try {
+        flashMsg = await writeManualLocal()
+      } catch (e) {
+        flashMsg = `手動書き出し失敗: ${(e as Error).message}`
+      }
+      await render()
+    })()
   })
 
   app.querySelector('#settingsOff')!.addEventListener('click', async (ev) => {
@@ -6913,7 +7018,7 @@ async function renderIO(): Promise<void> {
     { key: 'pos', btn: 'exPos', file: 'pos.json', load: () => exportPos() },
     { key: 'tmp', btn: 'exTmp', file: 'tmp.json', load: () => exportTmp() },
     { key: 'masters', btn: 'exMasters', file: 'masters.json', load: () => exportMasters() },
-    { key: 'settings', btn: 'exSettings', file: 'settings.json', load: () => exportSettings() },
+    { key: 'settings', btn: 'exSettings', file: 'settings.json', load: async () => settingsDocument() },
   ]
 
   void withIoBusy(null, '', 'エクスポート準備中…', async () => {

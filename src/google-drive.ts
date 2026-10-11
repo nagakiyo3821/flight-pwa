@@ -2,6 +2,7 @@
  * Google Drive API v3 — JSON ファイルの検索・取得・更新
  */
 
+import { splitFolderPath } from './folder-path'
 import { getAccessToken } from './google-auth'
 import { getSettings, type GoogleProviderConfig } from './settings'
 
@@ -84,22 +85,49 @@ export async function findChildByName(
   return data.files?.[0] ?? null
 }
 
-/** settings の folderId / folderName。無ければ作成可 */
+async function foldersNamed(
+  parentId: string,
+  name: string,
+): Promise<DriveFileHit[]> {
+  const safe = name.replace(/'/g, "\\'")
+  const q = [
+    `'${parentId}' in parents`,
+    `name='${safe}'`,
+    `mimeType='application/vnd.google-apps.folder'`,
+    'trashed=false',
+  ].join(' and ')
+  const data = await driveJson<{ files?: DriveFileHit[] }>(
+    `files?pageSize=20&fields=files(id,name,mimeType)&q=${encodeURIComponent(q)}`,
+  )
+  return data.files ?? []
+}
+
+/**
+ * folderName を段ごとに開く。フォルダは作らない。
+ * 1 件ならそれ。最後の段が複数のときだけ folderId を見る。
+ * ID が空または不一致なら検索結果の先頭。
+ */
 export async function resolveSyncFolder(): Promise<{ folderName: string; folderId: string }> {
   const s = getSettings()
   const folderName = String(s.providers.google?.folderName || 'drone')
   const configuredId = String(s.providers.google?.folderId || '').trim()
-  if (configuredId) return { folderName, folderId: configuredId }
+  const segments = splitFolderPath(folderName)
+  if (!segments.length) throw new Error('Google のフォルダ名が空です')
 
-  const hit = await findFolderByName(folderName)
-  if (hit) return { folderName, folderId: hit.id }
-
-  const create = s.providers.google?.createFolderIfMissing !== false
-  if (!create) {
-    throw new Error(`マイドライブにフォルダ「${folderName}」が見つかりません。`)
+  let parent = 'root'
+  for (let i = 0; i < segments.length; i += 1) {
+    const hits = await foldersNamed(parent, segments[i])
+    const path = segments.slice(0, i + 1).join('/')
+    if (!hits.length) throw new Error(`マイドライブにフォルダ「${path}」が見つかりません`)
+    const last = i === segments.length - 1
+    if (hits.length === 1 || !last) {
+      parent = hits[0].id
+      continue
+    }
+    const byId = configuredId ? hits.find((h) => h.id === configuredId) : undefined
+    parent = (byId ?? hits[0]).id
   }
-  const created = await createFolder(folderName)
-  return { folderName, folderId: created.id }
+  return { folderName, folderId: parent }
 }
 
 export async function downloadJsonByFileId(fileId: string): Promise<unknown> {

@@ -39,6 +39,10 @@ export interface SettingsFile {
   }
   manualIoAlwaysAvailable?: boolean
   notes?: string
+  /** 手動書き出し専用。自動ローカルとは別フォルダ */
+  manualLocal?: { folderName: string }
+  /** iCloud Drive 上の相対パス。Android では使わない */
+  icloud?: { folderName: string }
 }
 
 const defaultGoogle: GoogleProviderConfig = {
@@ -91,7 +95,6 @@ export function normalizeSettings(raw: unknown): SettingsFile {
     if (fromSync && fromSync !== 'none') provider = fromSync
     else if (fromActive && fromActive !== 'none') provider = fromActive
   }
-  const enabled = provider !== 'none'
   const mode = syncIn.mode === 'auto' ? 'auto' : 'manual'
 
   const providersIn =
@@ -108,21 +111,40 @@ export function normalizeSettings(raw: unknown): SettingsFile {
       ...defaultGoogle.files,
       ...((gIn as GoogleProviderConfig).files || {}),
     },
-    createFolderIfMissing:
-      (gIn as GoogleProviderConfig).createFolderIfMissing !== false,
+    createFolderIfMissing: false,
+  }
+
+  const topGoogle =
+    o.google && typeof o.google === 'object' ? (o.google as Record<string, unknown>) : null
+  if (topGoogle) {
+    const name = String(topGoogle.folderName || '').trim()
+    if (name) {
+      google.folderName = name
+      provider = 'google'
+    }
+    const id = String(topGoogle.folderId || '').trim()
+    if (id) google.folderId = id
+  }
+  const enabledNow = provider !== 'none'
+
+  const named = (value: unknown): { folderName: string } | undefined => {
+    if (!value || typeof value !== 'object') return undefined
+    const name = String((value as { folderName?: unknown }).folderName || '').trim()
+    if (!name) return undefined
+    return { folderName: name }
   }
 
   return {
     version: typeof o.version === 'number' ? o.version : 1,
     sync: {
-      enabled,
-      provider: enabled ? provider : 'none',
-      mode: enabled ? mode : 'manual',
-      onLaunch: enabled ? Boolean(syncIn.onLaunch) : false,
-      onOnline: enabled ? Boolean(syncIn.onOnline) : false,
-      onEdit: enabled ? Boolean(syncIn.onEdit) : false,
+      enabled: enabledNow,
+      provider: enabledNow ? provider : 'none',
+      mode: enabledNow ? mode : 'manual',
+      onLaunch: false,
+      onOnline: false,
+      onEdit: false,
     },
-    active: enabled ? provider : 'none',
+    active: enabledNow ? provider : 'none',
     providers: {
       none: {},
       google: { ...google } as SettingsFile['providers']['google'],
@@ -135,7 +157,24 @@ export function normalizeSettings(raw: unknown): SettingsFile {
     },
     manualIoAlwaysAvailable: o.manualIoAlwaysAvailable !== false,
     notes: typeof o.notes === 'string' ? o.notes : base.notes,
+    manualLocal: named(o.manualLocal),
+    icloud: named(o.icloud),
   }
+}
+
+/** 利用者が出し入れする settings.json（v2） */
+export function settingsDocument(s: SettingsFile = getSettings()): Record<string, unknown> {
+  const doc: Record<string, unknown> = { version: 2 }
+  if (s.manualLocal?.folderName) doc.manualLocal = { folderName: s.manualLocal.folderName }
+  if (s.icloud?.folderName) doc.icloud = { folderName: s.icloud.folderName }
+  const g = s.providers.google
+  if (s.sync.enabled && s.active === 'google' && g?.folderName) {
+    doc.google = {
+      folderName: g.folderName,
+      folderId: String(g.folderId || ''),
+    }
+  }
+  return doc
 }
 
 let current: SettingsFile = defaultSettingsNone()
@@ -178,6 +217,8 @@ export function settingsDetailLines(): string[] {
       `folderId: ${String(g.folderId || '（空＝名前で検索）')}`,
     )
   }
+  if (s.manualLocal?.folderName) lines.push(`手動ローカル: ${s.manualLocal.folderName}`)
+  if (s.icloud?.folderName) lines.push(`iCloud: ${s.icloud.folderName}`)
   if (s.notes) lines.push(`notes: ${s.notes}`)
   return lines
 }

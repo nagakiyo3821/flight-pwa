@@ -446,10 +446,12 @@ async function renderLocalGate(): Promise<void> {
   app.classList.add('places-ui-app')
   document.documentElement.classList.add('places-ui-lock')
   app.innerHTML = `
-  <header class="top top--with-back">
-    ${topNavBarHtml({ always: true })}
+  <header class="top">
     <div class="top-titles">
-      <h1 class="prompt places-ui-title"><span class="places-ui-title-text">自動ローカル</span></h1>
+      <h1 class="prompt places-ui-title">
+        <span class="places-ui-title-text">自動ローカル</span>
+        ${versionBadgeHtml('sc-dialog-top-nav-ver')}
+      </h1>
     </div>
   </header>
   <main class="places-ui-main">
@@ -458,13 +460,6 @@ async function renderLocalGate(): Promise<void> {
         ? '前回の本登録が自動ローカルへ書けていません。フォルダを確認して書き出します。'
         : '点検に入る前に、書き出し先のフォルダを選びます。無いフォルダは作りません。ボタンを押すと、この端末のフォルダ選択が開きます。'
     }</p>
-    ${
-      localGateEmptyOffer
-        ? localGateDirectory
-          ? `<p class="places-ui-io-hint">選んだディレクトリ: ${escapeHtml(localGateDirectory)}</p>`
-          : `<label class="places-ui-io-hint places-ui-dir-field">選んだディレクトリ<input id="emptyDirName" type="text" enterkeyhint="done" autocomplete="off" /></label>`
-        : ''
-    }
     ${note ? `<p id="msg" class="msg bad" role="status">${escapeHtml(note)}</p>` : ''}
     <div class="places-ui-cmds">
       <button type="button" class="places-ui-cmd" id="pickAutoFolder">フォルダを選ぶ</button>
@@ -476,13 +471,7 @@ async function renderLocalGate(): Promise<void> {
     </div>
   </main>`
   app.querySelector('#acceptEmptyFolder')?.addEventListener('click', () => {
-    const typed = (app.querySelector('#emptyDirName') as HTMLInputElement | null)?.value.trim() || ''
-    const name = localGateDirectory || typed
-    if (!name) {
-      localGateNote = '選んだディレクトリ名を入力してから「空のフォルダで続ける」を押してください。'
-      void render()
-      return
-    }
+    const name = localGateDirectory || '空のフォルダ'
     acceptEmptyAutoFolder(name)
     void finishAutoFolderPick(name)
   })
@@ -496,8 +485,8 @@ async function renderLocalGate(): Promise<void> {
           localGateEmptyOffer = true
           localGateDirectory = e.directory.trim()
           localGateNote = localGateDirectory
-            ? `選んだディレクトリ「${localGateDirectory}」は空のため、ファイルアプリから中身は返りません。「空のフォルダで続ける」でこのディレクトリを使います。`
-            : '空のフォルダを選びました。ファイルアプリはフォルダ名を返さないため、選んだディレクトリを下の欄に表示してください。「空のフォルダで続ける」でそのディレクトリを使います。'
+            ? `選んだディレクトリ「${localGateDirectory}」。空のフォルダです。表示を確認して「空のフォルダで続ける」を押してください。`
+            : '空のフォルダを選びました。表示を確認して「空のフォルダで続ける」を押してください。'
         } else {
           localGateEmptyOffer = false
           localGateDirectory = ''

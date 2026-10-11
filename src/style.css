@@ -2478,21 +2478,6 @@ button.ghost.is-busy,
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
-.places-ui-dir-field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-}
-.places-ui-dir-field input {
-  width: 100%;
-  box-sizing: border-box;
-  font: inherit;
-  color: var(--ink);
-  background: var(--paper, #fff);
-  border: 1px solid var(--line, #ccc);
-  border-radius: 8px;
-  padding: 0.55rem 0.7rem;
-}
 .places-ui-io-choice {
   display: flex;
   align-items: flex-start;

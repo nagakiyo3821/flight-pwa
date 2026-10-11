@@ -71,7 +71,13 @@ import {
   syncNotImplementedMessage,
   syncStatusLabel,
 } from './settings'
-import { beginDirectoryPick, pickDirectory, pickerWasCancelled } from './local-dirs'
+import {
+  acceptEmptyAutoFolder,
+  beginDirectoryPick,
+  EmptyFolderUnreported,
+  pickDirectory,
+  pickerWasCancelled,
+} from './local-dirs'
 import {
   internalIsInitialEmpty,
   needsLocalGate,
@@ -409,7 +415,24 @@ async function render(): Promise<void> {
 
 let localRestoreDone = false
 let localGateNote = ''
+let localGateEmptyOffer = false
 let suppressMenuTimersOnce = false
+
+async function finishAutoFolderPick(name: string): Promise<void> {
+  const picked = app.querySelector('#pickAutoFolder') as HTMLButtonElement | null
+  if (picked) picked.disabled = true
+  const emptyBtn = app.querySelector('#acceptEmptyFolder') as HTMLButtonElement | null
+  if (emptyBtn) emptyBtn.disabled = true
+  let extra = ''
+  if (localStorage.getItem('flight-local-export-pending') === '1') {
+    extra = '\n' + (await writeAfterCommit())
+  }
+  flashMsg = `自動ローカル: ${name}${extra}`
+  localGateEmptyOffer = false
+  suppressMenuTimersOnce = true
+  await new Promise((resolve) => window.setTimeout(resolve, 400))
+  await render()
+}
 
 async function renderLocalGate(): Promise<void> {
   document.getElementById('sc-confirm')?.remove()
@@ -433,26 +456,33 @@ async function renderLocalGate(): Promise<void> {
     ${note ? `<p id="msg" class="msg bad" role="status">${escapeHtml(note)}</p>` : ''}
     <div class="places-ui-cmds">
       <button type="button" class="places-ui-cmd" id="pickAutoFolder">フォルダを選ぶ</button>
+      ${
+        localGateEmptyOffer
+          ? '<button type="button" class="places-ui-cmd" id="acceptEmptyFolder">空のフォルダで続ける</button>'
+          : ''
+      }
     </div>
   </main>`
+  app.querySelector('#acceptEmptyFolder')?.addEventListener('click', () => {
+    acceptEmptyAutoFolder()
+    void finishAutoFolderPick('空のフォルダ')
+  })
   app.querySelector('#pickAutoFolder')!.addEventListener('click', () => {
     void (async () => {
       try {
         const name = await beginDirectoryPick('auto')
-        const picked = app.querySelector('#pickAutoFolder') as HTMLButtonElement | null
-        if (picked) picked.disabled = true
-        let extra = ''
-        if (localStorage.getItem('flight-local-export-pending') === '1') {
-          extra = '\n' + (await writeAfterCommit())
-        }
-        flashMsg = `自動ローカル: ${name}${extra}`
-        suppressMenuTimersOnce = true
-        await new Promise((resolve) => window.setTimeout(resolve, 400))
-        await render()
+        await finishAutoFolderPick(name)
       } catch (e) {
-        localGateNote = pickerWasCancelled(e)
-          ? 'フォルダはまだ選ばれていません。点検に入るには、もう一度「フォルダを選ぶ」を押してください。'
-          : `フォルダを選べませんでした: ${(e as Error).message}`
+        if (e instanceof EmptyFolderUnreported) {
+          localGateEmptyOffer = true
+          localGateNote =
+            '空のフォルダは、中にファイルが無いためファイルアプリから結果が返りません。いま空のフォルダを選んだときは「空のフォルダで続ける」を押してください。'
+        } else {
+          localGateEmptyOffer = false
+          localGateNote = pickerWasCancelled(e)
+            ? 'フォルダはまだ選ばれていません。点検に入るには、もう一度「フォルダを選ぶ」を押してください。'
+            : `フォルダを選べませんでした: ${(e as Error).message}`
+        }
         await render()
       }
     })()

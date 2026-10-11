@@ -78,6 +78,18 @@ export function pickerWasCancelled(error: unknown): boolean {
   return name === 'AbortError' || name === 'NotAllowedError'
 }
 
+/** ファイルアプリは空フォルダの選択結果を返さない。 */
+export class EmptyFolderUnreported extends Error {
+  constructor() {
+    super('empty-folder')
+    this.name = 'EmptyFolderUnreported'
+  }
+}
+
+export function acceptEmptyAutoFolder(): void {
+  rememberAutoLabel('空のフォルダ')
+}
+
 function rememberAutoLabel(name: string): void {
   sessionStorage.setItem(SESSION_OK, '1')
   sessionStorage.setItem('flight-auto-folder-label', name)
@@ -108,23 +120,31 @@ function pickWithFileInput(kind: DirKind): Promise<string> {
     input.multiple = true
     input.setAttribute('webkitdirectory', '')
     input.setAttribute('directory', '')
-    const finish = (error?: DOMException) => {
+    let settled = false
+    const succeed = (name: string) => {
+      if (settled) return
+      settled = true
       input.remove()
-      if (error) reject(error)
+      if (kind === 'auto') rememberAutoLabel(name)
+      resolve(name)
+    }
+    const fail = (error: Error) => {
+      if (settled) return
+      settled = true
+      input.remove()
+      reject(error)
     }
     input.addEventListener('change', () => {
       const file = input.files?.[0] as (File & { webkitRelativePath?: string }) | undefined
       if (!file) {
-        finish(new DOMException('cancelled', 'AbortError'))
+        succeed('空のフォルダ')
         return
       }
       const folder = (file.webkitRelativePath || file.name).split('/')[0] || '選択したフォルダ'
-      if (kind === 'auto') rememberAutoLabel(folder)
-      input.remove()
-      resolve(folder)
+      succeed(folder)
     })
     input.addEventListener('cancel', () => {
-      finish(new DOMException('cancelled', 'AbortError'))
+      window.setTimeout(() => fail(new EmptyFolderUnreported()), 400)
     })
     document.body.appendChild(input)
     input.click()

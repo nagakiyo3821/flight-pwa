@@ -482,11 +482,15 @@ async function renderLocalGate(): Promise<void> {
         await finishAutoFolderPick(name)
       } catch (e) {
         if (e instanceof EmptyFolderUnreported) {
-          localGateEmptyOffer = true
           localGateDirectory = e.directory.trim()
-          localGateNote = localGateDirectory
-            ? `選んだディレクトリ「${localGateDirectory}」。空のフォルダです。表示を確認して「空のフォルダで続ける」を押してください。`
-            : '空のフォルダを選びました。表示を確認して「空のフォルダで続ける」を押してください。'
+          if (localGateDirectory) {
+            localGateEmptyOffer = true
+            localGateNote = `選んだディレクトリ「${localGateDirectory}」。空のフォルダです。表示を確認して「空のフォルダで続ける」を押してください。`
+          } else {
+            localGateEmptyOffer = false
+            localGateNote =
+              'ディレクトリは確定していません。ファイルアプリは、中にファイルが無いフォルダの名前を返さないため、表示が空欄になります。名前が空欄のままでは先へ進めません。もう一度「フォルダを選ぶ」を押してください。'
+          }
         } else {
           localGateEmptyOffer = false
           localGateDirectory = ''

@@ -74,16 +74,18 @@ import {
 import {
   acceptEmptyAutoFolder,
   beginDirectoryPick,
+  directoryStatus,
   EmptyFolderUnreported,
   pickDirectory,
   pickerWasCancelled,
 } from './local-dirs'
 import {
+  exportToFolder,
+  importFromFolder,
   internalIsInitialEmpty,
   needsLocalGate,
   restoreFromAutoIfEmpty,
   writeAfterCommit,
-  writeManualLocal,
 } from './place-backup'
 import {
   clearGoogleSession,
@@ -415,6 +417,7 @@ async function render(): Promise<void> {
 
 let localRestoreDone = false
 let localGateNote = ''
+let localGateDirectory = ''
 let localGateEmptyOffer = false
 let suppressMenuTimersOnce = false
 
@@ -429,6 +432,7 @@ async function finishAutoFolderPick(name: string): Promise<void> {
   }
   flashMsg = `自動ローカル: ${name}${extra}`
   localGateEmptyOffer = false
+  localGateDirectory = ''
   suppressMenuTimersOnce = true
   await new Promise((resolve) => window.setTimeout(resolve, 400))
   await render()
@@ -442,7 +446,8 @@ async function renderLocalGate(): Promise<void> {
   app.classList.add('places-ui-app')
   document.documentElement.classList.add('places-ui-lock')
   app.innerHTML = `
-  <header class="top">
+  <header class="top top--with-back">
+    ${topNavBarHtml({ always: true })}
     <div class="top-titles">
       <h1 class="prompt places-ui-title"><span class="places-ui-title-text">自動ローカル</span></h1>
     </div>
@@ -453,6 +458,13 @@ async function renderLocalGate(): Promise<void> {
         ? '前回の本登録が自動ローカルへ書けていません。フォルダを確認して書き出します。'
         : '点検に入る前に、書き出し先のフォルダを選びます。無いフォルダは作りません。ボタンを押すと、この端末のフォルダ選択が開きます。'
     }</p>
+    ${
+      localGateEmptyOffer
+        ? localGateDirectory
+          ? `<p class="places-ui-io-hint">選んだディレクトリ: ${escapeHtml(localGateDirectory)}</p>`
+          : `<label class="places-ui-io-hint places-ui-dir-field">選んだディレクトリ<input id="emptyDirName" type="text" enterkeyhint="done" autocomplete="off" /></label>`
+        : ''
+    }
     ${note ? `<p id="msg" class="msg bad" role="status">${escapeHtml(note)}</p>` : ''}
     <div class="places-ui-cmds">
       <button type="button" class="places-ui-cmd" id="pickAutoFolder">フォルダを選ぶ</button>
@@ -464,8 +476,15 @@ async function renderLocalGate(): Promise<void> {
     </div>
   </main>`
   app.querySelector('#acceptEmptyFolder')?.addEventListener('click', () => {
-    acceptEmptyAutoFolder()
-    void finishAutoFolderPick('空のフォルダ')
+    const typed = (app.querySelector('#emptyDirName') as HTMLInputElement | null)?.value.trim() || ''
+    const name = localGateDirectory || typed
+    if (!name) {
+      localGateNote = '選んだディレクトリ名を入力してから「空のフォルダで続ける」を押してください。'
+      void render()
+      return
+    }
+    acceptEmptyAutoFolder(name)
+    void finishAutoFolderPick(name)
   })
   app.querySelector('#pickAutoFolder')!.addEventListener('click', () => {
     void (async () => {
@@ -475,10 +494,13 @@ async function renderLocalGate(): Promise<void> {
       } catch (e) {
         if (e instanceof EmptyFolderUnreported) {
           localGateEmptyOffer = true
-          localGateNote =
-            '空のフォルダは、中にファイルが無いためファイルアプリから結果が返りません。いま空のフォルダを選んだときは「空のフォルダで続ける」を押してください。'
+          localGateDirectory = e.directory.trim()
+          localGateNote = localGateDirectory
+            ? `選んだディレクトリ「${localGateDirectory}」は空のため、ファイルアプリから中身は返りません。「空のフォルダで続ける」でこのディレクトリを使います。`
+            : '空のフォルダを選びました。ファイルアプリはフォルダ名を返さないため、選んだディレクトリを下の欄に表示してください。「空のフォルダで続ける」でそのディレクトリを使います。'
         } else {
           localGateEmptyOffer = false
+          localGateDirectory = ''
           localGateNote = pickerWasCancelled(e)
             ? 'フォルダはまだ選ばれていません。点検に入るには、もう一度「フォルダを選ぶ」を押してください。'
             : `フォルダを選べませんでした: ${(e as Error).message}`
@@ -6676,6 +6698,27 @@ async function renderIO(): Promise<void> {
     .join('')
   const clientOk = isGoogleClientConfigured()
   const signedIn = isGoogleSignedIn()
+  const autoDir = await directoryStatus('auto')
+  const localPicked = await directoryStatus('manual')
+  const icloudPicked = await directoryStatus('icloud')
+  const configured = getSettings()
+  const localDir =
+    localPicked !== '未設定' ? localPicked : configured.manualLocal?.folderName || '未設定'
+  const icloudDir =
+    icloudPicked !== '未設定' ? icloudPicked : configured.icloud?.folderName || '未設定'
+  const googleCfg = configured.providers.google
+  const googleName = String(googleCfg?.folderName || '').trim()
+  const googleId = String(googleCfg?.folderId || '').trim()
+  const googleDir =
+    configured.active === 'google' && googleName
+      ? googleId
+        ? `${googleName}（${googleId}）`
+        : googleName
+      : '未設定'
+  const placeLines = `
+            <p class="places-ui-io-hint">Local: ${escapeHtml(localDir)}</p>
+            <p class="places-ui-io-hint">iCloud: ${escapeHtml(icloudDir)}</p>
+            <p class="places-ui-io-hint">Google: ${escapeHtml(googleDir)}</p>`
   const syncNote = syncOn
     ? `<p class="places-ui-io-hint places-ui-io-hint--stub">${escapeHtml(syncNotImplementedMessage())}</p>`
     : `<p class="places-ui-io-hint">${escapeHtml(SETTINGS_HINT_MANUAL)}</p>`
@@ -6724,13 +6767,27 @@ async function renderIO(): Promise<void> {
               <a class="places-ui-cmd" id="openManual" href="./manual.html">マニュアル</a>
             </div>
 
-            <h2 class="places-ui-io-h">自動ローカル</h2>
-            <p class="places-ui-io-hint">本登録の直後に、このフォルダへ 4 ファイルを書き出します。手動・iCloud とは別のフォルダです。</p>
+            <h2 class="places-ui-io-h">自動バックアップ</h2>
+            <p class="places-ui-io-hint">ディレクトリ: ${escapeHtml(autoDir)}</p>
+            <p class="places-ui-io-hint">本登録の直後に、このフォルダへ 4 ファイルを書き出します。</p>
+            <div class="places-ui-cmds">
+              ${cmd('pickAuto', 'フォルダ変更')}
+            </div>
+
+            <h2 class="places-ui-io-h">手動エクスポート</h2>
+            ${placeLines}
             <div class="places-ui-cmds places-ui-cmds--wrap">
-              ${cmd('pickAuto', '自動ローカルを変更')}
-              ${cmd('pickManual', '手動ローカルを選ぶ')}
-              ${cmd('pickIcloud', 'iCloud フォルダを選ぶ')}
-              ${cmd('writeManual', '手動ローカルへ書き出す')}
+              ${cmd('expLocal', 'Local')}
+              ${cmd('expIcloud', 'iCloud')}
+              ${cmd('expGoogle', 'Google')}
+            </div>
+
+            <h2 class="places-ui-io-h">手動インポート</h2>
+            ${placeLines}
+            <div class="places-ui-cmds places-ui-cmds--wrap">
+              ${cmd('impLocal', 'Local')}
+              ${cmd('impIcloud', 'iCloud')}
+              ${cmd('impGoogle', 'Google')}
             </div>
 
             <h2 class="places-ui-io-h">同期（settings）</h2>
@@ -6884,20 +6941,30 @@ async function renderIO(): Promise<void> {
       })()
     })
   }
-  bindFolder('pickAuto', 'auto', '自動ローカル')
-  bindFolder('pickManual', 'manual', '手動ローカル')
-  bindFolder('pickIcloud', 'icloud', 'iCloud')
-  app.querySelector('#writeManual')?.addEventListener('click', () => {
-    if (ioBusy) return
-    void (async () => {
-      try {
-        flashMsg = await writeManualLocal()
-      } catch (e) {
-        flashMsg = `手動書き出し失敗: ${(e as Error).message}`
-      }
-      await render()
-    })()
-  })
+  bindFolder('pickAuto', 'auto', '自動バックアップ')
+  const runPlaceIo = (
+    id: string,
+    work: () => Promise<string>,
+    failLabel: string,
+  ) => {
+    app.querySelector(`#${id}`)?.addEventListener('click', () => {
+      if (ioBusy) return
+      void (async () => {
+        try {
+          flashMsg = await work()
+        } catch (e) {
+          flashMsg = `${failLabel}: ${(e as Error).message}`
+        }
+        await render()
+      })()
+    })
+  }
+  runPlaceIo('expLocal', () => exportToFolder('manual'), 'Local へ書き出せませんでした')
+  runPlaceIo('expIcloud', () => exportToFolder('icloud'), 'iCloud へ書き出せませんでした')
+  runPlaceIo('expGoogle', () => runGoogleDriveSync('push').then((r) => r.lines.join('\n')), 'Google へ書き出せませんでした')
+  runPlaceIo('impLocal', () => importFromFolder('manual'), 'Local から取り込めませんでした')
+  runPlaceIo('impIcloud', () => importFromFolder('icloud'), 'iCloud から取り込めませんでした')
+  runPlaceIo('impGoogle', () => runGoogleDriveSync('pull').then((r) => r.lines.join('\n')), 'Google から取り込めませんでした')
 
   app.querySelector('#settingsOff')!.addEventListener('click', async (ev) => {
     if (!isServerSyncConfigured() || ioBusy) return

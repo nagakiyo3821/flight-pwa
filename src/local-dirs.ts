@@ -8,6 +8,10 @@ const DB = 'flight-local-dirs'
 const STORE = 'handles'
 const SESSION_OK = 'flight-auto-folder-ok'
 
+function labelKey(kind: DirKind): string {
+  return kind === 'auto' ? 'flight-auto-folder-label' : `flight-${kind}-folder-label`
+}
+
 export type DirKind = 'auto' | 'manual' | 'icloud'
 
 type DirHandle = FileSystemDirectoryHandle
@@ -78,21 +82,47 @@ export function pickerWasCancelled(error: unknown): boolean {
   return name === 'AbortError' || name === 'NotAllowedError'
 }
 
-/** ファイルアプリは空フォルダの選択結果を返さない。 */
+/** ファイルアプリは空フォルダの中身を返さない。ディレクトリ名は取れるときだけ入る。 */
 export class EmptyFolderUnreported extends Error {
-  constructor() {
+  directory: string
+  constructor(directory = '') {
     super('empty-folder')
     this.name = 'EmptyFolderUnreported'
+    this.directory = directory
   }
 }
 
-export function acceptEmptyAutoFolder(): void {
-  rememberAutoLabel('空のフォルダ')
+export function rememberDirectory(kind: DirKind, name: string): void {
+  const trimmed = name.trim() || '空のフォルダ'
+  sessionStorage.setItem(labelKey(kind), trimmed)
+  if (kind === 'auto') sessionStorage.setItem(SESSION_OK, '1')
 }
 
-function rememberAutoLabel(name: string): void {
-  sessionStorage.setItem(SESSION_OK, '1')
-  sessionStorage.setItem('flight-auto-folder-label', name)
+export function acceptEmptyAutoFolder(name = ''): void {
+  rememberDirectory('auto', name || '空のフォルダ')
+}
+
+/** この端末で選んであるフォルダ名。未選択は「未設定」。 */
+export async function directoryStatus(kind: DirKind): Promise<string> {
+  try {
+    const handle = await idbGet(kind)
+    const fromHandle = handle?.name?.trim()
+    if (fromHandle) return fromHandle
+  } catch {
+    /* 表示用。失敗しても案内は続ける */
+  }
+  const fromSession = sessionStorage.getItem(labelKey(kind))?.trim()
+  return fromSession || '未設定'
+}
+
+function directoryNameFromInput(input: HTMLInputElement): string {
+  const file = input.files?.[0] as (File & { webkitRelativePath?: string }) | undefined
+  const fromPath = file?.webkitRelativePath?.split('/').filter(Boolean)[0]?.trim()
+  if (fromPath) return fromPath
+  const fromName = file?.name?.trim()
+  if (fromName) return fromName
+  const entries = (input as HTMLInputElement & { webkitEntries?: Array<{ name?: string }> }).webkitEntries
+  return entries?.[0]?.name?.trim() || ''
 }
 
 /** クリックの直後に呼ぶ。対応ブラウザはフォルダ許可、それ以外はファイルアプリ。 */
@@ -102,7 +132,7 @@ export function beginDirectoryPick(kind: DirKind): Promise<string> {
     try {
       return pick({ mode: 'readwrite' }).then(async (handle) => {
         await idbSet(kind, handle)
-        if (kind === 'auto') rememberAutoLabel(handle.name)
+        rememberDirectory(kind, handle.name)
         return handle.name
       })
     } catch (error) {
@@ -125,7 +155,7 @@ function pickWithFileInput(kind: DirKind): Promise<string> {
       if (settled) return
       settled = true
       input.remove()
-      if (kind === 'auto') rememberAutoLabel(name)
+      rememberDirectory(kind, name)
       resolve(name)
     }
     const fail = (error: Error) => {
@@ -135,16 +165,17 @@ function pickWithFileInput(kind: DirKind): Promise<string> {
       reject(error)
     }
     input.addEventListener('change', () => {
+      const folder = directoryNameFromInput(input)
       const file = input.files?.[0] as (File & { webkitRelativePath?: string }) | undefined
       if (!file) {
-        succeed('空のフォルダ')
+        fail(new EmptyFolderUnreported(folder))
         return
       }
-      const folder = (file.webkitRelativePath || file.name).split('/')[0] || '選択したフォルダ'
-      succeed(folder)
+      succeed(folder || '選択したフォルダ')
     })
     input.addEventListener('cancel', () => {
-      window.setTimeout(() => fail(new EmptyFolderUnreported()), 400)
+      const folder = directoryNameFromInput(input)
+      window.setTimeout(() => fail(new EmptyFolderUnreported(folder)), 400)
     })
     document.body.appendChild(input)
     input.click()
@@ -166,7 +197,7 @@ export async function writeJsonFiles(
 ): Promise<string[]> {
   const handle = await storedDirectory(kind)
   if (!handle) {
-    if (!canPersistDirectory() && kind === 'auto' && sessionStorage.getItem(SESSION_OK) === '1') {
+    if (!canPersistDirectory() && sessionStorage.getItem(labelKey(kind))) {
       return shareOrDownload(files)
     }
     throw new Error('フォルダが未指定か、許可が切れています')

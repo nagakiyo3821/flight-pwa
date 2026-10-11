@@ -6,7 +6,7 @@
 import { db, exportLog, exportMasters, exportPos, exportTmp, importLog, importMasters, importPos, importTmp, PLAIN_NEW_KEY } from './db'
 import { isGoogleSignedIn } from './google-auth'
 import { runGoogleDriveSync } from './google-sync'
-import { autoFolderReady, readJsonFiles, storedDirectory, writeJsonFiles } from './local-dirs'
+import { autoFolderReady, beginDirectoryPick, directoryStatus, EmptyFolderUnreported, readJsonFiles, rememberDirectory, storedDirectory, writeJsonFiles } from './local-dirs'
 import { getSettings, isServerSyncConfigured } from './settings'
 import type { LogFile, PosFile, TmpFlag } from './types'
 import type { MastersFile } from './catalog'
@@ -89,9 +89,38 @@ export async function writeAfterCommit(): Promise<string> {
 }
 
 export async function writeManualLocal(): Promise<string> {
-  const s = getSettings()
-  if (!s.manualLocal?.folderName) throw new Error('settings に手動ローカルのフォルダ名がありません')
-  if (!(await storedDirectory('manual'))) throw new Error('手動ローカルのフォルダを選んでください')
-  const written = await writeJsonFiles('manual', await bundleFromDb())
-  return `手動ローカル「${s.manualLocal.folderName}」へ書き出しました（${written.join(', ')}）`
+  return exportToFolder('manual')
+}
+
+async function ensureDirectory(kind: 'manual' | 'icloud'): Promise<void> {
+  if ((await directoryStatus(kind)) !== '未設定') return
+  try {
+    await beginDirectoryPick(kind)
+  } catch (error) {
+    if (!(error instanceof EmptyFolderUnreported)) throw error
+    rememberDirectory(kind, error.directory || '空のフォルダ')
+  }
+}
+
+/** 手動エクスポート。フォルダが未設定なら、その場で選ばせる。 */
+export async function exportToFolder(kind: 'manual' | 'icloud'): Promise<string> {
+  await ensureDirectory(kind)
+  const written = await writeJsonFiles(kind, await bundleFromDb())
+  const dir = await directoryStatus(kind)
+  const label = kind === 'manual' ? 'Local' : 'iCloud'
+  return `${label}「${dir}」へ書き出しました（${written.join(', ')}）`
+}
+
+/** 手動インポート。フォルダ内の 4 ファイルで端末データを更新する。 */
+export async function importFromFolder(kind: 'manual' | 'icloud'): Promise<string> {
+  await ensureDirectory(kind)
+  const files = await readJsonFiles(kind, [...FILE_NAMES])
+  if (!files) throw new Error('ディレクトリ内の 4 ファイルを読めませんでした')
+  await importLog(files['log.json'] as LogFile)
+  await importPos(files['pos.json'] as PosFile)
+  await importTmp(files['tmp.json'] as TmpFlag)
+  await importMasters(files['masters.json'] as MastersFile)
+  const dir = await directoryStatus(kind)
+  const label = kind === 'manual' ? 'Local' : 'iCloud'
+  return `${label}「${dir}」から取り込みました`
 }

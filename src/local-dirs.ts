@@ -115,14 +115,20 @@ export async function directoryStatus(kind: DirKind): Promise<string> {
   return fromSession || '未設定'
 }
 
+/** ファイル名を除いた共通のディレクトリ。`drone/data/a.txt` なら `drone/data`。 */
 function directoryNameFromInput(input: HTMLInputElement): string {
-  const file = input.files?.[0] as (File & { webkitRelativePath?: string }) | undefined
-  const fromPath = file?.webkitRelativePath?.split('/').filter(Boolean)[0]?.trim()
-  if (fromPath) return fromPath
-  const fromName = file?.name?.trim()
-  if (fromName) return fromName
-  const entries = (input as HTMLInputElement & { webkitEntries?: Array<{ name?: string }> }).webkitEntries
-  return entries?.[0]?.name?.trim() || ''
+  const files = Array.from(input.files || []) as Array<File & { webkitRelativePath?: string }>
+  const directories = files
+    .map((file) => (file.webkitRelativePath || '').split('/').filter(Boolean).slice(0, -1))
+    .filter((parts) => parts.length > 0)
+  if (!directories.length) return ''
+  const common: string[] = []
+  for (let i = 0; i < directories[0].length; i++) {
+    const part = directories[0][i]
+    if (!directories.every((parts) => parts[i] === part)) break
+    common.push(part)
+  }
+  return common.join('/')
 }
 
 /** クリックの直後に呼ぶ。対応ブラウザはフォルダ許可、それ以外はファイルアプリ。 */
@@ -167,11 +173,11 @@ function pickWithFileInput(kind: DirKind): Promise<string> {
     input.addEventListener('change', () => {
       const folder = directoryNameFromInput(input)
       const file = input.files?.[0] as (File & { webkitRelativePath?: string }) | undefined
-      if (!file) {
+      if (!file || !folder) {
         fail(new EmptyFolderUnreported(folder))
         return
       }
-      succeed(folder || '選択したフォルダ')
+      succeed(folder)
     })
     input.addEventListener('cancel', () => {
       const folder = directoryNameFromInput(input)

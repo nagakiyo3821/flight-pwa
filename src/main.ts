@@ -71,7 +71,7 @@ import {
   syncNotImplementedMessage,
   syncStatusLabel,
 } from './settings'
-import { pickDirectory, pickerWasCancelled } from './local-dirs'
+import { beginDirectoryPick, pickDirectory, pickerWasCancelled } from './local-dirs'
 import {
   internalIsInitialEmpty,
   needsLocalGate,
@@ -412,6 +412,7 @@ let localGateNote = ''
 let suppressMenuTimersOnce = false
 
 async function renderLocalGate(): Promise<void> {
+  document.getElementById('sc-confirm')?.remove()
   const pending = localStorage.getItem('flight-local-export-pending') === '1'
   const note = localGateNote
   localGateNote = ''
@@ -427,7 +428,7 @@ async function renderLocalGate(): Promise<void> {
     <p class="places-ui-io-hint">${
       pending
         ? '前回の本登録が自動ローカルへ書けていません。フォルダを確認して書き出します。'
-        : '点検に入る前に、書き出し先のフォルダを選びます。無いフォルダは作りません。選ぶまでこの画面のままです。閉じたときは、アプリを開き直すと再びこの案内が出ます。'
+        : '点検に入る前に、書き出し先のフォルダを選びます。無いフォルダは作りません。ボタンを押すと、この端末のフォルダ選択が開きます。'
     }</p>
     ${note ? `<p id="msg" class="msg bad" role="status">${escapeHtml(note)}</p>` : ''}
     <div class="places-ui-cmds">
@@ -437,7 +438,7 @@ async function renderLocalGate(): Promise<void> {
   app.querySelector('#pickAutoFolder')!.addEventListener('click', () => {
     void (async () => {
       try {
-        const name = await pickDirectory('auto')
+        const name = await beginDirectoryPick('auto')
         const picked = app.querySelector('#pickAutoFolder') as HTMLButtonElement | null
         if (picked) picked.disabled = true
         let extra = ''

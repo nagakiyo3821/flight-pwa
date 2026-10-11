@@ -78,15 +78,61 @@ export function pickerWasCancelled(error: unknown): boolean {
   return name === 'AbortError' || name === 'NotAllowedError'
 }
 
-export async function pickDirectory(kind: DirKind): Promise<string> {
+function rememberAutoLabel(name: string): void {
+  sessionStorage.setItem(SESSION_OK, '1')
+  sessionStorage.setItem('flight-auto-folder-label', name)
+}
+
+/** クリックの直後に呼ぶ。対応ブラウザはフォルダ許可、それ以外はファイルアプリ。 */
+export function beginDirectoryPick(kind: DirKind): Promise<string> {
   const pick = picker()
-  if (!pick) {
-    throw new Error('このブラウザはフォルダの選択に対応していません')
+  if (pick) {
+    try {
+      return pick({ mode: 'readwrite' }).then(async (handle) => {
+        await idbSet(kind, handle)
+        if (kind === 'auto') rememberAutoLabel(handle.name)
+        return handle.name
+      })
+    } catch (error) {
+      if (pickerWasCancelled(error)) throw error
+      return pickWithFileInput(kind)
+    }
   }
-  const handle = await pick({ mode: 'readwrite' })
-  await idbSet(kind, handle)
-  if (kind === 'auto') sessionStorage.setItem(SESSION_OK, '1')
-  return handle.name
+  return pickWithFileInput(kind)
+}
+
+function pickWithFileInput(kind: DirKind): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.multiple = true
+    input.setAttribute('webkitdirectory', '')
+    input.setAttribute('directory', '')
+    const finish = (error?: DOMException) => {
+      input.remove()
+      if (error) reject(error)
+    }
+    input.addEventListener('change', () => {
+      const file = input.files?.[0] as (File & { webkitRelativePath?: string }) | undefined
+      if (!file) {
+        finish(new DOMException('cancelled', 'AbortError'))
+        return
+      }
+      const folder = (file.webkitRelativePath || file.name).split('/')[0] || '選択したフォルダ'
+      if (kind === 'auto') rememberAutoLabel(folder)
+      input.remove()
+      resolve(folder)
+    })
+    input.addEventListener('cancel', () => {
+      finish(new DOMException('cancelled', 'AbortError'))
+    })
+    document.body.appendChild(input)
+    input.click()
+  })
+}
+
+export async function pickDirectory(kind: DirKind): Promise<string> {
+  return beginDirectoryPick(kind)
 }
 
 export async function autoFolderReady(): Promise<boolean> {

@@ -72,12 +72,12 @@ import {
   syncStatusLabel,
 } from './settings'
 import {
-  acceptEmptyAutoFolder,
   beginDirectoryPick,
   directoryStatus,
   EmptyFolderUnreported,
   pickDirectory,
   pickerWasCancelled,
+  rememberDirectory,
 } from './local-dirs'
 import {
   exportToFolder,
@@ -388,6 +388,10 @@ async function render(): Promise<void> {
   // lock 解除後にリセット（overflow:hidden 中だと効かない端末がある）
   resetViewportScroll()
   await ensureBootstrap()
+  if (localGatePathEdit && localGateDirectory) {
+    await renderLocalGate()
+    return
+  }
   if (await needsLocalGate()) {
     await renderLocalGate()
     return
@@ -418,8 +422,28 @@ async function render(): Promise<void> {
 let localRestoreDone = false
 let localGateNote = ''
 let localGateDirectory = ''
-let localGateEmptyOffer = false
+let localGatePathEdit = false
+let localGateRoot = 'このiPhone内'
+let localGateMiddle = ''
 let suppressMenuTimersOnce = false
+
+const DIR_ROOTS = ['このiPhone内', 'iCloud Drive'] as const
+
+function composeDirectoryLabel(root: string, middle: string, leaf: string): string {
+  const extra = middle
+    .split(/[/\\]/)
+    .map((part) => part.trim())
+    .filter((part) => part && part !== '.' && part !== '..')
+  return [root, ...extra, leaf].filter(Boolean).join('/')
+}
+
+function openDirectoryPathEdit(leaf: string): void {
+  localGateDirectory = leaf
+  localGateMiddle = ''
+  localGateRoot = DIR_ROOTS[0]
+  localGatePathEdit = true
+  localGateNote = ''
+}
 
 async function finishAutoFolderPick(name: string): Promise<void> {
   const picked = app.querySelector('#pickAutoFolder') as HTMLButtonElement | null
@@ -431,8 +455,9 @@ async function finishAutoFolderPick(name: string): Promise<void> {
     extra = '\n' + (await writeAfterCommit())
   }
   flashMsg = `自動ローカル: ${name}${extra}`
-  localGateEmptyOffer = false
+  localGatePathEdit = false
   localGateDirectory = ''
+  localGateMiddle = ''
   suppressMenuTimersOnce = true
   await new Promise((resolve) => window.setTimeout(resolve, 400))
   await render()
@@ -460,44 +485,74 @@ async function renderLocalGate(): Promise<void> {
         ? '前回の本登録が自動ローカルへ書けていません。フォルダを確認して書き出します。'
         : '点検に入る前に、書き出し先のフォルダを選びます。無いフォルダは作りません。ボタンを押すと、この端末のフォルダ選択が開きます。'
     }</p>
+    ${
+      localGatePathEdit
+        ? `<p class="places-ui-io-hint">先頭を押すと「このiPhone内」と「iCloud Drive」が切り替わります。カーソルの位置から、足りないディレクトリを入力します。末尾のフォルダ名は変更できません。</p>
+    <div class="dir-path">
+      <button type="button" class="dir-path-root" id="dirRoot">${escapeHtml(localGateRoot)}</button>
+      <span class="dir-path-fixed">/</span>
+      <input id="dirMiddle" class="dir-path-middle" type="text" enterkeyhint="done" autocomplete="off" autocapitalize="off" spellcheck="false" value="${escapeHtml(localGateMiddle)}" aria-label="追加のディレクトリ" />
+      <span class="dir-path-fixed" id="dirMidSlash">${localGateMiddle.trim() ? '/' : ''}</span>
+      <span class="dir-path-fixed" id="dirLeaf">${escapeHtml(localGateDirectory)}</span>
+    </div>`
+        : ''
+    }
     ${note ? `<p id="msg" class="msg bad" role="status">${escapeHtml(note)}</p>` : ''}
     <div class="places-ui-cmds">
       <button type="button" class="places-ui-cmd" id="pickAutoFolder">フォルダを選ぶ</button>
       ${
-        localGateEmptyOffer
-          ? '<button type="button" class="places-ui-cmd" id="acceptEmptyFolder">空のフォルダで続ける</button>'
+        localGatePathEdit
+          ? '<button type="button" class="places-ui-cmd" id="confirmDir">このディレクトリで続ける</button>'
           : ''
       }
     </div>
   </main>`
-  app.querySelector('#acceptEmptyFolder')?.addEventListener('click', () => {
-    const name = localGateDirectory || '空のフォルダ'
-    acceptEmptyAutoFolder(name)
-    void finishAutoFolderPick(name)
+  const middleInput = app.querySelector('#dirMiddle') as HTMLInputElement | null
+  const midSlash = app.querySelector('#dirMidSlash')
+  middleInput?.addEventListener('input', () => {
+    localGateMiddle = middleInput.value
+    if (midSlash) midSlash.textContent = middleInput.value.trim() ? '/' : ''
   })
+  app.querySelector('#dirRoot')?.addEventListener('click', () => {
+    localGateMiddle = middleInput?.value ?? localGateMiddle
+    localGateRoot = localGateRoot === DIR_ROOTS[0] ? DIR_ROOTS[1] : DIR_ROOTS[0]
+    void render()
+  })
+  app.querySelector('#confirmDir')?.addEventListener('click', () => {
+    const full = composeDirectoryLabel(
+      localGateRoot,
+      middleInput?.value ?? localGateMiddle,
+      localGateDirectory,
+    )
+    rememberDirectory('auto', full)
+    localGatePathEdit = false
+    void finishAutoFolderPick(full)
+  })
+  if (middleInput) {
+    window.setTimeout(() => {
+      middleInput.focus()
+      middleInput.setSelectionRange(0, 0)
+    }, 50)
+  }
   app.querySelector('#pickAutoFolder')!.addEventListener('click', () => {
     void (async () => {
       try {
         const name = await beginDirectoryPick('auto')
-        await finishAutoFolderPick(name)
+        openDirectoryPathEdit(name)
+        await render()
       } catch (e) {
-        if (e instanceof EmptyFolderUnreported) {
-          localGateDirectory = e.directory.trim()
-          if (localGateDirectory) {
-            localGateEmptyOffer = true
-            localGateNote = `選んだディレクトリ「${localGateDirectory}」。空のフォルダです。表示を確認して「空のフォルダで続ける」を押してください。`
-          } else {
-            localGateEmptyOffer = false
-            localGateNote =
-              'ディレクトリは確定していません。ファイルアプリは、中にファイルが無いフォルダの名前を返さないため、表示が空欄になります。名前が空欄のままでは先へ進めません。もう一度「フォルダを選ぶ」を押してください。'
-          }
-        } else {
-          localGateEmptyOffer = false
-          localGateDirectory = ''
-          localGateNote = pickerWasCancelled(e)
-            ? 'フォルダはまだ選ばれていません。点検に入るには、もう一度「フォルダを選ぶ」を押してください。'
-            : `フォルダを選べませんでした: ${(e as Error).message}`
+        if (e instanceof EmptyFolderUnreported && e.directory.trim()) {
+          openDirectoryPathEdit(e.directory.trim())
+          await render()
+          return
         }
+        localGatePathEdit = false
+        localGateDirectory = ''
+        localGateNote = pickerWasCancelled(e)
+          ? 'フォルダはまだ選ばれていません。点検に入るには、もう一度「フォルダを選ぶ」を押してください。'
+          : e instanceof EmptyFolderUnreported
+            ? 'ディレクトリは確定していません。ファイルアプリは、中にファイルが無いフォルダの名前を返さないため、表示が空欄になります。名前が空欄のままでは先へ進めません。もう一度「フォルダを選ぶ」を押してください。'
+            : `フォルダを選べませんでした: ${(e as Error).message}`
         await render()
       }
     })()
@@ -6926,8 +6981,18 @@ async function renderIO(): Promise<void> {
       void (async () => {
         try {
           const name = await pickDirectory(kind)
+          if (kind === 'auto') {
+            openDirectoryPathEdit(name)
+            await render()
+            return
+          }
           flashMsg = `${label}: ${name}`
         } catch (e) {
+          if (kind === 'auto' && e instanceof EmptyFolderUnreported && e.directory.trim()) {
+            openDirectoryPathEdit(e.directory.trim())
+            await render()
+            return
+          }
           flashMsg = `${label}を選べませんでした: ${(e as Error).message}`
         }
         await render()

@@ -2470,6 +2470,38 @@ button.ghost.is-busy,
 .places-ui-io-body > .places-ui-io-h:first-child {
   margin-top: 0;
 }
+.dir-path {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  margin: 0.35rem 0 0.8rem;
+  font-size: 16px;
+  line-height: 1.45;
+  color: var(--ink);
+}
+.dir-path-root {
+  border: 0;
+  padding: 0.15rem 0;
+  background: transparent;
+  color: var(--accent, #0b5f7a);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.dir-path-middle {
+  flex: 1 1 2.5rem;
+  min-width: 1.5rem;
+  width: 2.5rem;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  padding: 0.15rem 0.1rem;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+.dir-path-fixed {
+  font: inherit;
+}
 .places-ui-io-hint {
   margin: 0.25rem 0 0.45rem;
   font-size: 12px;

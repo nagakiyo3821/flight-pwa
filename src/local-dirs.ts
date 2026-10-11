@@ -104,6 +104,8 @@ export function acceptEmptyAutoFolder(name = ''): void {
 
 /** この端末で選んであるフォルダ名。未選択は「未設定」。 */
 export async function directoryStatus(kind: DirKind): Promise<string> {
+  const fromSession = sessionStorage.getItem(labelKey(kind))?.trim()
+  if (fromSession) return fromSession
   try {
     const handle = await idbGet(kind)
     const fromHandle = handle?.name?.trim()
@@ -111,8 +113,7 @@ export async function directoryStatus(kind: DirKind): Promise<string> {
   } catch {
     /* 表示用。失敗しても案内は続ける */
   }
-  const fromSession = sessionStorage.getItem(labelKey(kind))?.trim()
-  return fromSession || '未設定'
+  return '未設定'
 }
 
 /** ファイル名を除いた共通のディレクトリ。`drone/data/a.txt` なら `drone/data`。 */

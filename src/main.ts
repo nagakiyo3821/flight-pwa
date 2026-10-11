@@ -409,6 +409,7 @@ async function render(): Promise<void> {
 
 let localRestoreDone = false
 let localGateNote = ''
+let suppressMenuTimersOnce = false
 
 async function renderLocalGate(): Promise<void> {
   const pending = localStorage.getItem('flight-local-export-pending') === '1'
@@ -437,11 +438,15 @@ async function renderLocalGate(): Promise<void> {
     void (async () => {
       try {
         const name = await pickDirectory('auto')
+        const picked = app.querySelector('#pickAutoFolder') as HTMLButtonElement | null
+        if (picked) picked.disabled = true
         let extra = ''
         if (localStorage.getItem('flight-local-export-pending') === '1') {
           extra = '\n' + (await writeAfterCommit())
         }
         flashMsg = `自動ローカル: ${name}${extra}`
+        suppressMenuTimersOnce = true
+        await new Promise((resolve) => window.setTimeout(resolve, 400))
         await render()
       } catch (e) {
         localGateNote = pickerWasCancelled(e)
@@ -5500,6 +5505,10 @@ async function runDataSetFlow(opts: { skipConfirm?: boolean } = {}): Promise<boo
 
 /** メニュー表示時: 2h 超で再セット、24h 超でリセット要求（TIME 無しでは催促しない） */
 async function enforceSessionTimers(timeRaw: string): Promise<void> {
+  if (suppressMenuTimersOnce) {
+    suppressMenuTimersOnce = false
+    return
+  }
   if (timerCheckRunning || view !== 'menu') return
   const need = evaluateTimers(timeRaw)
   if (need === 'ok' || need === 'no_time') {

@@ -448,13 +448,13 @@ function openDirectoryPathEdit(leaf: string): void {
 async function finishAutoFolderPick(name: string): Promise<void> {
   const picked = app.querySelector('#pickAutoFolder') as HTMLButtonElement | null
   if (picked) picked.disabled = true
-  const emptyBtn = app.querySelector('#acceptEmptyFolder') as HTMLButtonElement | null
-  if (emptyBtn) emptyBtn.disabled = true
+  const confirmBtn = app.querySelector('#confirmDir') as HTMLButtonElement | null
+  if (confirmBtn) confirmBtn.disabled = true
   let extra = ''
   if (localStorage.getItem('flight-local-export-pending') === '1') {
     extra = '\n' + (await writeAfterCommit())
   }
-  flashMsg = `自動ローカル: ${name}${extra}`
+  flashMsg = `自動バックアップ: ${name}${extra}`
   localGatePathEdit = false
   localGateDirectory = ''
   localGateMiddle = ''
@@ -474,7 +474,7 @@ async function renderLocalGate(): Promise<void> {
   <header class="top">
     <div class="top-titles">
       <h1 class="prompt places-ui-title">
-        <span class="places-ui-title-text">自動ローカル</span>
+        <span class="places-ui-title-text">自動バックアップ</span>
         ${versionBadgeHtml('sc-dialog-top-nav-ver')}
       </h1>
     </div>
@@ -482,12 +482,13 @@ async function renderLocalGate(): Promise<void> {
   <main class="places-ui-main">
     <p class="places-ui-io-hint">${
       pending
-        ? '前回の本登録が自動ローカルへ書けていません。フォルダを確認して書き出します。'
-        : '点検に入る前に、書き出し先のフォルダを選びます。無いフォルダは作りません。ボタンを押すと、この端末のフォルダ選択が開きます。'
+        ? '前回の本登録が自動バックアップへ書けていません。フォルダを確認して書き出します。'
+        : '使用する前にデータを自動バックアップ保管するフォルダを選択してください。'
     }</p>
+    <p class="places-ui-io-hint">事前に対象フォルダ（最低１つのファイル含む）の準備が必要です。</p>
     ${
       localGatePathEdit
-        ? `<p class="places-ui-io-hint">先頭を押すと「このiPhone内」と「iCloud Drive」が切り替わります。カーソルの位置から、足りないディレクトリを入力します。末尾のフォルダ名は変更できません。</p>
+        ? `<p class="places-ui-io-hint">選択したフォルダディレクトリを以下に登録してください。</p>
     <div class="dir-path">
       <button type="button" class="dir-path-root" id="dirRoot">${escapeHtml(localGateRoot)}</button>
       <span class="dir-path-fixed">/</span>
@@ -499,10 +500,10 @@ async function renderLocalGate(): Promise<void> {
     }
     ${note ? `<p id="msg" class="msg bad" role="status">${escapeHtml(note)}</p>` : ''}
     <div class="places-ui-cmds">
-      <button type="button" class="places-ui-cmd" id="pickAutoFolder">フォルダを選ぶ</button>
+      <button type="button" class="places-ui-cmd" id="pickAutoFolder">${localGatePathEdit ? '別のフォルダを選ぶ' : 'フォルダを選ぶ'}</button>
       ${
         localGatePathEdit
-          ? '<button type="button" class="places-ui-cmd" id="confirmDir">このディレクトリで続ける</button>'
+          ? '<button type="button" class="places-ui-cmd" id="confirmDir">このフォルダで確定</button>'
           : ''
       }
     </div>
@@ -549,9 +550,9 @@ async function renderLocalGate(): Promise<void> {
         localGatePathEdit = false
         localGateDirectory = ''
         localGateNote = pickerWasCancelled(e)
-          ? 'フォルダはまだ選ばれていません。点検に入るには、もう一度「フォルダを選ぶ」を押してください。'
+          ? 'フォルダはまだ選ばれていません。点検に入るには、もう一度「別のフォルダを選ぶ」を押してください。'
           : e instanceof EmptyFolderUnreported
-            ? 'ディレクトリは確定していません。ファイルアプリは、中にファイルが無いフォルダの名前を返さないため、表示が空欄になります。名前が空欄のままでは先へ進めません。もう一度「フォルダを選ぶ」を押してください。'
+            ? 'ディレクトリは確定していません。ファイルアプリは、中にファイルが無いフォルダの名前を返さないため、表示が空欄になります。名前が空欄のままでは先へ進めません。もう一度フォルダを選んでください。'
             : `フォルダを選べませんでした: ${(e as Error).message}`
         await render()
       }

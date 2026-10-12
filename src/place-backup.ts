@@ -12,7 +12,14 @@ import type { LogFile, PosFile, TmpFlag } from './types'
 import type { MastersFile } from './catalog'
 
 const PENDING = 'flight-local-export-pending'
-const FILE_NAMES = ['log.json', 'pos.json', 'tmp.json', 'masters.json'] as const
+export const MANUAL_IO_FILES = [
+  { key: 'log', file: 'log.json' },
+  { key: 'pos', file: 'pos.json' },
+  { key: 'tmp', file: 'tmp.json' },
+  { key: 'masters', file: 'masters.json' },
+] as const
+export type ManualIoKey = (typeof MANUAL_IO_FILES)[number]['key']
+const FILE_NAMES = MANUAL_IO_FILES.map((item) => item.file)
 
 export async function internalIsInitialEmpty(): Promise<boolean> {
   const flights = await db.flights.toArray()
@@ -27,13 +34,26 @@ export async function needsLocalGate(): Promise<boolean> {
   return !(await autoFolderReady())
 }
 
-async function bundleFromDb(): Promise<Record<string, unknown>> {
-  return {
-    'log.json': await exportLog(),
-    'pos.json': await exportPos(),
-    'tmp.json': await exportTmp(),
-    'masters.json': await exportMasters(),
+const EXPORTERS: Record<ManualIoKey, () => Promise<unknown>> = {
+  log: exportLog,
+  pos: exportPos,
+  tmp: exportTmp,
+  masters: exportMasters,
+}
+
+async function bundleSelected(keys: readonly ManualIoKey[]): Promise<Record<string, unknown>> {
+  const want = new Set(keys)
+  const out: Record<string, unknown> = {}
+  for (const item of MANUAL_IO_FILES) {
+    if (!want.has(item.key)) continue
+    out[item.file] = await EXPORTERS[item.key]()
   }
+  if (!Object.keys(out).length) throw new Error('ファイルが選ばれていません')
+  return out
+}
+
+async function bundleFromDb(): Promise<Record<string, unknown>> {
+  return bundleSelected(MANUAL_IO_FILES.map((item) => item.key))
 }
 
 export async function restoreFromAutoIfEmpty(isEmpty: boolean): Promise<string | null> {
@@ -89,7 +109,10 @@ export async function writeAfterCommit(): Promise<string> {
 }
 
 export async function writeManualLocal(): Promise<string> {
-  return exportToFolder('manual')
+  return exportToFolder(
+    'manual',
+    MANUAL_IO_FILES.map((item) => item.key),
+  )
 }
 
 async function ensureDirectory(kind: 'manual' | 'icloud'): Promise<void> {
@@ -102,25 +125,33 @@ async function ensureDirectory(kind: 'manual' | 'icloud'): Promise<void> {
   }
 }
 
-/** 手動エクスポート。フォルダが未設定なら、その場で選ばせる。 */
-export async function exportToFolder(kind: 'manual' | 'icloud'): Promise<string> {
+/** 手動エクスポート。選んだファイルだけ書く。 */
+export async function exportToFolder(
+  kind: 'manual' | 'icloud',
+  keys: readonly ManualIoKey[],
+): Promise<string> {
   await ensureDirectory(kind)
-  const written = await writeJsonFiles(kind, await bundleFromDb())
+  const written = await writeJsonFiles(kind, await bundleSelected(keys))
   const dir = await directoryStatus(kind)
   const label = kind === 'manual' ? 'Local' : 'iCloud'
   return `${label}「${dir}」へ書き出しました（${written.join(', ')}）`
 }
 
-/** 手動インポート。フォルダ内の 4 ファイルで端末データを更新する。 */
-export async function importFromFolder(kind: 'manual' | 'icloud'): Promise<string> {
+/** 手動インポート。選んだファイルだけ端末データを更新する。 */
+export async function importFromFolder(
+  kind: 'manual' | 'icloud',
+  keys: readonly ManualIoKey[],
+): Promise<string> {
   await ensureDirectory(kind)
-  const files = await readJsonFiles(kind, [...FILE_NAMES])
-  if (!files) throw new Error('ディレクトリ内の 4 ファイルを読めませんでした')
-  await importLog(files['log.json'] as LogFile)
-  await importPos(files['pos.json'] as PosFile)
-  await importTmp(files['tmp.json'] as TmpFlag)
-  await importMasters(files['masters.json'] as MastersFile)
+  const names = MANUAL_IO_FILES.filter((item) => keys.includes(item.key)).map((item) => item.file)
+  if (!names.length) throw new Error('ファイルが選ばれていません')
+  const files = await readJsonFiles(kind, names)
+  if (!files) throw new Error('選んだファイルをフォルダから読めませんでした')
+  if (files['log.json']) await importLog(files['log.json'] as LogFile)
+  if (files['pos.json']) await importPos(files['pos.json'] as PosFile)
+  if (files['tmp.json']) await importTmp(files['tmp.json'] as TmpFlag)
+  if (files['masters.json']) await importMasters(files['masters.json'] as MastersFile)
   const dir = await directoryStatus(kind)
   const label = kind === 'manual' ? 'Local' : 'iCloud'
-  return `${label}「${dir}」から取り込みました`
+  return `${label}「${dir}」から取り込みました（${names.join(', ')}）`
 }

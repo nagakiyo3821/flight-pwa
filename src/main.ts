@@ -82,9 +82,11 @@ import {
   exportToFolder,
   importFromFolder,
   internalIsInitialEmpty,
+  MANUAL_IO_FILES,
   needsLocalGate,
   restoreFromAutoIfEmpty,
   writeAfterCommit,
+  type ManualIoKey,
 } from './place-backup'
 import {
   clearGoogleSession,
@@ -426,6 +428,7 @@ let localGateRoot = 'このiPhone内'
 let localGateMiddle = ''
 let folderScreen: 'auto' | 'export' | 'import' = 'auto'
 let folderScreenOpen = false
+let manualIoKeys: ManualIoKey[] = []
 let suppressMenuTimersOnce = false
 
 const DIR_ROOTS = ['このiPhone内', 'iCloud Drive'] as const
@@ -506,7 +509,9 @@ async function finishManualFolder(action: 'export' | 'import', _name: string): P
   if (confirmBtn) confirmBtn.disabled = true
   try {
     flashMsg =
-      action === 'export' ? await exportToFolder('manual') : await importFromFolder('manual')
+      action === 'export'
+        ? await exportToFolder('manual', manualIoKeys)
+        : await importFromFolder('manual', manualIoKeys)
   } catch (e) {
     flashMsg = `${action === 'export' ? 'フォルダへ書き出せませんでした' : 'フォルダから取り込めませんでした'}: ${(e as Error).message}`
   }
@@ -1259,6 +1264,73 @@ function showConfirmSheet(opts: {
       e.preventDefault()
       e.stopPropagation()
       finish(t.dataset.act === 'ok')
+    })
+  })
+}
+
+/** 手動入出力で対象の4ファイルを個別に選ぶ。戻るは null。 */
+function chooseManualFiles(action: 'export' | 'import'): Promise<ManualIoKey[] | null> {
+  const title = action === 'export' ? '手動エクスポート' : '手動インポート'
+  const detail = action === 'export' ? '書き出すファイルを選んでください。' : '取り込むファイルを選んでください。'
+  return new Promise((resolve) => {
+    document.getElementById('sc-confirm')?.remove()
+    const root = document.createElement('div')
+    root.id = 'sc-confirm'
+    root.className = 'sc-confirm'
+    root.setAttribute('role', 'dialog')
+    root.setAttribute('aria-modal', 'true')
+    root.setAttribute('aria-labelledby', 'sc-confirm-title')
+    const rows = MANUAL_IO_FILES.map(
+      (item) => `<label class="sc-file-pick">
+        <input type="checkbox" data-file="${item.key}" checked />
+        <span>${escapeHtml(item.file)}</span>
+      </label>`,
+    ).join('')
+    root.innerHTML = `
+      <div class="sc-confirm-backdrop" data-act="cancel" aria-hidden="true"></div>
+      <div class="sc-confirm-sheet" role="document">
+        <div class="sc-confirm-card">
+          <p class="sc-confirm-title" id="sc-confirm-title">${escapeHtml(title)}</p>
+          <p class="sc-confirm-detail">${escapeHtml(detail)}</p>
+          <div class="sc-file-picks">${rows}</div>
+          <p class="sc-file-pick-note" id="sc-file-note" hidden>1つ以上選んでください。</p>
+          <button type="button" class="sc-confirm-btn sc-confirm-btn--ok" data-act="ok">実行</button>
+        </div>
+        <button type="button" class="sc-confirm-btn sc-confirm-btn--cancel" data-act="cancel">戻る</button>
+      </div>`
+    document.body.appendChild(root)
+    requestAnimationFrame(() => root.classList.add('sc-confirm--show'))
+
+    let done = false
+    const finish = (keys: ManualIoKey[] | null) => {
+      if (done) return
+      done = true
+      root.classList.remove('sc-confirm--show')
+      clearStickyFocus()
+      window.setTimeout(() => {
+        root.remove()
+        clearStickyFocus()
+        resolve(keys)
+      }, 180)
+    }
+    root.addEventListener('click', (e) => {
+      const t = (e.target as HTMLElement | null)?.closest?.('[data-act]') as HTMLElement | null
+      if (!t) return
+      e.preventDefault()
+      e.stopPropagation()
+      if (t.dataset.act !== 'ok') {
+        finish(null)
+        return
+      }
+      const keys = [...root.querySelectorAll<HTMLInputElement>('input[data-file]:checked')].map(
+        (input) => input.dataset.file as ManualIoKey,
+      )
+      const note = root.querySelector<HTMLElement>('#sc-file-note')
+      if (!keys.length) {
+        if (note) note.hidden = false
+        return
+      }
+      finish(keys)
     })
   })
 }
@@ -7046,30 +7118,39 @@ async function renderIO(): Promise<void> {
   const openManualFolder = (action: 'export' | 'import') => {
     void (async () => {
       if (ioBusy) return
+      const keys = await chooseManualFiles(action)
+      if (!keys) return
+      manualIoKeys = keys
       beginFolderReview(action, await directoryStatus('manual'))
       await render()
     })()
   }
   app.querySelector('#expFolder')?.addEventListener('click', () => openManualFolder('export'))
   app.querySelector('#impFolder')?.addEventListener('click', () => openManualFolder('import'))
-  const runGoogleManual = async (direction: 'push' | 'pull'): Promise<string> => {
+  const runGoogleManual = async (
+    direction: 'push' | 'pull',
+    keys: readonly ManualIoKey[],
+  ): Promise<string> => {
     if (!isServerSyncConfigured() || getSettings().active !== 'google') {
       throw new Error('Google のフォルダが未設定です。settings でディレクトリを指定してください')
     }
     if (!isGoogleSignedIn()) await requestGoogleAccessToken()
-    const report = await runGoogleDriveSync(direction)
+    const report = await runGoogleDriveSync(direction, keys)
     return report.lines.join('\n')
   }
   const runPlaceIo = (
     id: string,
-    work: () => Promise<string>,
+    action: 'export' | 'import',
+    direction: 'push' | 'pull',
     failLabel: string,
   ) => {
     app.querySelector(`#${id}`)?.addEventListener('click', () => {
       if (ioBusy) return
       void (async () => {
+        const keys = await chooseManualFiles(action)
+        if (!keys) return
         try {
-          flashMsg = await work()
+          flashMsg = await runGoogleManual(direction, keys)
         } catch (e) {
           flashMsg = `${failLabel}: ${(e as Error).message}`
         }
@@ -7077,8 +7158,8 @@ async function renderIO(): Promise<void> {
       })()
     })
   }
-  runPlaceIo('expGoogle', () => runGoogleManual('push'), 'Google へ書き出せませんでした')
-  runPlaceIo('impGoogle', () => runGoogleManual('pull'), 'Google から取り込めませんでした')
+  runPlaceIo('expGoogle', 'export', 'push', 'Google へ書き出せませんでした')
+  runPlaceIo('impGoogle', 'import', 'pull', 'Google から取り込めませんでした')
 
   app.querySelector('#settingsOff')!.addEventListener('click', async (ev) => {
     if (!isServerSyncConfigured() || ioBusy) return

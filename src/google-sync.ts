@@ -132,7 +132,19 @@ export async function persistFolderId(folderId: string): Promise<void> {
   setSettings(next)
 }
 
-export async function runGoogleDriveSync(direction: SyncDirection): Promise<SyncReport> {
+const DRIVE_DATA_KEYS = ['log', 'pos', 'tmp', 'masters'] as const
+type DriveDataKey = (typeof DRIVE_DATA_KEYS)[number]
+
+function selectedDriveKeys(only?: readonly DriveDataKey[]): DriveDataKey[] {
+  const keys = only?.length ? DRIVE_DATA_KEYS.filter((key) => only.includes(key)) : [...DRIVE_DATA_KEYS]
+  if (!keys.length) throw new Error('ファイルが選ばれていません')
+  return keys
+}
+
+export async function runGoogleDriveSync(
+  direction: SyncDirection,
+  only?: readonly DriveDataKey[],
+): Promise<SyncReport> {
   if (!isServerSyncConfigured() || getSettings().active !== 'google') {
     throw new Error('settings が Google 同期になっていません')
   }
@@ -144,49 +156,46 @@ export async function runGoogleDriveSync(direction: SyncDirection): Promise<Sync
   const { folderName, folderId } = await resolveSyncFolder()
   await persistFolderId(folderId)
   const names = googleFileNames()
+  const keys = selectedDriveKeys(only)
   const lines: string[] = [`フォルダ: ${folderName} (${folderId})`]
+  const fileName: Record<DriveDataKey, string> = {
+    log: names.log,
+    pos: names.pos,
+    tmp: names.tmp,
+    masters: names.masters,
+  }
 
   if (direction === 'pull' || direction === 'both') {
-    const remoteLog = asLog(await downloadJsonByName(folderId, names.log))
-    const remotePos = asPos(await downloadJsonByName(folderId, names.pos))
-    const remoteTmp = asTmp(await downloadJsonByName(folderId, names.tmp))
-    const remoteMasters = asMasters(await downloadJsonByName(folderId, names.masters))
-
-    const localLog = await exportLog()
-    const localPos = await exportPos()
-    const localTmp = await exportTmp()
-    const localMasters = await exportMasters()
-
-    const mergedLog = mergeLog(remoteLog, localLog)
-    const mergedPos = mergePos(remotePos, localPos)
-    const mergedTmp = mergeTmp(remoteTmp, localTmp)
-    const mergedMasters = mergeMasters(remoteMasters, localMasters)
-
-    await importLog(mergedLog)
-    await importPos(mergedPos)
-    await importTmp(mergedTmp)
-    await importMasters(mergedMasters)
-
-    lines.push(
-      `取得マージ: log ${Object.keys(mergedLog).length} / pos ${Object.keys(mergedPos).length}` +
-        ` / tmp / masters` +
-        `（端末優先。Driveのみ: log=${remoteLog ? Object.keys(remoteLog).length : 0}）`,
-    )
+    if (keys.includes('log')) {
+      const remoteLog = asLog(await downloadJsonByName(folderId, names.log))
+      await importLog(mergeLog(remoteLog, await exportLog()))
+    }
+    if (keys.includes('pos')) {
+      const remotePos = asPos(await downloadJsonByName(folderId, names.pos))
+      await importPos(mergePos(remotePos, await exportPos()))
+    }
+    if (keys.includes('tmp')) {
+      const remoteTmp = asTmp(await downloadJsonByName(folderId, names.tmp))
+      await importTmp(mergeTmp(remoteTmp, await exportTmp()))
+    }
+    if (keys.includes('masters')) {
+      const remoteMasters = asMasters(await downloadJsonByName(folderId, names.masters))
+      await importMasters(mergeMasters(remoteMasters, await exportMasters()))
+    }
+    lines.push(`取得: ${keys.map((key) => fileName[key]).join(' / ')}`)
   }
 
   if (direction === 'push' || direction === 'both') {
-    const log = await exportLog()
-    const pos = await exportPos()
-    const tmp = await exportTmp()
-    const masters = await exportMasters()
-    await uploadJsonByName(folderId, names.log, log)
-    await uploadJsonByName(folderId, names.pos, pos)
-    await uploadJsonByName(folderId, names.tmp, tmp)
-    await uploadJsonByName(folderId, names.masters, masters)
-    lines.push(
-      `送信: ${names.log} / ${names.pos} / ${names.tmp} / ${names.masters}` +
-        `（log ${Object.keys(log).length}・pos ${Object.keys(pos).length}）`,
-    )
+    const payloads: Record<DriveDataKey, () => Promise<unknown>> = {
+      log: exportLog,
+      pos: exportPos,
+      tmp: exportTmp,
+      masters: exportMasters,
+    }
+    for (const key of keys) {
+      await uploadJsonByName(folderId, fileName[key], await payloads[key]())
+    }
+    lines.push(`送信: ${keys.map((key) => fileName[key]).join(' / ')}`)
   }
 
   return { ok: true, folderId, folderName, lines }

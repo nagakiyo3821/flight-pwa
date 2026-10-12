@@ -26,7 +26,7 @@ import {
   ensureGoogleAccessToken,
   isGoogleClientConfigured,
 } from './google-auth'
-import { getSettings, isServerSyncConfigured, normalizeSettings, setSettings } from './settings'
+import { getSettings, normalizeSettings, setSettings } from './settings'
 import type { LogFile, PosFile, TmpFlag } from './types'
 
 export type SyncDirection = 'pull' | 'push' | 'both'
@@ -145,16 +145,12 @@ export async function runGoogleDriveSync(
   direction: SyncDirection,
   only?: readonly DriveDataKey[],
 ): Promise<SyncReport> {
-  if (!isServerSyncConfigured() || getSettings().active !== 'google') {
-    throw new Error('settings が Google 同期になっていません')
-  }
   if (!isGoogleClientConfigured()) {
     throw new Error('VITE_GOOGLE_CLIENT_ID が未設定です')
   }
   await ensureGoogleAccessToken()
 
   const { folderName, folderId } = await resolveSyncFolder()
-  await persistFolderId(folderId)
   const names = googleFileNames()
   const keys = selectedDriveKeys(only)
   const lines: string[] = [`フォルダ: ${folderName} (${folderId})`]

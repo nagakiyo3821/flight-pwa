@@ -3,6 +3,7 @@
  */
 
 import { splitFolderPath } from './folder-path'
+import { loadGoogleFolder } from './google-folder'
 import { getAccessToken } from './google-auth'
 import { getSettings, type GoogleProviderConfig } from './settings'
 
@@ -102,32 +103,20 @@ async function foldersNamed(
   return data.files ?? []
 }
 
-/**
- * folderName を段ごとに開く。フォルダは作らない。
- * 1 件ならそれ。最後の段が複数のときだけ folderId を見る。
- * ID が空または不一致なら検索結果の先頭。
- */
+/** この端末で選んだ保管先。未選択なら送受信しない。 */
 export async function resolveSyncFolder(): Promise<{ folderName: string; folderId: string }> {
-  const s = getSettings()
-  const folderName = String(s.providers.google?.folderName || 'drone')
-  const configuredId = String(s.providers.google?.folderId || '').trim()
-  const segments = splitFolderPath(folderName)
-  if (!segments.length) throw new Error('Google のフォルダ名が空です')
+  const saved = loadGoogleFolder()
+  if (!saved) throw new Error('Google のフォルダが未選択です')
+  return saved
+}
 
-  let parent = 'root'
-  for (let i = 0; i < segments.length; i += 1) {
-    const hits = await foldersNamed(parent, segments[i])
-    const path = segments.slice(0, i + 1).join('/')
-    if (!hits.length) throw new Error(`マイドライブにフォルダ「${path}」が見つかりません`)
-    const last = i === segments.length - 1
-    if (hits.length === 1 || !last) {
-      parent = hits[0].id
-      continue
-    }
-    const byId = configuredId ? hits.find((h) => h.id === configuredId) : undefined
-    parent = (byId ?? hits[0]).id
-  }
-  return { folderName, folderId: parent }
+/** マイドライブからのパスを1段ずつ開く。同じ名前が複数なら、その段で選ばせる。 */
+export async function listDriveFolders(parentId: string, name: string): Promise<DriveFileHit[]> {
+  return foldersNamed(parentId, name)
+}
+
+export function drivePathSegments(path: string): string[] {
+  return splitFolderPath(path)
 }
 
 export async function downloadJsonByFileId(fileId: string): Promise<unknown> {

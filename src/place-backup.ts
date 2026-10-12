@@ -7,7 +7,8 @@ import { db, exportLog, exportMasters, exportPos, exportTmp, importLog, importMa
 import { isGoogleSignedIn } from './google-auth'
 import { runGoogleDriveSync } from './google-sync'
 import { autoFolderReady, beginDirectoryPick, directoryStatus, EmptyFolderUnreported, readJsonFiles, rememberDirectory, storedDirectory, writeJsonFiles } from './local-dirs'
-import { getSettings, isServerSyncConfigured, settingsDocument } from './settings'
+import { loadGoogleFolder } from './google-folder'
+import { getSettings, settingsDocument } from './settings'
 import type { LogFile, PosFile, TmpFlag } from './types'
 import type { MastersFile } from './catalog'
 
@@ -95,7 +96,7 @@ export async function writeAfterCommit(): Promise<string> {
     }
   }
 
-  if (isServerSyncConfigured() && s.active === 'google') {
+  if (loadGoogleFolder()) {
     if (!isGoogleSignedIn()) {
       lines.push('Google は未ログインのためスキップ')
     } else {

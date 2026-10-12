@@ -92,7 +92,8 @@ import {
   isGoogleSignedIn,
   requestGoogleAccessToken,
 } from './google-auth'
-import { probeConfiguredDriveFolder } from './google-drive'
+import { probeConfiguredDriveFolder, drivePathSegments, listDriveFolders } from './google-drive'
+import { clearGoogleFolder, googleFolderLabel, loadGoogleFolder, saveGoogleFolder } from './google-folder'
 import { maybeAutoSync, persistFolderId, runGoogleDriveSync } from './google-sync'
 import {
   COMMIT_BACK,
@@ -1335,6 +1336,172 @@ function chooseManualFiles(
       finish(keys)
     })
   })
+}
+
+function mountChoiceSheet(body: string): HTMLDivElement {
+  document.getElementById('sc-confirm')?.remove()
+  const root = document.createElement('div')
+  root.id = 'sc-confirm'
+  root.className = 'sc-confirm'
+  root.setAttribute('role', 'dialog')
+  root.setAttribute('aria-modal', 'true')
+  root.innerHTML = body
+  document.body.appendChild(root)
+  requestAnimationFrame(() => root.classList.add('sc-confirm--show'))
+  return root
+}
+
+function closeChoiceSheet(root: HTMLElement): Promise<void> {
+  root.classList.remove('sc-confirm--show')
+  clearStickyFocus()
+  return new Promise((resolve) => {
+    window.setTimeout(() => {
+      root.remove()
+      clearStickyFocus()
+      resolve()
+    }, 180)
+  })
+}
+
+function reviewGoogleFolderSheet(): Promise<'ok' | 'change' | 'cancel'> {
+  const saved = loadGoogleFolder()
+  const confirm = saved
+    ? '<button type="button" class="sc-confirm-btn sc-confirm-btn--ok" data-act="ok">このフォルダで確定</button>'
+    : ''
+  const changeLabel = saved ? '別のフォルダを選ぶ' : 'フォルダを選ぶ'
+  const root = mountChoiceSheet(`
+    <div class="sc-confirm-backdrop" data-act="cancel" aria-hidden="true"></div>
+    <div class="sc-confirm-sheet" role="document">
+      <div class="sc-confirm-card">
+        <p class="sc-confirm-title" id="sc-confirm-title">Google のフォルダ</p>
+        <p class="sc-confirm-detail">${escapeHtml(googleFolderLabel())}</p>
+        ${saved ? `<p class="sc-confirm-detail">${escapeHtml(saved.folderId)}</p>` : ''}
+        ${confirm}
+        <button type="button" class="sc-confirm-btn" data-act="change">${changeLabel}</button>
+      </div>
+      <button type="button" class="sc-confirm-btn sc-confirm-btn--cancel" data-act="cancel">戻る</button>
+    </div>`)
+  return new Promise((resolve) => {
+    root.addEventListener('click', (e) => {
+      const t = (e.target as HTMLElement | null)?.closest?.('[data-act]') as HTMLElement | null
+      if (!t) return
+      e.preventDefault()
+      e.stopPropagation()
+      const act = t.dataset.act === 'ok' ? 'ok' : t.dataset.act === 'change' ? 'change' : 'cancel'
+      void closeChoiceSheet(root).then(() => resolve(act))
+    })
+  })
+}
+
+function pickDriveFolderHit(
+  path: string,
+  hits: { id: string; name: string }[],
+): Promise<string | null> {
+  const buttons = hits
+    .map(
+      (hit) =>
+        `<button type="button" class="sc-confirm-btn" data-act="hit" data-id="${escapeHtml(hit.id)}">${escapeHtml(hit.name)}<br>${escapeHtml(hit.id)}</button>`,
+    )
+    .join('')
+  const root = mountChoiceSheet(`
+    <div class="sc-confirm-backdrop" data-act="cancel" aria-hidden="true"></div>
+    <div class="sc-confirm-sheet" role="document">
+      <div class="sc-confirm-card">
+        <p class="sc-confirm-title">同じ名前のフォルダが複数あります</p>
+        <p class="sc-confirm-detail">${escapeHtml(`マイドライブ/${path}`)}</p>
+        <div class="sc-google-hits">${buttons}</div>
+      </div>
+      <button type="button" class="sc-confirm-btn sc-confirm-btn--cancel" data-act="cancel">戻る</button>
+    </div>`)
+  return new Promise((resolve) => {
+    root.addEventListener('click', (e) => {
+      const t = (e.target as HTMLElement | null)?.closest?.('[data-act]') as HTMLElement | null
+      if (!t) return
+      e.preventDefault()
+      e.stopPropagation()
+      const id = t.dataset.act === 'hit' ? t.dataset.id || '' : ''
+      void closeChoiceSheet(root).then(() => resolve(id || null))
+    })
+  })
+}
+
+function searchGoogleFolderSheet(): Promise<{ folderName: string; folderId: string } | null> {
+  const initial = loadGoogleFolder()?.folderName || ''
+  const root = mountChoiceSheet(`
+    <div class="sc-confirm-backdrop" data-act="cancel" aria-hidden="true"></div>
+    <div class="sc-confirm-sheet" role="document">
+      <div class="sc-confirm-card">
+        <p class="sc-confirm-title">Google のフォルダ</p>
+        <p class="sc-confirm-detail">マイドライブからのフォルダを入力してください。</p>
+        <input id="googlePath" class="sc-google-path" type="text" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false" value="${escapeHtml(initial)}" aria-label="マイドライブからのフォルダ" />
+        <p class="sc-file-pick-note" id="sc-file-note" hidden></p>
+        <button type="button" class="sc-confirm-btn sc-confirm-btn--ok" data-act="search">検索</button>
+      </div>
+      <button type="button" class="sc-confirm-btn sc-confirm-btn--cancel" data-act="cancel">戻る</button>
+    </div>`)
+  const input = root.querySelector<HTMLInputElement>('#googlePath')
+  const note = root.querySelector<HTMLElement>('#sc-file-note')
+  const showNote = (text: string) => {
+    if (!note) return
+    note.hidden = false
+    note.textContent = text
+  }
+  return new Promise((resolve) => {
+    let busy = false
+    root.addEventListener('click', (e) => {
+      const t = (e.target as HTMLElement | null)?.closest?.('[data-act]') as HTMLElement | null
+      if (!t || busy) return
+      e.preventDefault()
+      e.stopPropagation()
+      if (t.dataset.act === 'cancel') {
+        void closeChoiceSheet(root).then(() => resolve(null))
+        return
+      }
+      if (t.dataset.act !== 'search') return
+      const typed = input?.value || ''
+      busy = true
+      void (async () => {
+        try {
+          if (!isGoogleSignedIn()) await requestGoogleAccessToken()
+          const segments = drivePathSegments(typed)
+          if (!segments.length) throw new Error('フォルダを入力してください')
+          let parent = 'root'
+          for (let i = 0; i < segments.length; i += 1) {
+            const soFar = segments.slice(0, i + 1).join('/')
+            const hits = await listDriveFolders(parent, segments[i])
+            if (!hits.length) throw new Error(`マイドライブにフォルダ「${soFar}」が見つかりません`)
+            if (hits.length === 1) {
+              parent = hits[0].id
+              continue
+            }
+            const picked = await pickDriveFolderHit(soFar, hits)
+            if (!picked) {
+              busy = false
+              return
+            }
+            parent = picked
+          }
+          if (root.isConnected) await closeChoiceSheet(root)
+          resolve({ folderName: segments.join('/'), folderId: parent })
+        } catch (err) {
+          busy = false
+          showNote((err as Error).message)
+        }
+      })()
+    })
+    window.setTimeout(() => input?.focus(), 50)
+  })
+}
+
+/** ファイル選択のあと。戻るは false。確定で true。 */
+async function chooseGoogleFolder(): Promise<boolean> {
+  for (;;) {
+    const step = await reviewGoogleFolderSheet()
+    if (step === 'cancel') return false
+    if (step === 'ok') return !!loadGoogleFolder()
+    const picked = await searchGoogleFolderSheet()
+    if (picked) saveGoogleFolder(picked)
+  }
 }
 
 /** 全項目／?項目の連続入力中はダイアログ DOM を使い回し（閉→開の隙間で一覧が見えない） */
@@ -6892,16 +7059,7 @@ async function renderIO(): Promise<void> {
   const signedIn = isGoogleSignedIn()
   const autoDir = await directoryStatus('auto')
   const manualDir = await directoryStatus('manual')
-  const configured = getSettings()
-  const googleCfg = configured.providers.google
-  const googleName = String(googleCfg?.folderName || '').trim()
-  const googleId = String(googleCfg?.folderId || '').trim()
-  const googleDir =
-    configured.active === 'google' && googleName
-      ? googleId
-        ? `${googleName}（${googleId}）`
-        : googleName
-      : '未設定'
+  const googleDir = googleFolderLabel()
   const placeLines = `
             <p class="places-ui-io-hint">フォルダ: ${escapeHtml(manualDir)}</p>
             <p class="places-ui-io-hint">Google: ${escapeHtml(googleDir)}</p>`
@@ -6978,10 +7136,10 @@ async function renderIO(): Promise<void> {
             ${syncNote}
             <ul class="settings-detail">${detailHtml}</ul>
             <div class="places-ui-cmds">
-              ${cmd('settingsOff', SETTINGS_OFF, { disabled: !syncOn, danger: true })}
+              ${cmd('settingsOff', SETTINGS_OFF, { disabled: !syncOn && googleDir === '未設定', danger: true })}
             </div>
             ${googleBlock}
-            <p class="places-ui-io-hint">オフは接続設定だけを none に戻します（飛行データは消しません）。有効化は、手動インポートのフォルダ指定で settings.json を選んでください。</p>
+            <p class="places-ui-io-hint">オフは、選んだ Google フォルダと接続設定を戻します（飛行データは消しません）。Google のフォルダは、手動の Google ボタンで選びます。</p>
 
             <h2 class="places-ui-io-h">取込</h2>
             <p class="places-ui-io-hint">JSON を選ぶと端末の最新として反映します。サーバー障害時の復旧にも使えます。</p>
@@ -7130,9 +7288,7 @@ async function renderIO(): Promise<void> {
     direction: 'push' | 'pull',
     keys: readonly ManualIoKey[],
   ): Promise<string> => {
-    if (!isServerSyncConfigured() || getSettings().active !== 'google') {
-      throw new Error('Google のフォルダが未設定です。手動インポートのフォルダ指定で settings.json を取り込んでください')
-    }
+    if (!loadGoogleFolder()) throw new Error('Google のフォルダが未選択です')
     if (!isGoogleSignedIn()) await requestGoogleAccessToken()
     const report = await runGoogleDriveSync(
       direction,
@@ -7151,6 +7307,8 @@ async function renderIO(): Promise<void> {
       void (async () => {
         const keys = await chooseManualFiles(action, 'google')
         if (!keys) return
+        const ready = await chooseGoogleFolder()
+        if (!ready) return
         try {
           flashMsg = await runGoogleManual(direction, keys)
         } catch (e) {
@@ -7164,7 +7322,7 @@ async function renderIO(): Promise<void> {
   runPlaceIo('impGoogle', 'import', 'pull', 'Google から取り込めませんでした')
 
   app.querySelector('#settingsOff')!.addEventListener('click', async (ev) => {
-    if (!isServerSyncConfigured() || ioBusy) return
+    if (ioBusy || (!isServerSyncConfigured() && !loadGoogleFolder())) return
     const btn = ev.currentTarget as HTMLElement
     const offOk = await confirmYesNo({
       title: SETTINGS_OFF_CONFIRM,
@@ -7174,6 +7332,7 @@ async function renderIO(): Promise<void> {
     })
     if (!offOk) return
     await withIoBusy(btn, '解除中…', 'サーバー同期をオフにしています…', async () => {
+      clearGoogleFolder()
       clearGoogleSession()
       await resetSettings()
       flashMsg = SETTINGS_HINT_OFF_DONE

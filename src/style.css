@@ -2239,6 +2239,23 @@ code { font-size: 0.85em; }
   text-align: center;
   color: var(--bad);
 }
+.sc-google-path {
+  display: block;
+  width: calc(100% - 2rem);
+  margin: 0 1rem 0.75rem;
+  padding: 0.55rem 0.7rem;
+  box-sizing: border-box;
+  font-size: var(--popup-font);
+  border: 1px solid #c5ced4;
+  border-radius: 8px;
+  color: var(--ink);
+}
+.sc-google-hits {
+  display: flex;
+  flex-direction: column;
+  max-height: 14rem;
+  overflow: auto;
+}
 .sc-confirm-btn {
   display: block;
   width: 100%;

@@ -145,7 +145,7 @@
     <p><a href="./" data-open-app>アプリを開く</a></p>
   </header>
   <main>
-    <p>ドローンの飛行前点検、離着陸地点、飛行後点検を、スマートフォンの中に残すアプリです。記録は端末のブラウザ内に保存され、サーバーへ自動では送られません。消失しないようにサーバー設定で自動保存、もしくは手動保存してください。アプリは最新バージョンを使用してください。バージョンはアプリ画面上部右端の表示で確認できます。</p>
+    <p>ドローンの飛行前点検、離着陸地点、飛行後点検を、スマートフォンの中に残すアプリです。記録の正本は端末の中です。Local自動バックアップがオンなら、「5.データ登録」のあと、選んだフォルダへ4ファイルを書きます。Google自動バックアップがオンなら、同じタイミングでそのドライブのフォルダへも送ります。項目を編集しただけでは書き出しません。アプリは最新バージョンを使用してください。バージョンはアプリ画面上部右端の表示で確認できます。</p>
 
     <nav class="toc" aria-label="目次">
       <p class="toc-title">目次</p>
@@ -173,7 +173,7 @@
     <h2 id="sec-1" class="sec"><span>1. 導入</span><a class="to-top" href="#top" data-to-top aria-label="先頭へ"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 3.2 2.6 9.2h3.1V13h4.6V9.2h3.1L8 3.2z"/></svg></a></h2>
     <h3>開く</h3>
     <p>スマートフォンのブラウザで <a href="https://nagakiyo3821.github.io/flight-pwa/">https://nagakiyo3821.github.io/flight-pwa/</a> を開きます。</p>
-    <p>通信できる状態で一度開くと、その後は電波が弱い場所でも点検の入力ができます。気象の取得、住所の検索、地図、Google 同期だけは通信が必要です。</p>
+    <p>通信できる状態で一度開くと、その後は電波が弱い場所でも点検の入力ができます。気象の取得、住所の検索、地図、Google への書き出しと取り込みだけは通信が必要です。</p>
 
     <h3>ホーム画面に置く（推奨）</h3>
     <p>毎回 URL を探さなくて済み、全画面で使えます。</p>
@@ -193,10 +193,10 @@
     <p>位置情報は、離陸・着陸の登録と気象セットで使います。ブラウザ、またはインストールしたアプリに、位置情報を許可してください。</p>
 
     <h3>初回に出るもの</h3>
-    <p>利用条件の同意だけです。飛行記録や場所は、ファイルを取り込むまで空です。サンプルデータは自動では入りません。</p>
+    <p>利用条件の同意のあと、Local自動バックアップのフォルダ選択が出ます。初期状態はアクセスをオンにする前提です。フォルダは事前に作り、中にファイルを1つ以上置いておきます。アプリはフォルダを作りません。空のフォルダは名前が取れません。飛行記録や場所は、ファイルを取り込むまで空です。サンプルデータは自動では入りません。アクセスをオフにすると、この選択は出ません。</p>
 
     <h2 id="sec-2" class="sec"><span>2. 準備するデータ</span><a class="to-top" href="#top" data-to-top aria-label="先頭へ"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 3.2 2.6 9.2h3.1V13h4.6V9.2h3.1L8 3.2z"/></svg></a></h2>
-    <p>アプリが扱うファイルは 5 種類です。拡張子はすべて <code>.json</code> です。</p>
+    <p>出し入れするデータは 4 種類です。拡張子はすべて <code>.json</code> です。<code>settings.json</code> ではバックアップをオンにせず、ドライブのフォルダも決まりません。</p>
     <table>
       <thead>
         <tr><th>ファイル</th><th>中身</th><th>いつ要るか</th></tr>
@@ -206,7 +206,6 @@
         <tr><td><code>log.json</code></td><td>飛行ごとの点検記録</td><td>過去の記録を引き継ぐとき。無ければ空で開始</td></tr>
         <tr><td><code>pos.json</code></td><td>場所（名前・住所・緯度経度・高度）</td><td>よく飛ぶ場所を先に入れておくとき。無くても当日登録できる</td></tr>
         <tr><td><code>tmp.json</code></td><td>作業中の進行状態と、気象セットした時刻</td><td>作業の途中を別端末へ移すとき。通常はアプリが持つ</td></tr>
-        <tr><td><code>settings.json</code></td><td>Google ドライブ同期の有無</td><td>手動の書き出しだけなら不要</td></tr>
       </tbody>
     </table>
     <p>旧ショートカットの <code>log03.json</code> のように、名前の末尾に番号が付いたファイルも、中身が同じ形式なら取り込めます。値はすべて文字です。数値も <code>"15"</code> のように文字で入ります。</p>
@@ -286,45 +285,8 @@
         <tr><td><code>labels</code></td><td>「任意の入力」欄の表示名</td></tr>
       </tbody>
     </table>
-    <p><strong>settings.json（同期）</strong></p>
-    <p>同期の接続先だけを書くファイルです。操縦者の氏名、機体の登録記号、メールアドレス、パスワード、ログインのトークンは書きません。説明や例では、個人情報を次の一般的な形に置き換えます。</p>
-    <table>
-      <thead><tr><th>種類</th><th>一般的な書き方</th></tr></thead>
-      <tbody>
-        <tr><td>メールアドレス</td><td><code>pilot@example.com</code></td></tr>
-        <tr><td>ドライブのフォルダ名</td><td><code>flight-log</code></td></tr>
-        <tr><td>利用者名</td><td><code>example-user</code></td></tr>
-        <tr><td>フォルダ ID</td><td>空のまま（実在の ID は人に渡すファイルへ書かない）</td></tr>
-      </tbody>
-    </table>
-    <p>同期がオンになるのは、<code>sync.enabled</code> が <code>true</code> で、<code>sync.provider</code> が <code>google</code> のときです。<code>active</code> が <code>none</code> のままでも、この2つが揃っていれば Google 同期になります。<code>enabled</code> が <code>false</code> のときは手動の取込・書出だけです。中身が空や壊れているときも、手動のみに戻ります。Google ドライブへ送る例は「7. システム設定」にあります。</p>
-    <table class="fields">
-      <thead><tr><th>項目</th><th>設定値</th><th>意味</th></tr></thead>
-      <tbody>
-        <tr><td><code>version</code></td><td><code>1</code></td><td>このファイルの形式。いまのアプリは 1</td></tr>
-        <tr><td><code>sync.<wbr>enabled</code></td><td><code>true</code> または <code>false</code></td><td><code>true</code> で同期を有効にする。<code>provider</code> が <code>none</code> のときは <code>true</code> でもオフになる</td></tr>
-        <tr><td><code>sync.<wbr>provider</code></td><td><code>none</code> / <code>google</code> / <code>webdav</code> / <code>s3<wbr>compatible</code></td><td>使う同期先。動くのは <code>google</code>。<code>webdav</code> と <code>s3<wbr>compatible</code> は予約で、書いても同期は動かない</td></tr>
-        <tr><td><code>sync.<wbr>mode</code></td><td><code>auto</code> または <code>manual</code></td><td>画面に出す区分。自動で同期するかは、この値ではなく <code>onLaunch</code> と <code>onOnline</code> で決まる</td></tr>
-        <tr><td><code>sync.<wbr>onLaunch</code></td><td><code>true</code> または <code>false</code></td><td><code>true</code> なら、アプリを開いたとき、ログイン済みなら双方向同期を 1 回行う</td></tr>
-        <tr><td><code>sync.<wbr>onOnline</code></td><td><code>true</code> または <code>false</code></td><td><code>true</code> なら、通信が戻ったとき、ログイン済みなら双方向同期する</td></tr>
-        <tr><td><code>sync.<wbr>onEdit</code></td><td><code>true</code> または <code>false</code></td><td>値は保存され、設定画面に出る。点検を保存するたびに同期する処理はまだない。例では <code>false</code></td></tr>
-        <tr><td><code>active</code></td><td><code>sync.<wbr>provider</code> と同じ</td><td>いま有効な同期先。同期オンのときは <code>google</code></td></tr>
-        <tr><td><code>providers.<wbr>none</code></td><td><code>{}</code></td><td>手動のみのときの置き場。中身は空</td></tr>
-        <tr><td><code>providers.google.<wbr>folderName</code></td><td>例: <code>flight-log</code></td><td>探すフォルダの名前。ゴミ箱以外で同名を探し、複数あるときは先頭の 1 件。見本ファイルの既定は <code>drone</code></td></tr>
-        <tr><td><code>providers.google.<wbr>folderId</code></td><td>空、またはドライブが付ける ID</td><td>空なら名前で探す。見つかったあと、アプリがその端末の設定へ ID を書く。人に渡すファイルでは空にする</td></tr>
-        <tr><td><code>providers.google.<wbr>files.log</code> など</td><td>例: <code>log.<wbr>json</code></td><td>フォルダ内のファイル名。送受信するのは log / pos / tmp / masters。<code>settings</code> の名前は書いてあっても、このファイル自体はドライブへ送らない</td></tr>
-        <tr><td><code>providers.google.<wbr>create<wbr>Folder<wbr>If<wbr>Missing</code></td><td><code>true</code> または <code>false</code></td><td><code>true</code> なら同名が無いとき、マイドライブ直下に作る。<code>false</code> なら見つからないとエラー</td></tr>
-        <tr><td><code>providers.webdav.<wbr>baseUrl</code></td><td>例: <code>https://example.com/<wbr>remote.php/webdav</code></td><td>予約。未使用</td></tr>
-        <tr><td><code>providers.webdav.<wbr>username</code></td><td>例: <code>example-user</code></td><td>予約。パスワードは書かない</td></tr>
-        <tr><td><code>providers.webdav.<wbr>path</code></td><td>例: <code>/flight-log</code></td><td>予約</td></tr>
-        <tr><td><code>providers.s3<wbr>compatible.<wbr>endpoint</code></td><td>例: <code>https://<wbr>s3.example.com</code></td><td>予約</td></tr>
-        <tr><td><code>providers.s3<wbr>compatible.<wbr>bucket</code></td><td>例: <code>flight-log</code></td><td>予約</td></tr>
-        <tr><td><code>providers.s3<wbr>compatible.<wbr>prefix</code></td><td>例: <code>flight-log/</code></td><td>予約。秘密鍵は書かない</td></tr>
-        <tr><td><code>manual<wbr>Io<wbr>Always<wbr>Available</code></td><td><code>true</code></td><td><code>true</code> のあいだは、同期を使っていても手動の取込・書出が残る</td></tr>
-        <tr><td><code>notes</code></td><td>短いメモ</td><td>同期の動作には使わない。氏名やメールアドレスは書かない</td></tr>
-      </tbody>
-    </table>
-
+    <p><strong>バックアップの保管先</strong></p>
+    <p>Local と Google のフォルダは、システム設定でこの端末に覚えます。<code>settings.json</code> に書いたフォルダ名では開きません。Google へ送るファイルは log / pos / tmp / masters です。<code>settings.json</code> 自体は送りません。メールアドレス、パスワード、ログインのトークンはファイルに書きません。</p>
     <h3>準備しないときと、準備したとき</h3>
     <p>ファイルを何も取り込まなくても、飛行の記録は始められます。アプリには初期の選択肢（飛行目的、飛行条件、障害物、正常／異常、機種名 Mavic2Pro / Tello / Other など）が入っています。</p>
     <table>
@@ -334,7 +296,7 @@
         <tr><td>離着陸の地点</td><td>できる。毎回の GPS と住所から、その場で場所ができる</td><td><code>pos.json</code> の登録地点に、精度の円の内側を同じ場所へ統合できる</td></tr>
         <tr><td>過去の飛行</td><td>端末の中に、いまの作業だけ</td><td><code>log.json</code> で過去の点検を開いて直せる</td></tr>
         <tr><td>作業の途中を別端末へ</td><td>書き出したあとに限る</td><td><code>tmp.json</code> で進行と気象セット時刻を渡せる</td></tr>
-        <tr><td>クラウド</td><td>オフ</td><td><code>settings.json</code> で Google ドライブと出し入れできる</td></tr>
+        <tr><td>クラウド</td><td>オフのままなら送らない</td><td>Google自動バックアップをオンにすると、データ登録のあとドライブへ送れる</td></tr>
       </tbody>
     </table>
 
@@ -352,20 +314,21 @@
     <h3>取り込み手順</h3>
     <ol>
       <li>ホームの「システム設定」を開く。</li>
-      <li>「取込」の <strong>masters</strong> を押し、書き換えた <code>masters.json</code> を選ぶ。</li>
-      <li>「取込完了」と出れば、その端末のマスタが置き換わります。</li>
-      <li>過去の <code>log.json</code> / <code>pos.json</code> がある場合は、同じ画面の <strong>log</strong> と <strong>pos</strong> も取り込む。</li>
+      <li>「手動インポート」の「フォルダ指定」または「Google」を押す。</li>
+      <li><code>masters.json</code> にチェックを入れ、他は外して実行する。フォルダ指定は、そのあとフォルダを確定する。</li>
+      <li>過去の <code>log.json</code> / <code>pos.json</code> がある場合は、同じ手順で必要なファイルだけ選ぶ。</li>
     </ol>
-    <div class="note">取り込みは、選んだファイルの内容で端末側を置き換えます。混ぜたいときは、先にいまのデータを書き出してから編集してください。何も引き継がない場合は、masters だけで始められます。</div>
+    <div class="note">フォルダからの取り込みは、選んだファイルの内容で端末側を置き換えます。Google からの取り込みは、同じ記録は端末側が残り、ドライブにしか無い分が足されます。混ぜて編集したいときは、先にいまのデータを書き出してください。何も引き継がない場合は、masters だけで始められます。</div>
 
     <h3>端末の中だけが正本</h3>
     <p>ブラウザのサイトデータを消す、別のブラウザに変える、機種変更する、と記録は続きません。飛ばない日でも、次を残してください。</p>
     <ol>
-      <li>「システム設定」→「書出」</li>
-      <li>少なくとも <strong>log</strong>・<strong>pos</strong>・<strong>masters</strong> を保存する</li>
-      <li>iCloud、Google ドライブ、PC など、端末の外に置く</li>
+      <li>「システム設定」の「手動エクスポート」を開く。</li>
+      <li>「フォルダ指定」または「Google」を押す。</li>
+      <li>少なくとも <code>log.json</code>・<code>pos.json</code>・<code>masters.json</code> を選んで実行する。<code>settings.json</code> は選べません。</li>
+      <li>フォルダ指定は、ファイルアプリのフォルダを確定する。Google は手動用のドライブフォルダを確定する。</li>
     </ol>
-    <p>iPhone では共有シートが開きます。保存できたかは、ファイルアプリで名前を確認してください。</p>
+    <p>iPhone でフォルダへ直接書けないときは、システムの共有シートが出ます。「ファイルに保存」を選び、同じフォルダを指定してください。メール、メッセージ、AirDrop ではそのフォルダに入りません。選んだファイルは 1 回の共有でまとめて出ます。保存できたかは、ファイルアプリで名前を確認してください。</p>
 
     <h2 id="sec-3" class="sec"><span>3. ホーム画面の見方</span><a class="to-top" href="#top" data-to-top aria-label="先頭へ"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 3.2 2.6 9.2h3.1V13h4.6V9.2h3.1L8 3.2z"/></svg></a></h2>
     <p>上段のボタンは、いつでも開けます。このマニュアルは「システム設定」の先頭「操作設定方法」から開きます。</p>
@@ -373,7 +336,7 @@
       <thead><tr><th>ボタン</th><th>用途</th></tr></thead>
       <tbody>
         <tr><td>データリセット</td><td>作業中の記録を空に戻し、続けて現在地の気象を入れ直す</td></tr>
-        <tr><td>システム設定</td><td>ファイルの取込・書出、端末内の初期化、利用条件</td></tr>
+        <tr><td>システム設定</td><td>Local / Google の自動バックアップ、手動の書き出しと取り込み、PWA初期化、利用条件</td></tr>
         <tr><td>登録データ管理</td><td>過去の飛行と、いま作業中の記録を開いて直す</td></tr>
         <tr><td>場所データ管理</td><td>離着陸地点の一覧・新規・修正・削除</td></tr>
       </tbody>
@@ -447,6 +410,7 @@
     <h3>5. データ登録</h3>
     <p>「5.データ登録」で確定します。確認のあと、記録の名前が離陸日時（<code>年/月/日 時:分</code>）になります。作業用の空に近い <code>NEW</code> が残り、次の飛行の下書きになります。</p>
     <p>離陸日時が空のままでは登録できません。登録すると工程は離陸前チェックに戻ります。登録済みの内容は「登録データ管理」に残ります。</p>
+    <p>Local自動バックアップがオンなら、このとき <code>log.json</code> <code>pos.json</code> <code>tmp.json</code> <code>masters.json</code> を、起動時に選んだフォルダへまとめて書きます。同じ名前のファイルは置き換わります。フォルダへ書けなかったときは、その書き出しが終わるまで次の登録を進めません。アクセスをオフにしているあいだは書きません。Google自動バックアップがオン（ログイン済みで、自動用フォルダがある）なら、同じ4ファイルをそのドライブのフォルダへ送ります。ドライブへ書けなくても、端末の登録は取り消されません。起動したときや通信が戻っただけでは送りません。</p>
 
     <h2 id="sec-5" class="sec"><span>5. 登録データ管理</span><a class="to-top" href="#top" data-to-top aria-label="先頭へ"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 3.2 2.6 9.2h3.1V13h4.6V9.2h3.1L8 3.2z"/></svg></a></h2>
     <p>ホームの「登録データ管理」は、記録の一覧です。新しいものが上です。作業中の <code>NEW</code>（と <code>NEW</code> に日時が付いたもの）が先頭に来ます。</p>
@@ -474,86 +438,24 @@
     </ul>
 
     <h2 id="sec-7" class="sec"><span>7. システム設定</span><a class="to-top" href="#top" data-to-top aria-label="先頭へ"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 3.2 2.6 9.2h3.1V13h4.6V9.2h3.1L8 3.2z"/></svg></a></h2>
-    <table>
-      <thead><tr><th>操作</th><th>結果</th></tr></thead>
-      <tbody>
-        <tr><td>取込</td><td>選んだ JSON で、端末内のその種類を置き換える</td></tr>
-        <tr><td>書出</td><td>端末内の内容を <code>log.json</code> などに保存する</td></tr>
-        <tr><td>初期化</td><td>確認のあと、端末内のその種類だけ空（masters は初期状態）に戻す。飛行記録の初期化は空の <code>NEW</code> になる</td></tr>
-        <tr><td>サーバー同期をオフ</td><td>同期の設定だけ戻す。飛行データは消えない</td></tr>
-      </tbody>
-    </table>
-    <p>「サーバー上も空で上書き」は使えません。初期化は端末の中だけです。</p>
-
-    <h3>Google ドライブを使うとき</h3>
-    <p>既定は手動の取込・書出だけです。ドライブと揃えるときは、次の例を <code>settings.json</code> として保存します。フォルダ名 <code>flight-log</code> は架空です。自分のマイドライブのフォルダ名に変えてください。見本 <code>settings.google.sample.json</code> の既定フォルダ名は <code>drone</code> です。メールアドレスはファイルに書きません。ブラウザで <code>pilot@example.com</code> のような自分のアカウントに入った状態でログインします。</p>
-    <pre><code>{
-  "version": 1,
-  "sync": {
-    "enabled": true,
-    "provider": "google",
-    "mode": "auto",
-    "onLaunch": true,
-    "onOnline": true,
-    "onEdit": false
-  },
-  "active": "google",
-  "providers": {
-    "none": {},
-    "google": {
-      "folderName": "flight-log",
-      "folderId": "",
-      "files": {
-        "log": "log.json",
-        "pos": "pos.json",
-        "tmp": "tmp.json",
-        "masters": "masters.json",
-        "settings": "settings.json"
-      },
-      "createFolderIfMissing": true
-    },
-    "webdav": {
-      "baseUrl": "https://example.com/remote.php/webdav",
-      "username": "example-user",
-      "path": "/flight-log"
-    },
-    "s3compatible": {
-      "endpoint": "https://s3.example.com",
-      "bucket": "flight-log",
-      "prefix": "flight-log/"
-    }
-  },
-  "manualIoAlwaysAvailable": true,
-  "notes": "Google ドライブ同期の例。ログイン情報は書かない。"
-}</code></pre>
-    <p><code>webdav</code> と <code>s3compatible</code> は形だけの予約です。消しても、アプリは空の予約として補います。</p>
-    <ol>
-      <li>上の例、または見本 <code>settings.google.sample.json</code> を手元に保存する</li>
-      <li><code>folderName</code> を、自分のマイドライブのフォルダ名に合わせる。<code>folderId</code> は空のままにする</li>
-      <li>「取込」の <strong>settings</strong> でそのファイルを選ぶ</li>
-      <li>ブラウザで自分の Google アカウントに入る。「ログイン」を押し、アカウントを許可する</li>
-      <li>「疎通テスト」でフォルダが見えることを確認する</li>
-      <li>下の表に従い、「疎通テスト」のあと、必要なボタンでドライブと揃える</li>
-    </ol>
-    <h3>同期ボタン</h3>
-    <p>Google 同期がオンのとき、システム設定に次の7つが出ます。手動のみのときは「ログイン」から「双方向同期」は出ません。「サーバー同期をオフ」は出ますが、すでに手動のみなら押せません。</p>
-    <table class="ops">
-      <thead><tr><th>ボタン</th><th>意味と使い方</th></tr></thead>
-      <tbody>
-        <tr><td>サーバー同期をオフ</td><td>同期の設定だけを手動のみに戻します。飛行記録は消えません。このブラウザの Google ログインも切れます。確認のあと実行します。ドライブ同期をやめて、取込と書出だけにするときに押します。</td></tr>
-        <tr><td>ログイン</td><td>Google アカウントでドライブへの許可を出します。状態はブラウザを開いている間だけで、約 1 時間で切れます。アプリを開き直したときや、切れたあとに押します。</td></tr>
-        <tr><td>疎通テスト</td><td>設定したフォルダがドライブ上で見えるかを確認し、中のファイル名を表示します。記録は書き換えません。未ログインなら、先にログイン画面が出ます。初めて同期する前や、フォルダ名を変えたあとに押します。</td></tr>
-        <tr><td>ログアウト</td><td>このブラウザのログインだけを切ります。ドライブのファイルと端末の記録はそのまま残ります。ログインをやり直すときや、端末を人に渡す前に押します。未ログインのあいだは押せません。</td></tr>
-        <tr><td>Driveから取得（マージ）</td><td>ドライブの <code>log.json</code> <code>pos.json</code> <code>tmp.json</code> <code>masters.json</code> を読み、端末へマージします。ドライブへは書き戻しません。同じ記録は端末側が残り、ドライブにしか無い記録は端末に足されます。他の端末で増えた記録を、今の端末を消さずに取り込みたいときに押します。</td></tr>
-        <tr><td>Driveへ送信</td><td>端末の4ファイルで、ドライブ側の同名ファイルを置き換えます。取得はしません。ドライブにしか無い記録は消えます。今の端末の内容をドライブの正にするときに押します。</td></tr>
-        <tr><td>双方向同期</td><td>先に取得マージし、その結果をドライブへ送ります。終わると端末とドライブの4ファイルは同じ内容です。同じ記録は端末側が残ります。普段の揃え方はこれです。起動時と、通信が戻ったときの自動同期も同じ処理です。未ログインのときは自動同期をスキップします。</td></tr>
-      </tbody>
-    </table>
-    <div class="note">4ファイルは飛行記録・場所・作業中データ・氏名や機種です。<code>settings.json</code> 自体は送りません。ログイン情報は settings ファイルには書きません。トークンを人に渡したり、リポジトリに置いたりしないでください。記録を編集しただけでは、ドライブへは送られません。送るときは「Driveへ送信」か「双方向同期」を押します。ログイン中にアプリを開いたときと、オフラインからオンラインに戻ったときは、「双方向同期」と同じ処理が自動で動きます。</div>
+    <p>画面は、操作設定方法、Local自動バックアップ、Google自動バックアップ、手動エクスポート、手動インポート、PWA初期化、利用条件の順です。</p>
+    <p>アクセスがオンのとき、ボタンは「オフ」です。「オフ」を押すとアクセスがオフになり、フォルダの記憶は残ります。ボタンは「オン」に戻ります。「オン」は、フォルダが決まっているときだけアクセスをオンに戻します。フォルダが未設定なら「フォルダが未設定です」となり、オンにはなりません。となりのボタンは「フォルダ変更」です。</p>
+    <h3>Local自動バックアップ</h3>
+    <p>起動時に、中へファイルが1つ以上あるフォルダを選びます。選ぶとアクセスはオンです。「オフ」で、データ登録のあとの自動書き出しを止めます。フォルダは覚えたままです。「フォルダ変更」で別のフォルダに替えられます。アプリはフォルダを作りません。</p>
+    <p>iPhone でフォルダへ直接書けないときは、システムの共有シートが出ます。「ファイルに保存」を選び、同じフォルダを指定します。</p>
+    <h3>Google自動バックアップ</h3>
+    <p>保管先は、この端末で選んだマイドライブのフォルダです。自動用と手動用は別々に覚えます。「フォルダ変更」のあと、マイドライブ上のパス（例: <code>drone/data</code>）を探します。無いフォルダは作りません。同じ名前が複数あるときは、どれかを選びます。</p>
+    <p>アクセスがオンになるのは、ログイン済みで、自動用フォルダが決まっているときです。「オン」はフォルダが無いとログイン画面を出しません。「オフ」はログインを切りますが、フォルダは残します。</p>
+    <h3>手動エクスポートと手動インポート</h3>
+    <p>どちらも「フォルダ指定」と「Google」です。押したあと、<code>log.json</code> <code>pos.json</code> <code>tmp.json</code> <code>masters.json</code> を個別に選びます。はじめはすべてオンです。1つも選ばないと「1つ以上選んでください。」と出ます。手動エクスポートに <code>settings.json</code> はありません。</p>
+    <p>フォルダ指定は、ファイルを選んだあとフォルダの確認画面へ進みます。書き出しは選んだファイルだけをそのフォルダへ置き、取り込みは選んだファイルで端末側を置き換えます。手動インポートのフォルダ指定だけ、<code>settings.json</code> も選べます。選んでも、Google の保管先はこのファイルでは変わりません。</p>
+    <p>Google は手動用のドライブフォルダです。書き出しは選んだファイルでドライブ側を置き換えます。取り込みは、同じ記録は端末側を残し、ドライブにしか無い分を足します。未ログインなら、ここでログイン画面が出ます。</p>
+    <h3>PWA初期化</h3>
+    <p>「PWA内部データを初期化します。」と出ます。「初期化」を押し、対象のファイルを選び、最終確認のあと実行します。対象は log / pos / tmp / masters です。飛行記録は空の <code>NEW</code> に、masters は初期状態に戻ります。ドライブやフォルダにあるファイルは消えません。</p>
     <h3>ログインの運用（2026-10-11 確認）</h3>
     <p>Google Cloud の公開ステータスは「テスト中」のまま運用する。運用を始めてからも本番には移さない。ログインできるのは、テストユーザーに登録した自分の Google アカウントだけ。</p>
-    <p>「ログイン」のあと、「このアプリは Google で確認されていません」と出る。<strong>詳細</strong> を開き、<strong>（安全ではないページ）に移動</strong> を選んでから、ドライブへの許可を出す。テスト中はログインのたびにこの画面になる。</p>
-    <p>ログイン状態は、そのブラウザを開いている間だけ残る。約 1 時間で切れる。アプリを開き直したときや切れたあとは、もう一度ログインする。別の Google アカウントを使うときは、Cloud Console のテストユーザーへそのアドレスを追加する。上限は 100 人。</p>
+    <p>アクセスの「オン」、または手動の Google を押したあと、「このアプリは Google で確認されていません」と出ることがあります。<strong>詳細</strong> を開き、<strong>（安全ではないページ）に移動</strong> を選んでから、ドライブへの許可を出します。テスト中はログインのたびにこの画面になります。</p>
+    <p>ログイン状態は、そのブラウザを開いている間だけ残ります。約 1 時間で切れます。アプリを開き直したときや切れたあとは、もう一度「オン」を押します。別の Google アカウントを使うときは、Cloud Console のテストユーザーへそのアドレスを追加します。上限は 100 人。トークンを人に渡したり、リポジトリに置いたりしないでください。</p>
 
     <h2 id="sec-8" class="sec"><span>8. うまくいかないとき</span><a class="to-top" href="#top" data-to-top aria-label="先頭へ"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 3.2 2.6 9.2h3.1V13h4.6V9.2h3.1L8 3.2z"/></svg></a></h2>
     <table>
@@ -563,7 +465,7 @@
         <tr><td>気象が入らない</td><td>通信と位置情報を確認し、「データセット」をやり直す</td></tr>
         <tr><td>地図が出ない</td><td>通信できる場所で開く。タイルは国土地理院の地図</td></tr>
         <tr><td>氏名や機種が出てこない</td><td>masters を取り込んだか、ブラウザを変えていないかを確認する</td></tr>
-        <tr><td>別の端末に記録が無い</td><td>書き出した log / pos / masters を、その端末の「取込」で読む</td></tr>
+        <tr><td>別の端末に記録が無い</td><td>書き出した log / pos / masters を、その端末の「手動インポート」で読む</td></tr>
         <tr><td>記録が消えた</td><td>サイトデータの削除や、別ブラウザで開いている。外に書き出したファイルから取り込む</td></tr>
         <tr><td>24 時間たった</td><td>ホームの案内に従い、リセットして気象をセットし直す</td></tr>
         <tr><td>「このアプリは Google で確認されていません」</td><td>テスト中の通常の画面。詳細を開き、「（安全ではないページ）に移動」を選ぶ</td></tr>

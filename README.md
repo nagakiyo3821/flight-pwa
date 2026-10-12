@@ -23,14 +23,14 @@ status: wip
 Copyright (c) 2026 nagakiyo3821
 
 公開 Pages: https://nagakiyo3821.github.io/flight-pwa/  
-利用者向け手順: [マニュアル](https://nagakiyo3821.github.io/flight-pwa/manual.html)（[MANUAL.md](./MANUAL.md)）。`settings.json` の各項目と Google ドライブの例（個人情報は `pilot@example.com` / `flight-log` のような一般形）はマニュアルの「settings.json」と「Google ドライブを使うとき」。  
+利用者向け手順: [マニュアル](https://nagakiyo3821.github.io/flight-pwa/manual.html)（[MANUAL.md](./MANUAL.md)）。Local自動バックアップ、Google自動バックアップ、手動のフォルダ指定と Google、PWA初期化はマニュアルの「7. システム設定」。  
 アプリ初回起動時に同意を求めます。違反時の手順は TERMS.md §3。
 
 学習用の [[pwa-demo/README|pwa-demo]] とは別。**現行ショートカット互換の JSON**（log / pos / tmp）を端末内（IndexedDB）で扱い、ファイルとして出し入れする本番向け第1弾。
 
 アーキテクチャ対応（4 本ショートカット → 1 SPA）は [[ドローン飛行記録#PWA 構成（4 本 → 1 アプリ）]] と [[@DroneLog#PWA（flight-pwa）構成]]。
 
-**機能の正本:** [[飛行記録_PWA機能仕様]]（初回／手動 I/O／settings／種別初期化）
+**機能の正本:** [[飛行記録_PWA機能仕様]]（初回／Local・Google 自動バックアップ／手動入出力／PWA初期化）
 
 ## Phase 1 の範囲
 
@@ -42,9 +42,9 @@ Copyright (c) 2026 nagakiyo3821
 | 飛行時間↔離着陸日時の 3 値同期、日付・時刻ピッカー | 旧ショートカットの廃止 |
 | 8.場所データ管理（一覧・新規／修正・削除） | |
 | 7.登録データ管理（一覧→FREE 編集・場所一覧と同系 UI） | |
-| **システム設定**（操作説明／settings／JSON 入出力／Drive 同期） | **GitHub Pages 固定 URL（Phase 2c）** |
-| Google Drive pull/push（端末優先マージ・要 OAuth） | |
-| 種別ごとの端末初期化（確認付き） | サーバー空上書き |
+| **システム設定**（Local自動バックアップ／Google自動バックアップ／手動入出力／PWA初期化） | |
+| Google Drive の手動入出力と、データ登録後の自動送信（端末のフォルダ記憶・要 OAuth） | |
+| PWA初期化（対象ファイルを選んで確認。端末内だけ） | フォルダやドライブのファイル削除 |
 | セット／リセットタイマー（T・2h／24h） | |
 | PWA（オフラインキャッシュ） | |
 
@@ -71,7 +71,7 @@ Copyright (c) 2026 nagakiyo3821
 | タイトル SR／SS／**T** | T＝直近 **データセット** 日時からの経過秒。セットでほぼ 0 |
 | **2 時間**経過 | メニュー表示時に気象の再セットを要求 |
 | **24 時間**経過 | リセット＋セットを要求 |
-| **9.データ入出力** | log / pos / tmp / masters / settings の出入・種別初期化 |
+| **システム設定** | Local / Google の自動バックアップ、手動の書き出しと取り込み、PWA初期化 |
 | **10.終了(手動でタブを閉じる)** | 案内のみ（ロック色）。ブラウザ／PWA を脚本では閉じられない |
 | 通信 | 常時オンライン表示は無し。気象・住所・標高の失敗時だけメッセージ |
 
@@ -102,7 +102,7 @@ Vault 資料用: `MainVault/DroneLog/` にも同名ファイルを同期済み�
 2. メニューで「離陸前チェック」などを入力
 3. 「離陸登録」「着陸登録」で位置・場所を確定
 4. 「データ登録」で本登録
-5. **9.データ入出力** から log / pos / tmp をダウンロード → iCloud Drive の `drone/` へ置けば従来の Excel クエリ経路に載せられる
+5. **システム設定**の手動エクスポートで log / pos / tmp をフォルダへ書き出す。iCloud Drive の `drone/` へ置けば従来の Excel クエリ経路に載せられる
 
 ### NEW キーの動き（登録データ管理）
 
@@ -146,7 +146,7 @@ Vault 資料用: `MainVault/DroneLog/` にも同名ファイルを同期済み�
 | ビルド | Vite + TypeScript + vite-plugin-pwa |
 | アプリ Ver | `package.json` / `src/version.ts`（現状 **0.x.x**。正式スタート時 **1.0.0**。履歴は Git） |
 
-個人の氏名・機体 ID・機種別項目取捨は `public/data/masters.json`（gitignore）または **9.データ入出力** で管理。  
+個人の氏名・機体 ID・機種別項目取捨は `public/data/masters.json`（gitignore）または **システム設定の手動インポート** で管理。  
 初回用の完成サンプル: `public/data/masters.sample.json`（機種 Mavic2Pro/Tello/Other＋選択肢群＋Tello hiddenKeys）。項目差の正本は [[飛行記録_PWA選択肢マトリクス#6. Mavic2Pro と Tello の項目差（ショートカット実運用）]]。
 JSON 種と例: [[飛行記録_PWAデータJSON]]
 

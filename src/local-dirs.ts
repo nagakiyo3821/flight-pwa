@@ -229,23 +229,23 @@ export async function writeJsonFiles(
 }
 
 async function shareOrDownload(files: Record<string, unknown>): Promise<string[]> {
-  const names: string[] = []
-  for (const [name, data] of Object.entries(files)) {
+  const shared = Object.entries(files).map(([name, data]) => {
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
-    const file = new File([blob], name, { type: 'application/json' })
-    const nav = navigator as Navigator & { canShare?: (d: { files: File[] }) => boolean }
-    if (nav.canShare?.({ files: [file] }) && navigator.share) {
-      await navigator.share({ files: [file] })
-    } else {
-      const a = document.createElement('a')
-      a.href = URL.createObjectURL(blob)
-      a.download = name
-      a.click()
-      URL.revokeObjectURL(a.href)
-    }
-    names.push(name)
+    return new File([blob], name, { type: 'application/json' })
+  })
+  const nav = navigator as Navigator & { canShare?: (d: { files: File[] }) => boolean }
+  if (shared.length && nav.canShare?.({ files: shared }) && navigator.share) {
+    await navigator.share({ files: shared })
+    return shared.map((file) => file.name)
   }
-  return names
+  for (const file of shared) {
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(file)
+    a.download = file.name
+    a.click()
+    URL.revokeObjectURL(a.href)
+  }
+  return shared.map((file) => file.name)
 }
 
 export async function readJsonFiles(

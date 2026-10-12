@@ -2474,7 +2474,7 @@ button.ghost.is-busy,
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  margin: 0.35rem 0 0.8rem;
+  margin: 0.15rem 0 0.55rem;
   font-size: 16px;
   line-height: 1.45;
   color: var(--ink);

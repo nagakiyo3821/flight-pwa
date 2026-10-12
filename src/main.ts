@@ -75,7 +75,6 @@ import {
   beginDirectoryPick,
   directoryStatus,
   EmptyFolderUnreported,
-  pickDirectory,
   pickerWasCancelled,
   rememberDirectory,
 } from './local-dirs'
@@ -445,6 +444,27 @@ function openDirectoryPathEdit(leaf: string): void {
   localGateNote = ''
 }
 
+/** 保存済みの表示を、先頭・追加分・末尾に戻す。 */
+function showStoredDirectory(label: string): void {
+  let rest = label.trim()
+  let root: (typeof DIR_ROOTS)[number] = DIR_ROOTS[0]
+  const roots = [...DIR_ROOTS].sort((a, b) => b.length - a.length)
+  for (const candidate of roots) {
+    if (rest === candidate || rest.startsWith(`${candidate}/`)) {
+      root = candidate
+      rest = rest.slice(candidate.length).replace(/^\//, '')
+      break
+    }
+  }
+  const parts = rest.split('/').filter(Boolean)
+  const leaf = parts.pop() || rest
+  localGateRoot = root
+  localGateMiddle = parts.join('/')
+  localGateDirectory = leaf
+  localGatePathEdit = true
+  localGateNote = ''
+}
+
 async function finishAutoFolderPick(name: string): Promise<void> {
   const picked = app.querySelector('#pickAutoFolder') as HTMLButtonElement | null
   if (picked) picked.disabled = true
@@ -484,12 +504,12 @@ async function renderLocalGate(): Promise<void> {
       pending
         ? '前回の本登録が自動バックアップへ書けていません。フォルダを確認して書き出します。'
         : '使用する前にデータを自動バックアップ保管するフォルダを選択してください。'
+    }<br>事前に対象フォルダ（最低１つのファイル含む）の準備が必要です。${
+      localGatePathEdit ? '<br>選択したフォルダディレクトリを以下に登録してください。' : ''
     }</p>
-    <p class="places-ui-io-hint">事前に対象フォルダ（最低１つのファイル含む）の準備が必要です。</p>
     ${
       localGatePathEdit
-        ? `<p class="places-ui-io-hint">選択したフォルダディレクトリを以下に登録してください。</p>
-    <div class="dir-path">
+        ? `<div class="dir-path">
       <button type="button" class="dir-path-root" id="dirRoot">${escapeHtml(localGateRoot)}</button>
       <span class="dir-path-fixed">/</span>
       <input id="dirMiddle" class="dir-path-middle" type="text" enterkeyhint="done" autocomplete="off" autocapitalize="off" spellcheck="false" value="${escapeHtml(localGateMiddle)}" aria-label="追加のディレクトリ" />
@@ -6817,8 +6837,7 @@ async function renderIO(): Promise<void> {
             </div>
 
             <h2 class="places-ui-io-h">自動バックアップ</h2>
-            <p class="places-ui-io-hint">ディレクトリ: ${escapeHtml(autoDir)}</p>
-            <p class="places-ui-io-hint">本登録の直後に、このフォルダへ 4 ファイルを書き出します。</p>
+            <p class="places-ui-io-hint">フォルダ: ${escapeHtml(autoDir)}</p>
             <div class="places-ui-cmds">
               ${cmd('pickAuto', 'フォルダ変更')}
             </div>
@@ -6976,31 +6995,20 @@ async function renderIO(): Promise<void> {
     void render()
   })
 
-  const bindFolder = (id: string, kind: 'auto' | 'manual' | 'icloud', label: string) => {
-    app.querySelector(`#${id}`)?.addEventListener('click', () => {
-      if (ioBusy) return
-      void (async () => {
-        try {
-          const name = await pickDirectory(kind)
-          if (kind === 'auto') {
-            openDirectoryPathEdit(name)
-            await render()
-            return
-          }
-          flashMsg = `${label}: ${name}`
-        } catch (e) {
-          if (kind === 'auto' && e instanceof EmptyFolderUnreported && e.directory.trim()) {
-            openDirectoryPathEdit(e.directory.trim())
-            await render()
-            return
-          }
-          flashMsg = `${label}を選べませんでした: ${(e as Error).message}`
-        }
-        await render()
-      })()
-    })
-  }
-  bindFolder('pickAuto', 'auto', '自動バックアップ')
+  app.querySelector('#pickAuto')?.addEventListener('click', () => {
+    if (ioBusy) return
+    void (async () => {
+      const current = await directoryStatus('auto')
+      if (current !== '未設定') showStoredDirectory(current)
+      else {
+        localGatePathEdit = false
+        localGateDirectory = ''
+        localGateMiddle = ''
+        localGateNote = ''
+      }
+      await render()
+    })()
+  })
   const runPlaceIo = (
     id: string,
     work: () => Promise<string>,

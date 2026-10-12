@@ -3,23 +3,24 @@
  * 成功したときだけ、条件がそろったクラウドへ追加で書く。
  */
 
-import { db, exportLog, exportMasters, exportPos, exportTmp, importLog, importMasters, importPos, importTmp, PLAIN_NEW_KEY } from './db'
+import { db, exportLog, exportMasters, exportPos, exportTmp, importLog, importMasters, importPos, importSettings, importTmp, PLAIN_NEW_KEY } from './db'
 import { isGoogleSignedIn } from './google-auth'
 import { runGoogleDriveSync } from './google-sync'
 import { autoFolderReady, beginDirectoryPick, directoryStatus, EmptyFolderUnreported, readJsonFiles, rememberDirectory, storedDirectory, writeJsonFiles } from './local-dirs'
-import { getSettings, isServerSyncConfigured } from './settings'
+import { getSettings, isServerSyncConfigured, settingsDocument } from './settings'
 import type { LogFile, PosFile, TmpFlag } from './types'
 import type { MastersFile } from './catalog'
 
 const PENDING = 'flight-local-export-pending'
 export const MANUAL_IO_FILES = [
-  { key: 'log', file: 'log.json' },
-  { key: 'pos', file: 'pos.json' },
-  { key: 'tmp', file: 'tmp.json' },
-  { key: 'masters', file: 'masters.json' },
+  { key: 'log', file: 'log.json', folderOnly: false, checked: true },
+  { key: 'pos', file: 'pos.json', folderOnly: false, checked: true },
+  { key: 'tmp', file: 'tmp.json', folderOnly: false, checked: true },
+  { key: 'masters', file: 'masters.json', folderOnly: false, checked: true },
+  { key: 'settings', file: 'settings.json', folderOnly: true, checked: false },
 ] as const
 export type ManualIoKey = (typeof MANUAL_IO_FILES)[number]['key']
-const FILE_NAMES = MANUAL_IO_FILES.map((item) => item.file)
+const FILE_NAMES = MANUAL_IO_FILES.filter((item) => !item.folderOnly).map((item) => item.file)
 
 export async function internalIsInitialEmpty(): Promise<boolean> {
   const flights = await db.flights.toArray()
@@ -39,6 +40,7 @@ const EXPORTERS: Record<ManualIoKey, () => Promise<unknown>> = {
   pos: exportPos,
   tmp: exportTmp,
   masters: exportMasters,
+  settings: () => Promise.resolve(settingsDocument()),
 }
 
 async function bundleSelected(keys: readonly ManualIoKey[]): Promise<Record<string, unknown>> {
@@ -53,7 +55,7 @@ async function bundleSelected(keys: readonly ManualIoKey[]): Promise<Record<stri
 }
 
 async function bundleFromDb(): Promise<Record<string, unknown>> {
-  return bundleSelected(MANUAL_IO_FILES.map((item) => item.key))
+  return bundleSelected(MANUAL_IO_FILES.filter((item) => !item.folderOnly).map((item) => item.key))
 }
 
 export async function restoreFromAutoIfEmpty(isEmpty: boolean): Promise<string | null> {
@@ -111,7 +113,7 @@ export async function writeAfterCommit(): Promise<string> {
 export async function writeManualLocal(): Promise<string> {
   return exportToFolder(
     'manual',
-    MANUAL_IO_FILES.map((item) => item.key),
+    MANUAL_IO_FILES.filter((item) => !item.folderOnly).map((item) => item.key),
   )
 }
 
@@ -151,6 +153,7 @@ export async function importFromFolder(
   if (files['pos.json']) await importPos(files['pos.json'] as PosFile)
   if (files['tmp.json']) await importTmp(files['tmp.json'] as TmpFlag)
   if (files['masters.json']) await importMasters(files['masters.json'] as MastersFile)
+  if (files['settings.json']) await importSettings(files['settings.json'])
   const dir = await directoryStatus(kind)
   const label = kind === 'manual' ? 'Local' : 'iCloud'
   return `${label}「${dir}」から取り込みました（${names.join(', ')}）`

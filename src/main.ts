@@ -32,7 +32,6 @@ import {
   importLog,
   importMasters,
   importPos,
-  importSettings,
   importTmp,
   isNewRecordKey,
   listFlightKeys,
@@ -67,7 +66,6 @@ import {
   getSettings,
   isServerSyncConfigured,
   settingsDetailLines,
-  settingsDocument,
   syncNotImplementedMessage,
   syncStatusLabel,
 } from './settings'
@@ -1268,10 +1266,14 @@ function showConfirmSheet(opts: {
   })
 }
 
-/** 手動入出力で対象の4ファイルを個別に選ぶ。戻るは null。 */
-function chooseManualFiles(action: 'export' | 'import'): Promise<ManualIoKey[] | null> {
+/** 手動入出力で対象ファイルを個別に選ぶ。戻るは null。settings はフォルダ指定だけ。 */
+function chooseManualFiles(
+  action: 'export' | 'import',
+  scope: 'folder' | 'google',
+): Promise<ManualIoKey[] | null> {
   const title = action === 'export' ? '手動エクスポート' : '手動インポート'
   const detail = action === 'export' ? '書き出すファイルを選んでください。' : '取り込むファイルを選んでください。'
+  const choices = MANUAL_IO_FILES.filter((item) => scope === 'folder' || !item.folderOnly)
   return new Promise((resolve) => {
     document.getElementById('sc-confirm')?.remove()
     const root = document.createElement('div')
@@ -1280,9 +1282,9 @@ function chooseManualFiles(action: 'export' | 'import'): Promise<ManualIoKey[] |
     root.setAttribute('role', 'dialog')
     root.setAttribute('aria-modal', 'true')
     root.setAttribute('aria-labelledby', 'sc-confirm-title')
-    const rows = MANUAL_IO_FILES.map(
+    const rows = choices.map(
       (item) => `<label class="sc-file-pick">
-        <input type="checkbox" data-file="${item.key}" checked />
+        <input type="checkbox" data-file="${item.key}"${item.checked ? ' checked' : ''} />
         <span>${escapeHtml(item.file)}</span>
       </label>`,
     ).join('')
@@ -6979,7 +6981,7 @@ async function renderIO(): Promise<void> {
               ${cmd('settingsOff', SETTINGS_OFF, { disabled: !syncOn, danger: true })}
             </div>
             ${googleBlock}
-            <p class="places-ui-io-hint">オフは接続設定だけを none に戻します（飛行データは消しません）。有効化は下の settings 取込。</p>
+            <p class="places-ui-io-hint">オフは接続設定だけを none に戻します（飛行データは消しません）。有効化は、手動インポートのフォルダ指定で settings.json を選んでください。</p>
 
             <h2 class="places-ui-io-h">取込</h2>
             <p class="places-ui-io-hint">JSON を選ぶと端末の最新として反映します。サーバー障害時の復旧にも使えます。</p>
@@ -6988,14 +6990,12 @@ async function renderIO(): Promise<void> {
               ${cmd('impPos', 'pos')}
               ${cmd('impTmp', 'tmp')}
               ${cmd('impMasters', 'masters')}
-              ${cmd('impSettings', 'settings')}
             </div>
             <div class="io-file-inputs" aria-hidden="true">
               <input type="file" id="logFile" accept="application/json,.json" />
               <input type="file" id="posFile" accept="application/json,.json" />
               <input type="file" id="tmpFile" accept="application/json,.json" />
               <input type="file" id="mastersFile" accept="application/json,.json" />
-              <input type="file" id="settingsFile" accept="application/json,.json" />
             </div>
 
             <h2 class="places-ui-io-h">書出</h2>
@@ -7005,7 +7005,6 @@ async function renderIO(): Promise<void> {
               ${cmd('exPos', 'pos')}
               ${cmd('exTmp', 'tmp')}
               ${cmd('exMasters', 'masters')}
-              ${cmd('exSettings', 'settings')}
             </div>
 
             <h2 class="places-ui-io-h">初期化（端末）</h2>
@@ -7118,7 +7117,7 @@ async function renderIO(): Promise<void> {
   const openManualFolder = (action: 'export' | 'import') => {
     void (async () => {
       if (ioBusy) return
-      const keys = await chooseManualFiles(action)
+      const keys = await chooseManualFiles(action, 'folder')
       if (!keys) return
       manualIoKeys = keys
       beginFolderReview(action, await directoryStatus('manual'))
@@ -7132,10 +7131,13 @@ async function renderIO(): Promise<void> {
     keys: readonly ManualIoKey[],
   ): Promise<string> => {
     if (!isServerSyncConfigured() || getSettings().active !== 'google') {
-      throw new Error('Google のフォルダが未設定です。settings でディレクトリを指定してください')
+      throw new Error('Google のフォルダが未設定です。手動インポートのフォルダ指定で settings.json を取り込んでください')
     }
     if (!isGoogleSignedIn()) await requestGoogleAccessToken()
-    const report = await runGoogleDriveSync(direction, keys)
+    const report = await runGoogleDriveSync(
+      direction,
+      keys.filter((key) => key !== 'settings'),
+    )
     return report.lines.join('\n')
   }
   const runPlaceIo = (
@@ -7147,7 +7149,7 @@ async function renderIO(): Promise<void> {
     app.querySelector(`#${id}`)?.addEventListener('click', () => {
       if (ioBusy) return
       void (async () => {
-        const keys = await chooseManualFiles(action)
+        const keys = await chooseManualFiles(action, 'google')
         if (!keys) return
         try {
           flashMsg = await runGoogleManual(direction, keys)
@@ -7279,10 +7281,6 @@ async function renderIO(): Promise<void> {
           const data = JSON.parse(await file.text()) as unknown
           const text = await handler(data, file.name)
           await showResult(text, 'ok')
-          if (fileId === 'settingsFile') {
-            flashMsg = text
-            await render()
-          }
         } catch (e) {
           await showResult(`失敗: ${(e as Error).message}`, 'bad')
         }
@@ -7307,14 +7305,8 @@ async function renderIO(): Promise<void> {
     await importMasters(data as MastersFile)
     return `取込完了: masters（${name}）を最新として反映しました`
   })
-  bindImport('impSettings', 'settingsFile', async (data, name) => {
-    const s = await importSettings(data)
-    const extra =
-      s.sync.enabled && s.active === 'google' ? ` ${syncNotImplementedMessage()}` : ''
-    return `取込完了: settings（${name}）→ ${syncStatusLabel()}。${extra}`
-  })
 
-  type ExportKey = 'log' | 'pos' | 'tmp' | 'masters' | 'settings'
+  type ExportKey = 'log' | 'pos' | 'tmp' | 'masters'
   const exportCache: Partial<Record<ExportKey, unknown>> = {}
   const exportSpecs: {
     key: ExportKey
@@ -7326,7 +7318,6 @@ async function renderIO(): Promise<void> {
     { key: 'pos', btn: 'exPos', file: 'pos.json', load: () => exportPos() },
     { key: 'tmp', btn: 'exTmp', file: 'tmp.json', load: () => exportTmp() },
     { key: 'masters', btn: 'exMasters', file: 'masters.json', load: () => exportMasters() },
-    { key: 'settings', btn: 'exSettings', file: 'settings.json', load: async () => settingsDocument() },
   ]
 
   void withIoBusy(null, '', 'エクスポート準備中…', async () => {

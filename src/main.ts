@@ -43,7 +43,6 @@ import {
   resetLog,
   resetMasters,
   resetPos,
-  resetSettings,
   resetTmp,
   resetWorking,
   savePlaceRecord,
@@ -63,13 +62,6 @@ import {
   isKnownDroneType,
 } from './catalog'
 import {
-  getSettings,
-  isServerSyncConfigured,
-  settingsDetailLines,
-  syncNotImplementedMessage,
-  syncStatusLabel,
-} from './settings'
-import {
   beginDirectoryPick,
   directoryStatus,
   EmptyFolderUnreported,
@@ -88,13 +80,12 @@ import {
 } from './place-backup'
 import {
   clearGoogleSession,
-  isGoogleClientConfigured,
   isGoogleSignedIn,
   requestGoogleAccessToken,
 } from './google-auth'
-import { probeConfiguredDriveFolder, drivePathSegments, listDriveFolders } from './google-drive'
-import { clearGoogleFolder, googleFolderLabel, loadGoogleFolder, saveGoogleFolder } from './google-folder'
-import { maybeAutoSync, persistFolderId, runGoogleDriveSync } from './google-sync'
+import { drivePathSegments, listDriveFolders } from './google-drive'
+import { googleFolderLabel, loadGoogleFolder, saveGoogleFolder, type GoogleFolderKind } from './google-folder'
+import { maybeAutoSync, runGoogleDriveSync } from './google-sync'
 import {
   COMMIT_BACK,
   COMMIT_OK,
@@ -196,16 +187,6 @@ import {
   SET_BACK,
   SET_OK,
   SET_PROMPT,
-  SETTINGS_HINT_MANUAL,
-  SETTINGS_HINT_OFF_DONE,
-  SETTINGS_OFF,
-  SETTINGS_OFF_CONFIRM,
-  GOOGLE_LOGIN,
-  GOOGLE_LOGOUT,
-  GOOGLE_PROBE,
-  GOOGLE_PULL,
-  GOOGLE_PUSH,
-  GOOGLE_SYNC,
   TERMS_ACCEPT,
   TERMS_REPORT,
   TERMS_SHOW,
@@ -1363,18 +1344,19 @@ function closeChoiceSheet(root: HTMLElement): Promise<void> {
   })
 }
 
-function reviewGoogleFolderSheet(): Promise<'ok' | 'change' | 'cancel'> {
-  const saved = loadGoogleFolder()
+function reviewGoogleFolderSheet(kind: GoogleFolderKind): Promise<'ok' | 'change' | 'cancel'> {
+  const saved = loadGoogleFolder(kind)
   const confirm = saved
     ? '<button type="button" class="sc-confirm-btn sc-confirm-btn--ok" data-act="ok">このフォルダで確定</button>'
     : ''
   const changeLabel = saved ? '別のフォルダを選ぶ' : 'フォルダを選ぶ'
+  const title = kind === 'auto' ? 'Google 自動送信' : 'Google 手動'
   const root = mountChoiceSheet(`
     <div class="sc-confirm-backdrop" data-act="cancel" aria-hidden="true"></div>
     <div class="sc-confirm-sheet" role="document">
       <div class="sc-confirm-card">
-        <p class="sc-confirm-title" id="sc-confirm-title">Google のフォルダ</p>
-        <p class="sc-confirm-detail">${escapeHtml(googleFolderLabel())}</p>
+        <p class="sc-confirm-title" id="sc-confirm-title">${title}</p>
+        <p class="sc-confirm-detail">${escapeHtml(googleFolderLabel(kind))}</p>
         ${saved ? `<p class="sc-confirm-detail">${escapeHtml(saved.folderId)}</p>` : ''}
         ${confirm}
         <button type="button" class="sc-confirm-btn" data-act="change">${changeLabel}</button>
@@ -1425,13 +1407,14 @@ function pickDriveFolderHit(
   })
 }
 
-function searchGoogleFolderSheet(): Promise<{ folderName: string; folderId: string } | null> {
-  const initial = loadGoogleFolder()?.folderName || ''
+function searchGoogleFolderSheet(kind: GoogleFolderKind): Promise<{ folderName: string; folderId: string } | null> {
+  const initial = loadGoogleFolder(kind)?.folderName || ''
+  const title = kind === 'auto' ? 'Google 自動送信' : 'Google 手動'
   const root = mountChoiceSheet(`
     <div class="sc-confirm-backdrop" data-act="cancel" aria-hidden="true"></div>
     <div class="sc-confirm-sheet" role="document">
       <div class="sc-confirm-card">
-        <p class="sc-confirm-title">Google のフォルダ</p>
+        <p class="sc-confirm-title">${title}</p>
         <p class="sc-confirm-detail">マイドライブからのフォルダを入力してください。</p>
         <input id="googlePath" class="sc-google-path" type="text" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false" value="${escapeHtml(initial)}" aria-label="マイドライブからのフォルダ" />
         <p class="sc-file-pick-note" id="sc-file-note" hidden></p>
@@ -1493,14 +1476,14 @@ function searchGoogleFolderSheet(): Promise<{ folderName: string; folderId: stri
   })
 }
 
-/** ファイル選択のあと。戻るは false。確定で true。 */
-async function chooseGoogleFolder(): Promise<boolean> {
+/** 戻るは false。確定で true。自動送信と手動は別のフォルダ。 */
+async function chooseGoogleFolder(kind: GoogleFolderKind): Promise<boolean> {
   for (;;) {
-    const step = await reviewGoogleFolderSheet()
+    const step = await reviewGoogleFolderSheet(kind)
     if (step === 'cancel') return false
-    if (step === 'ok') return !!loadGoogleFolder()
-    const picked = await searchGoogleFolderSheet()
-    if (picked) saveGoogleFolder(picked)
+    if (step === 'ok') return !!loadGoogleFolder(kind)
+    const picked = await searchGoogleFolderSheet(kind)
+    if (picked) saveGoogleFolder(kind, picked)
   }
 }
 
@@ -7050,43 +7033,19 @@ async function onPlaceEdit(id: string, name: string, place: PlaceRecord): Promis
 }
 
 async function renderIO(): Promise<void> {
-  const syncOn = isServerSyncConfigured()
-  const status = syncStatusLabel()
-  const detailHtml = settingsDetailLines()
-    .map((line) => `<li>${escapeHtml(line)}</li>`)
-    .join('')
-  const clientOk = isGoogleClientConfigured()
-  const signedIn = isGoogleSignedIn()
   const autoDir = await directoryStatus('auto')
   const manualDir = await directoryStatus('manual')
-  const googleDir = googleFolderLabel()
+  const manualGoogle = googleFolderLabel('manual')
+  const autoGoogle = googleFolderLabel('auto')
+  const googleAccess = isGoogleSignedIn() ? 'オン' : 'オフ'
   const placeLines = `
             <p class="places-ui-io-hint">フォルダ: ${escapeHtml(manualDir)}</p>
-            <p class="places-ui-io-hint">Google: ${escapeHtml(googleDir)}</p>`
-  const syncNote = syncOn
-    ? `<p class="places-ui-io-hint places-ui-io-hint--stub">${escapeHtml(syncNotImplementedMessage())}</p>`
-    : `<p class="places-ui-io-hint">${escapeHtml(SETTINGS_HINT_MANUAL)}</p>`
+            <p class="places-ui-io-hint">Google: ${escapeHtml(manualGoogle)}</p>`
   const cmd = (id: string, label: string, opts?: { disabled?: boolean; danger?: boolean }) => {
     const danger = opts?.danger ? ' places-ui-cmd--danger' : ''
     const dis = opts?.disabled ? ' disabled' : ''
     return `<button type="button" class="places-ui-cmd${danger}" id="${id}"${dis}>${escapeHtml(label)}</button>`
   }
-  const googleBlock =
-    syncOn && getSettings().active === 'google'
-      ? `
-      <p class="places-ui-io-hint">Client ID: ${clientOk ? '設定あり（.env）' : '未設定 — .env に VITE_GOOGLE_CLIENT_ID を入れて dev 再起動'}</p>
-      <p class="places-ui-io-hint">Google セッション: ${signedIn ? 'ログイン中' : '未ログイン'}</p>
-      <div class="places-ui-cmds places-ui-cmds--wrap">
-        ${cmd('googleLogin', GOOGLE_LOGIN, { disabled: !clientOk })}
-        ${cmd('googleProbe', GOOGLE_PROBE, { disabled: !clientOk })}
-        ${cmd('googleLogout', GOOGLE_LOGOUT, { disabled: !signedIn })}
-      </div>
-      <div class="places-ui-cmds places-ui-cmds--wrap">
-        ${cmd('googlePull', GOOGLE_PULL, { disabled: !clientOk })}
-        ${cmd('googlePush', GOOGLE_PUSH, { disabled: !clientOk })}
-        ${cmd('googleSync', GOOGLE_SYNC, { disabled: !clientOk })}
-      </div>`
-      : ''
 
   app.classList.add('places-ui-app')
   document.documentElement.classList.add('places-ui-lock')
@@ -7117,6 +7076,14 @@ async function renderIO(): Promise<void> {
               ${cmd('pickAuto', 'フォルダ変更')}
             </div>
 
+            <h2 class="places-ui-io-h">Google 自動送信</h2>
+            <p class="places-ui-io-hint">アクセス: ${googleAccess}</p>
+            <p class="places-ui-io-hint">フォルダ: ${escapeHtml(autoGoogle)}</p>
+            <div class="places-ui-cmds places-ui-cmds--wrap">
+              ${cmd(isGoogleSignedIn() ? 'googleAccessOff' : 'googleAccessOn', isGoogleSignedIn() ? 'オフ' : 'オン')}
+              ${cmd('pickGoogleAuto', 'フォルダ変更')}
+            </div>
+
             <h2 class="places-ui-io-h">手動エクスポート</h2>
             ${placeLines}
             <div class="places-ui-cmds places-ui-cmds--wrap">
@@ -7130,16 +7097,6 @@ async function renderIO(): Promise<void> {
               ${cmd('impFolder', 'フォルダ指定')}
               ${cmd('impGoogle', 'Google')}
             </div>
-
-            <h2 class="places-ui-io-h">同期（settings）</h2>
-            <p class="places-ui-io-hint"><strong>いま:</strong> ${escapeHtml(status)}</p>
-            ${syncNote}
-            <ul class="settings-detail">${detailHtml}</ul>
-            <div class="places-ui-cmds">
-              ${cmd('settingsOff', SETTINGS_OFF, { disabled: !syncOn && googleDir === '未設定', danger: true })}
-            </div>
-            ${googleBlock}
-            <p class="places-ui-io-hint">オフは、選んだ Google フォルダと接続設定を戻します（飛行データは消しません）。Google のフォルダは、手動の Google ボタンで選びます。</p>
 
             <h2 class="places-ui-io-h">取込</h2>
             <p class="places-ui-io-hint">JSON を選ぶと端末の最新として反映します。サーバー障害時の復旧にも使えます。</p>
@@ -7166,7 +7123,7 @@ async function renderIO(): Promise<void> {
             </div>
 
             <h2 class="places-ui-io-h">初期化（端末）</h2>
-            <p class="places-ui-io-hint">確認後に実行。端末のみ。settings の解除は上の「サーバー同期をオフ」を使う。</p>
+            <p class="places-ui-io-hint">確認後に実行。端末の飛行データだけを初期化します。</p>
             <label class="places-ui-io-choice">
               <input type="checkbox" id="wipeServer" disabled />
               <span>サーバー上も空で上書き（準備中・現在は無効）</span>
@@ -7288,11 +7245,12 @@ async function renderIO(): Promise<void> {
     direction: 'push' | 'pull',
     keys: readonly ManualIoKey[],
   ): Promise<string> => {
-    if (!loadGoogleFolder()) throw new Error('Google のフォルダが未選択です')
+    if (!loadGoogleFolder('manual')) throw new Error('Google のフォルダが未選択です')
     if (!isGoogleSignedIn()) await requestGoogleAccessToken()
     const report = await runGoogleDriveSync(
       direction,
       keys.filter((key) => key !== 'settings'),
+      'manual',
     )
     return report.lines.join('\n')
   }
@@ -7307,7 +7265,7 @@ async function renderIO(): Promise<void> {
       void (async () => {
         const keys = await chooseManualFiles(action, 'google')
         if (!keys) return
-        const ready = await chooseGoogleFolder()
+        const ready = await chooseGoogleFolder('manual')
         if (!ready) return
         try {
           flashMsg = await runGoogleManual(direction, keys)
@@ -7321,96 +7279,42 @@ async function renderIO(): Promise<void> {
   runPlaceIo('expGoogle', 'export', 'push', 'Google へ書き出せませんでした')
   runPlaceIo('impGoogle', 'import', 'pull', 'Google から取り込めませんでした')
 
-  app.querySelector('#settingsOff')!.addEventListener('click', async (ev) => {
-    if (ioBusy || (!isServerSyncConfigured() && !loadGoogleFolder())) return
-    const btn = ev.currentTarget as HTMLElement
-    const offOk = await confirmYesNo({
-      title: SETTINGS_OFF_CONFIRM,
-      okLabel: '1.解除する',
-      cancelLabel: '2.戻る',
-      destructive: true,
-    })
-    if (!offOk) return
-    await withIoBusy(btn, '解除中…', 'サーバー同期をオフにしています…', async () => {
-      clearGoogleFolder()
-      clearGoogleSession()
-      await resetSettings()
-      flashMsg = SETTINGS_HINT_OFF_DONE
+  app.querySelector('#pickGoogleAuto')?.addEventListener('click', () => {
+    if (ioBusy) return
+    void (async () => {
+      const ready = await chooseGoogleFolder('auto')
+      if (!ready) return
+      flashMsg = `Google 自動送信: ${googleFolderLabel('auto')}`
       await render()
+    })()
+  })
+  app.querySelector('#googleAccessOn')?.addEventListener('click', (ev) => {
+    if (ioBusy) return
+    const btn = ev.currentTarget as HTMLElement
+    void withIoBusy(btn, 'ログイン中…', 'Google ログイン画面を開いています…', async () => {
+      try {
+        await requestGoogleAccessToken()
+        flashMsg = 'Google アクセス: オン'
+        await render()
+      } catch (e) {
+        setMsg(`失敗: ${(e as Error).message}`, 'bad')
+      }
     })
   })
-
-  const googleLoginBtn = app.querySelector('#googleLogin')
-  if (googleLoginBtn) {
-    googleLoginBtn.addEventListener('click', async (ev) => {
-      const btn = ev.currentTarget as HTMLElement
-      await withIoBusy(btn, 'ログイン中…', 'Google ログイン画面を開いています…', async () => {
-        try {
-          await requestGoogleAccessToken()
-          flashMsg = 'Google ログイン成功'
-          await render()
-        } catch (e) {
-          setMsg(`失敗: ${(e as Error).message}`, 'bad')
-        }
+  app.querySelector('#googleAccessOff')?.addEventListener('click', () => {
+    if (ioBusy) return
+    void (async () => {
+      const offOk = await confirmYesNo({
+        title: 'Google のアクセスをオフにしますか？\nフォルダの記憶は残します。',
+        okLabel: '1.オフにする',
+        cancelLabel: '2.戻る',
       })
-    })
-  }
-  const googleProbeBtn = app.querySelector('#googleProbe')
-  if (googleProbeBtn) {
-    googleProbeBtn.addEventListener('click', async (ev) => {
-      const btn = ev.currentTarget as HTMLElement
-      await withIoBusy(btn, 'テスト中…', 'Drive 疎通テスト中…', async () => {
-        try {
-          if (!isGoogleSignedIn()) await requestGoogleAccessToken()
-          const r = await probeConfiguredDriveFolder()
-          await persistFolderId(r.folderId)
-          const names = r.files.map((f) => f.name).join(', ') || '（空）'
-          const text = `疎通OK: フォルダ「${r.folderName}」(${r.folderId})\nファイル: ${names}`
-          setMsg(text, 'ok')
-          await showNoticeDialog(text)
-        } catch (e) {
-          setMsg(`失敗: ${(e as Error).message}`, 'bad')
-        }
-      })
-    })
-  }
-  const googleLogoutBtn = app.querySelector('#googleLogout')
-  if (googleLogoutBtn) {
-    googleLogoutBtn.addEventListener('click', () => {
-      if (ioBusy) return
+      if (!offOk) return
       clearGoogleSession()
-      flashMsg = 'Google ログアウトしました'
-      void render()
-    })
-  }
-
-  const runSyncBtn = (
-    btnId: string,
-    direction: 'pull' | 'push' | 'both',
-    busyLabel: string,
-    statusText: string,
-  ) => {
-    const btn = app.querySelector(`#${btnId}`)
-    if (!btn) return
-    btn.addEventListener('click', async (ev) => {
-      const el = ev.currentTarget as HTMLElement
-      await withIoBusy(el, busyLabel, statusText, async () => {
-        try {
-          const report = await runGoogleDriveSync(direction)
-          const text = report.lines.join('\n')
-          setMsg(text, 'ok')
-          await showNoticeDialog(text)
-          flashMsg = text.split('\n')[0] || text
-          await render()
-        } catch (e) {
-          setMsg(`失敗: ${(e as Error).message}`, 'bad')
-        }
-      })
-    })
-  }
-  runSyncBtn('googlePull', 'pull', '取得中…', 'Drive から取得してマージしています…（数十秒かかることがあります）')
-  runSyncBtn('googlePush', 'push', '送信中…', 'Drive へ送信しています…（数十秒かかることがあります）')
-  runSyncBtn('googleSync', 'both', '同期中…', '双方向同期しています…（取得→送信）')
+      flashMsg = 'Google アクセス: オフ'
+      await render()
+    })()
+  })
 
   const showResult = async (text: string, kind: 'ok' | 'bad') => {
     setMsg(text, kind)

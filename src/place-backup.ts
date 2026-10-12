@@ -96,7 +96,7 @@ export async function writeAfterCommit(): Promise<string> {
     }
   }
 
-  if (loadGoogleFolder()) {
+  if (loadGoogleFolder('auto')) {
     if (!isGoogleSignedIn()) {
       lines.push('Google は未ログインのためスキップ')
     } else {

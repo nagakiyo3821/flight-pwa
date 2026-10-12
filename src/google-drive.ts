@@ -3,7 +3,7 @@
  */
 
 import { splitFolderPath } from './folder-path'
-import { loadGoogleFolder } from './google-folder'
+import { loadGoogleFolder, type GoogleFolderKind } from './google-folder'
 import { getAccessToken } from './google-auth'
 import { getSettings, type GoogleProviderConfig } from './settings'
 
@@ -104,8 +104,10 @@ async function foldersNamed(
 }
 
 /** この端末で選んだ保管先。未選択なら送受信しない。 */
-export async function resolveSyncFolder(): Promise<{ folderName: string; folderId: string }> {
-  const saved = loadGoogleFolder()
+export async function resolveSyncFolder(
+  kind: GoogleFolderKind = 'auto',
+): Promise<{ folderName: string; folderId: string }> {
+  const saved = loadGoogleFolder(kind)
   if (!saved) throw new Error('Google のフォルダが未選択です')
   return saved
 }

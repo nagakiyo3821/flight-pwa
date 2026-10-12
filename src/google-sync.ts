@@ -22,6 +22,7 @@ import {
   resolveSyncFolder,
   uploadJsonByName,
 } from './google-drive'
+import type { GoogleFolderKind } from './google-folder'
 import {
   ensureGoogleAccessToken,
   isGoogleClientConfigured,
@@ -144,13 +145,14 @@ function selectedDriveKeys(only?: readonly DriveDataKey[]): DriveDataKey[] {
 export async function runGoogleDriveSync(
   direction: SyncDirection,
   only?: readonly DriveDataKey[],
+  kind: GoogleFolderKind = 'auto',
 ): Promise<SyncReport> {
   if (!isGoogleClientConfigured()) {
     throw new Error('VITE_GOOGLE_CLIENT_ID が未設定です')
   }
   await ensureGoogleAccessToken()
 
-  const { folderName, folderId } = await resolveSyncFolder()
+  const { folderName, folderId } = await resolveSyncFolder(kind)
   const names = googleFileNames()
   const keys = selectedDriveKeys(only)
   const lines: string[] = [`フォルダ: ${folderName} (${folderId})`]

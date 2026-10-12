@@ -3,16 +3,18 @@
  * 成功したときだけ、条件がそろったクラウドへ追加で書く。
  */
 
-import { db, exportLog, exportMasters, exportPos, exportTmp, importLog, importMasters, importPos, importSettings, importTmp, PLAIN_NEW_KEY } from './db'
+import { db, exportLog, exportMasters, exportPos, exportTmp, importLog, importMasters, importPos, importTmp, PLAIN_NEW_KEY } from './db'
 import { isGoogleSignedIn } from './google-auth'
 import { runGoogleDriveSync } from './google-sync'
 import { autoFolderReady, beginDirectoryPick, directoryStatus, EmptyFolderUnreported, localAutoAccessOn, readJsonFiles, rememberDirectory, storedDirectory, writeJsonFiles } from './local-dirs'
 import { loadGoogleFolder } from './google-folder'
-import { getSettings, settingsDocument } from './settings'
+import { resolveSyncFolder, uploadJsonByName } from './google-drive'
+import { applySettingsDocument, getSettings, settingsDocument } from './settings'
 import type { LogFile, PosFile, TmpFlag } from './types'
 import type { MastersFile } from './catalog'
 
 const PENDING = 'flight-local-export-pending'
+const SETTINGS_PENDING = 'flight-settings-backup-pending'
 export const MANUAL_IO_FILES = [
   { key: 'log', file: 'log.json', folderOnly: false, checked: true },
   { key: 'pos', file: 'pos.json', folderOnly: false, checked: true },
@@ -115,6 +117,44 @@ export async function writeAfterCommit(): Promise<string> {
   return lines.join('\n')
 }
 
+/** システム設定の変更時だけ settings.json を自動バックアップする。 */
+export async function backupSettingsNow(): Promise<string> {
+  const doc = settingsDocument()
+  localStorage.setItem(SETTINGS_PENDING, '1')
+  const lines: string[] = []
+  let pending = false
+  if ((await directoryStatus('auto')) !== '未設定') {
+    try {
+      await writeJsonFiles('auto', { 'settings.json': doc })
+      lines.push('settings.json を Local へ書き出しました')
+    } catch (e) {
+      pending = true
+      lines.push(`settings.json は Local へ書けませんでした。${(e as Error).message}`)
+    }
+  }
+  if (loadGoogleFolder('auto')) {
+    if (!isGoogleSignedIn()) {
+      pending = true
+      lines.push('settings.json は Google 未ログインのため保留です')
+    } else {
+      try {
+        const { folderId } = await resolveSyncFolder('auto')
+        await uploadJsonByName(folderId, 'settings.json', doc)
+        lines.push('settings.json を Google へ書き出しました')
+      } catch (e) {
+        pending = true
+        lines.push(`settings.json は Google へ書けませんでした。${(e as Error).message}`)
+      }
+    }
+  }
+  if (!pending) localStorage.removeItem(SETTINGS_PENDING)
+  return lines.join('\n')
+}
+
+export function settingsBackupPending(): boolean {
+  return localStorage.getItem(SETTINGS_PENDING) === '1'
+}
+
 export async function writeManualLocal(): Promise<string> {
   return exportToFolder(
     'manual',
@@ -158,7 +198,7 @@ export async function importFromFolder(
   if (files['pos.json']) await importPos(files['pos.json'] as PosFile)
   if (files['tmp.json']) await importTmp(files['tmp.json'] as TmpFlag)
   if (files['masters.json']) await importMasters(files['masters.json'] as MastersFile)
-  if (files['settings.json']) await importSettings(files['settings.json'])
+  if (files['settings.json']) await applySettingsDocument(files['settings.json'])
   const dir = await directoryStatus(kind)
   const label = kind === 'manual' ? 'Local' : 'iCloud'
   return `${label}「${dir}」から取り込みました（${names.join(', ')}）`

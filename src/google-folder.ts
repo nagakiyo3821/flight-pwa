@@ -47,6 +47,10 @@ export function saveGoogleFolder(kind: GoogleFolderKind, choice: GoogleFolderCho
   localStorage.setItem(KEYS[kind], JSON.stringify({ folderName, folderId }))
 }
 
+export function clearGoogleFolder(kind: GoogleFolderKind): void {
+  localStorage.removeItem(KEYS[kind])
+}
+
 export function googleFolderLabel(kind: GoogleFolderKind): string {
   const saved = loadGoogleFolder(kind)
   return saved ? `マイドライブ/${saved.folderName}` : '未設定'

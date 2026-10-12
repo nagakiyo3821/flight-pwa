@@ -1,7 +1,10 @@
 /**
  * 同期・格納先設定（settings.json）
- * Google を当面の実装対象。他プロバイダはスキーマ予約。
+ * 出し入れする正本は端末の管理データ（version 3）。古いスキーマは内部互換用。
  */
+
+import { clearGoogleFolder, loadGoogleFolder, saveGoogleFolder } from './google-folder'
+import { directoryLabel, localAutoAccessOn, restoreDirectoryLabel, setLocalAutoAccess } from './local-dirs'
 
 export type SyncProviderId = 'none' | 'google' | 'webdav' | 's3compatible'
 
@@ -162,19 +165,53 @@ export function normalizeSettings(raw: unknown): SettingsFile {
   }
 }
 
-/** 利用者が出し入れする settings.json（v2） */
-export function settingsDocument(s: SettingsFile = getSettings()): Record<string, unknown> {
-  const doc: Record<string, unknown> = { version: 2 }
-  if (s.manualLocal?.folderName) doc.manualLocal = { folderName: s.manualLocal.folderName }
-  if (s.icloud?.folderName) doc.icloud = { folderName: s.icloud.folderName }
-  const g = s.providers.google
-  if (s.sync.enabled && s.active === 'google' && g?.folderName) {
-    doc.google = {
-      folderName: g.folderName,
-      folderId: String(g.folderId || ''),
-    }
+/**
+ * 端末の最小管理データ（settings.json）。
+ * フォルダ名、Google のフォルダ ID、Local の動作／停止。ログインのトークンは入れない。
+ */
+export function settingsDocument(): Record<string, unknown> {
+  const google = (kind: 'auto' | 'manual') => {
+    const saved = loadGoogleFolder(kind)
+    return { folderName: saved?.folderName || '', folderId: saved?.folderId || '' }
   }
-  return doc
+  return {
+    version: 3,
+    localAuto: { access: localAutoAccessOn(), folderName: directoryLabel('auto') },
+    localManual: { folderName: directoryLabel('manual') },
+    googleAuto: google('auto'),
+    googleManual: google('manual'),
+  }
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' ? (value as Record<string, unknown>) : {}
+}
+
+function textField(value: unknown): string {
+  return String(value ?? '').trim()
+}
+
+/** settings.json を端末の管理データへ戻す。フォルダの書き込み許可とログインは戻らない。 */
+export async function applySettingsDocument(raw: unknown): Promise<void> {
+  const o = asRecord(raw)
+  if (Number(o.version) !== 3 || !o.localAuto) {
+    throw new Error('この settings.json には端末の管理データがありません')
+  }
+  const localAuto = asRecord(o.localAuto)
+  const localManual = asRecord(o.localManual)
+  const googleAuto = asRecord(o.googleAuto)
+  const googleManual = asRecord(o.googleManual)
+  setLocalAutoAccess(localAuto.access !== false)
+  await restoreDirectoryLabel('auto', textField(localAuto.folderName))
+  await restoreDirectoryLabel('manual', textField(localManual.folderName))
+  const applyGoogle = (kind: 'auto' | 'manual', row: Record<string, unknown>) => {
+    const folderName = textField(row.folderName)
+    const folderId = textField(row.folderId)
+    if (folderName && folderId) saveGoogleFolder(kind, { folderName, folderId })
+    else clearGoogleFolder(kind)
+  }
+  applyGoogle('auto', googleAuto)
+  applyGoogle('manual', googleManual)
 }
 
 let current: SettingsFile = defaultSettingsNone()

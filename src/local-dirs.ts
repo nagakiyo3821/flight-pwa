@@ -58,6 +58,16 @@ async function idbSet(key: string, handle: DirHandle): Promise<void> {
   })
 }
 
+async function idbDelete(key: string): Promise<void> {
+  const db = await openDb()
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(STORE, 'readwrite')
+    tx.objectStore(STORE).delete(key)
+    tx.oncomplete = () => resolve()
+    tx.onerror = () => reject(tx.error)
+  })
+}
+
 async function permission(handle: DirHandle): Promise<PermissionState> {
   const h = handle as FileSystemDirectoryHandle & {
     queryPermission?: (d: { mode: 'readwrite' }) => Promise<PermissionState>
@@ -97,6 +107,36 @@ export function rememberDirectory(kind: DirKind, name: string): void {
   sessionStorage.setItem(labelKey(kind), trimmed)
   localStorage.setItem(labelKey(kind), trimmed)
   if (kind === 'auto') sessionStorage.setItem(SESSION_OK, '1')
+}
+
+export function directoryLabel(kind: DirKind): string {
+  return (sessionStorage.getItem(labelKey(kind)) || localStorage.getItem(labelKey(kind)) || '').trim()
+}
+
+/** バックアップからフォルダ名だけ戻す。書き込み許可は戻さない。 */
+export async function restoreDirectoryLabel(kind: DirKind, name: string): Promise<void> {
+  const trimmed = name.trim()
+  if (!trimmed || trimmed === '未設定') {
+    sessionStorage.removeItem(labelKey(kind))
+    localStorage.removeItem(labelKey(kind))
+    if (kind === 'auto') sessionStorage.removeItem(SESSION_OK)
+    try {
+      await idbDelete(kind)
+    } catch {
+      /* 表示名の消去を優先する */
+    }
+    return
+  }
+  const leaf = trimmed.split('/').filter(Boolean).pop() || trimmed
+  try {
+    const handle = await idbGet(kind)
+    if (handle?.name && handle.name !== leaf) await idbDelete(kind)
+  } catch {
+    /* 許可の照合に失敗しても名前は戻す */
+  }
+  sessionStorage.setItem(labelKey(kind), trimmed)
+  localStorage.setItem(labelKey(kind), trimmed)
+  if (kind === 'auto') sessionStorage.removeItem(SESSION_OK)
 }
 
 export function acceptEmptyAutoFolder(name = ''): void {

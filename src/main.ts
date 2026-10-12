@@ -61,12 +61,14 @@ import {
   setLocalAutoAccess,
 } from './local-dirs'
 import {
+  backupSettingsNow,
   exportToFolder,
   importFromFolder,
   internalIsInitialEmpty,
   MANUAL_IO_FILES,
   needsLocalGate,
   restoreFromAutoIfEmpty,
+  settingsBackupPending,
   writeAfterCommit,
   type ManualIoKey,
 } from './place-backup'
@@ -75,9 +77,10 @@ import {
   isGoogleSignedIn,
   requestGoogleAccessToken,
 } from './google-auth'
-import { drivePathSegments, listDriveFolders } from './google-drive'
+import { downloadJsonByName, drivePathSegments, listDriveFolders, resolveSyncFolder, uploadJsonByName } from './google-drive'
 import { googleFolderLabel, loadGoogleFolder, saveGoogleFolder, type GoogleFolderKind } from './google-folder'
 import { maybeAutoSync, runGoogleDriveSync } from './google-sync'
+import { applySettingsDocument, settingsDocument } from './settings'
 import {
   COMMIT_BACK,
   COMMIT_OK,
@@ -393,6 +396,7 @@ async function render(): Promise<void> {
 
 let localRestoreDone = false
 let localGateNote = ''
+let localGateNoteOk = false
 let localGateDirectory = ''
 let localGatePathEdit = false
 let localGateRoot = 'このiPhone内'
@@ -463,7 +467,8 @@ async function finishAutoFolderPick(name: string): Promise<void> {
     extra = '\n' + (await writeAfterCommit())
   }
   setLocalAutoAccess(true)
-  flashMsg = `Local自動バックアップ: ${name}${extra}`
+  const settingsNote = await backupSettingsNow()
+  flashMsg = `Local自動バックアップ: ${name}${extra}${settingsNote ? `\n${settingsNote}` : ''}`
   localGatePathEdit = false
   localGateDirectory = ''
   localGateMiddle = ''
@@ -479,14 +484,18 @@ async function finishManualFolder(action: 'export' | 'import', _name: string): P
   if (picked) picked.disabled = true
   const confirmBtn = app.querySelector('#confirmDir') as HTMLButtonElement | null
   if (confirmBtn) confirmBtn.disabled = true
+  let done = ''
   try {
-    flashMsg =
+    done =
       action === 'export'
         ? await exportToFolder('manual', manualIoKeys)
         : await importFromFolder('manual', manualIoKeys)
   } catch (e) {
     flashMsg = `${action === 'export' ? 'フォルダへ書き出せませんでした' : 'フォルダから取り込めませんでした'}: ${(e as Error).message}`
   }
+  const settingsNote = await backupSettingsNow()
+  if (done) flashMsg = settingsNote ? `${done}\n${settingsNote}` : done
+  else if (settingsNote && flashMsg) flashMsg = `${flashMsg}\n${settingsNote}`
   folderScreen = 'auto'
   folderScreenOpen = false
   localGatePathEdit = false
@@ -495,11 +504,51 @@ async function finishManualFolder(action: 'export' | 'import', _name: string): P
   await render()
 }
 
+function readSettingsFile(): Promise<unknown | null> {
+  return new Promise((resolve, reject) => {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = 'application/json,.json'
+    let settled = false
+    const finish = (value: unknown | null, error?: Error) => {
+      if (settled) return
+      settled = true
+      input.remove()
+      if (error) reject(error)
+      else resolve(value)
+    }
+    input.addEventListener('change', () => {
+      const file = input.files?.[0]
+      if (!file) {
+        finish(null)
+        return
+      }
+      const reader = new FileReader()
+      reader.onload = () => {
+        try {
+          finish(JSON.parse(String(reader.result || '')))
+        } catch {
+          finish(null, new Error('settings.json を読めません'))
+        }
+      }
+      reader.onerror = () => finish(null, new Error('settings.json を読めません'))
+      reader.readAsText(file)
+    })
+    input.addEventListener('cancel', () => finish(null))
+    document.body.appendChild(input)
+    input.click()
+  })
+}
+
 async function renderLocalGate(): Promise<void> {
   document.getElementById('sc-confirm')?.remove()
   const pending = localStorage.getItem('flight-local-export-pending') === '1'
   const note = localGateNote
+  const noteOk = localGateNoteOk
   localGateNote = ''
+  localGateNoteOk = false
+  const startupGate = folderScreen === 'auto' && !folderScreenOpen
+  const savedFolder = startupGate ? await directoryStatus('auto') : ''
   const title =
     folderScreen === 'export' ? '手動エクスポート' : folderScreen === 'import' ? '手動インポート' : 'Local自動バックアップ'
   const lead =
@@ -537,7 +586,12 @@ async function renderLocalGate(): Promise<void> {
     </div>`
         : ''
     }
-    ${note ? `<p id="msg" class="msg bad" role="status">${escapeHtml(note)}</p>` : ''}
+    ${
+      savedFolder && savedFolder !== '未設定'
+        ? `<p class="places-ui-io-hint">前回のフォルダ: ${escapeHtml(savedFolder)}</p>`
+        : ''
+    }
+    ${note ? `<p id="msg" class="msg ${noteOk ? 'ok' : 'bad'}" role="status">${escapeHtml(note)}</p>` : ''}
     <div class="places-ui-cmds">
       <button type="button" class="places-ui-cmd" id="pickAutoFolder">${localGatePathEdit ? '別のフォルダを選ぶ' : 'フォルダを選ぶ'}</button>
       ${
@@ -545,6 +599,7 @@ async function renderLocalGate(): Promise<void> {
           ? '<button type="button" class="places-ui-cmd" id="confirmDir">このフォルダで確定</button>'
           : ''
       }
+      ${startupGate ? '<button type="button" class="places-ui-cmd" id="importSettingsFile">settings.json を取り込む</button>' : ''}
     </div>
   </main>`
   const middleInput = app.querySelector('#dirMiddle') as HTMLInputElement | null
@@ -600,6 +655,31 @@ async function renderLocalGate(): Promise<void> {
           : e instanceof EmptyFolderUnreported
             ? 'ディレクトリは確定していません。ファイルアプリは、中にファイルが無いフォルダの名前を返さないため、表示が空欄になります。名前が空欄のままでは先へ進めません。もう一度フォルダを選んでください。'
             : `フォルダを選べませんでした: ${(e as Error).message}`
+        await render()
+      }
+    })()
+  })
+  app.querySelector('#importSettingsFile')?.addEventListener('click', () => {
+    void (async () => {
+      try {
+        const data = await readSettingsFile()
+        if (!data) return
+        await applySettingsDocument(data)
+        const settingsNote = await backupSettingsNow()
+        const restored = `settings.json を取り込みました。${settingsNote}`
+        if (!localAutoAccessOn()) {
+          flashMsg = restored
+          folderScreenOpen = false
+          localGatePathEdit = false
+          await render()
+          return
+        }
+        localGateNoteOk = true
+        localGateNote = `${restored} フォルダの書き込み許可は、フォルダを選び直してください。`
+        await render()
+      } catch (e) {
+        localGateNoteOk = false
+        localGateNote = (e as Error).message
         await render()
       }
     })()
@@ -1182,7 +1262,7 @@ function showConfirmSheet(opts: {
   })
 }
 
-/** 手動入出力で対象ファイルを個別に選ぶ。戻るは null。settings は手動インポートのフォルダ指定だけ。 */
+/** 手動入出力で対象ファイルを個別に選ぶ。戻るは null。settings は初期化の対象にしない。 */
 function chooseManualFiles(
   action: 'export' | 'import' | 'reset',
   scope: 'folder' | 'google' | 'data',
@@ -1196,7 +1276,7 @@ function chooseManualFiles(
         ? '書き出すファイルを選んでください。'
         : '取り込むファイルを選んでください。'
   const choices = MANUAL_IO_FILES.filter((item) => {
-    if (item.key === 'settings') return action === 'import' && scope === 'folder'
+    if (item.key === 'settings') return action !== 'reset'
     return scope === 'folder' || !item.folderOnly
   })
   return new Promise((resolve) => {
@@ -7158,7 +7238,8 @@ async function renderIO(): Promise<void> {
       })
       if (!offOk) return
       setLocalAutoAccess(false)
-      flashMsg = 'Local自動バックアップ: 停止'
+      const settingsNote = await backupSettingsNow()
+      flashMsg = `Local自動バックアップ: 停止${settingsNote ? `\n${settingsNote}` : ''}`
       await render()
     })()
   })
@@ -7170,7 +7251,8 @@ async function renderIO(): Promise<void> {
         return
       }
       setLocalAutoAccess(true)
-      flashMsg = 'Local自動バックアップ: 動作'
+      const settingsNote = await backupSettingsNow()
+      flashMsg = `Local自動バックアップ: 動作${settingsNote ? `\n${settingsNote}` : ''}`
       await render()
     })()
   })
@@ -7192,12 +7274,28 @@ async function renderIO(): Promise<void> {
   ): Promise<string> => {
     if (!loadGoogleFolder('manual')) throw new Error('Google のフォルダが未選択です')
     if (!isGoogleSignedIn()) await requestGoogleAccessToken()
-    const report = await runGoogleDriveSync(
-      direction,
-      keys.filter((key) => key !== 'settings'),
-      'manual',
-    )
-    return report.lines.join('\n')
+    const dataKeys = keys.filter((key) => key !== 'settings')
+    const lines: string[] = []
+    if (dataKeys.length) {
+      const report = await runGoogleDriveSync(direction, dataKeys, 'manual')
+      lines.push(report.lines.join('\n'))
+    }
+    if (keys.includes('settings')) {
+      const { folderId } = await resolveSyncFolder('manual')
+      if (direction === 'push') {
+        await uploadJsonByName(folderId, 'settings.json', settingsDocument())
+        lines.push('送信: settings.json')
+      } else {
+        const data = await downloadJsonByName(folderId, 'settings.json')
+        if (!data) throw new Error('settings.json がありません')
+        await applySettingsDocument(data)
+        lines.push('取得: settings.json')
+        const extra = await backupSettingsNow()
+        if (extra) lines.push(extra)
+      }
+    }
+    if (!lines.length) throw new Error('ファイルが選ばれていません')
+    return lines.join('\n')
   }
   const runPlaceIo = (
     id: string,
@@ -7210,10 +7308,18 @@ async function renderIO(): Promise<void> {
       void (async () => {
         const keys = await chooseManualFiles(action, 'google')
         if (!keys) return
+        const before = JSON.stringify(loadGoogleFolder('manual'))
         const ready = await chooseGoogleFolder('manual')
         if (!ready) return
         try {
-          flashMsg = await runGoogleManual(direction, keys)
+          let msg = await runGoogleManual(direction, keys)
+          const folderChanged = before !== JSON.stringify(loadGoogleFolder('manual'))
+          const pulledSettings = direction === 'pull' && keys.includes('settings')
+          if (folderChanged && !pulledSettings) {
+            const note = await backupSettingsNow()
+            if (note) msg = `${msg}\n${note}`
+          }
+          flashMsg = msg
         } catch (e) {
           flashMsg = `${failLabel}: ${(e as Error).message}`
         }
@@ -7227,9 +7333,12 @@ async function renderIO(): Promise<void> {
   app.querySelector('#pickGoogleAuto')?.addEventListener('click', () => {
     if (ioBusy) return
     void (async () => {
+      const before = JSON.stringify(loadGoogleFolder('auto'))
       const ready = await chooseGoogleFolder('auto')
       if (!ready) return
-      flashMsg = `Google自動バックアップ: ${googleFolderLabel('auto')}`
+      const changed = before !== JSON.stringify(loadGoogleFolder('auto'))
+      const settingsNote = changed ? await backupSettingsNow() : ''
+      flashMsg = `Google自動バックアップ: ${googleFolderLabel('auto')}${settingsNote ? `\n${settingsNote}` : ''}`
       await render()
     })()
   })
@@ -7243,7 +7352,8 @@ async function renderIO(): Promise<void> {
           return
         }
         await requestGoogleAccessToken()
-        flashMsg = 'Google自動バックアップ: 動作'
+        const settingsNote = settingsBackupPending() ? await backupSettingsNow() : ''
+        flashMsg = `Google自動バックアップ: 動作${settingsNote ? `\n${settingsNote}` : ''}`
         await render()
       } catch (e) {
         setMsg(`失敗: ${(e as Error).message}`, 'bad')

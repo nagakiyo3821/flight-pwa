@@ -6,7 +6,7 @@
 import { db, exportLog, exportMasters, exportPos, exportTmp, importLog, importMasters, importPos, importSettings, importTmp, PLAIN_NEW_KEY } from './db'
 import { isGoogleSignedIn } from './google-auth'
 import { runGoogleDriveSync } from './google-sync'
-import { autoFolderReady, beginDirectoryPick, directoryStatus, EmptyFolderUnreported, readJsonFiles, rememberDirectory, storedDirectory, writeJsonFiles } from './local-dirs'
+import { autoFolderReady, beginDirectoryPick, directoryStatus, EmptyFolderUnreported, localAutoAccessOn, readJsonFiles, rememberDirectory, storedDirectory, writeJsonFiles } from './local-dirs'
 import { loadGoogleFolder } from './google-folder'
 import { getSettings, settingsDocument } from './settings'
 import type { LogFile, PosFile, TmpFlag } from './types'
@@ -32,6 +32,7 @@ export async function internalIsInitialEmpty(): Promise<boolean> {
 }
 
 export async function needsLocalGate(): Promise<boolean> {
+  if (!localAutoAccessOn()) return false
   if (localStorage.getItem(PENDING) === '1') return true
   return !(await autoFolderReady())
 }
@@ -73,13 +74,15 @@ export async function restoreFromAutoIfEmpty(isEmpty: boolean): Promise<string |
 /** 本登録のあと。失敗しても本登録は戻さない。 */
 export async function writeAfterCommit(): Promise<string> {
   const lines: string[] = []
-  try {
-    const written = await writeJsonFiles('auto', await bundleFromDb())
-    localStorage.removeItem(PENDING)
-    lines.push(`自動ローカルへ書き出しました（${written.join(', ')}）`)
-  } catch (e) {
-    localStorage.setItem(PENDING, '1')
-    return `自動ローカルへ書けませんでした。${(e as Error).message}`
+  if (localAutoAccessOn()) {
+    try {
+      const written = await writeJsonFiles('auto', await bundleFromDb())
+      localStorage.removeItem(PENDING)
+      lines.push(`自動ローカルへ書き出しました（${written.join(', ')}）`)
+    } catch (e) {
+      localStorage.setItem(PENDING, '1')
+      return `自動ローカルへ書けませんでした。${(e as Error).message}`
+    }
   }
 
   const s = getSettings()

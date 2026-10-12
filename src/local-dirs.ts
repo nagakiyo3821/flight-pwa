@@ -198,6 +198,17 @@ export async function autoFolderReady(): Promise<boolean> {
   return sessionStorage.getItem(SESSION_OK) === '1' && !canPersistDirectory()
 }
 
+const AUTO_ACCESS = 'flight-local-auto-access'
+
+/** 未設定はオン。明示的にオフにしたときだけ '0'。 */
+export function localAutoAccessOn(): boolean {
+  return localStorage.getItem(AUTO_ACCESS) !== '0'
+}
+
+export function setLocalAutoAccess(on: boolean): void {
+  localStorage.setItem(AUTO_ACCESS, on ? '1' : '0')
+}
+
 export async function writeJsonFiles(
   kind: DirKind,
   files: Record<string, unknown>,

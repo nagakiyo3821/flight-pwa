@@ -13,12 +13,7 @@ import {
   commitWorking,
   deleteOrResetRecord,
   deletePlace,
-  startDeviceExport,
   ensureBootstrap,
-  exportLog,
-  exportMasters,
-  exportPos,
-  exportTmp,
   closestPlace3dFromList,
   ecefDistanceM,
   haversineM,
@@ -29,10 +24,6 @@ import {
   getMeta,
   getPlace,
   getWorking,
-  importLog,
-  importMasters,
-  importPos,
-  importTmp,
   isNewRecordKey,
   listFlightKeys,
   listPlaceNames,
@@ -51,8 +42,7 @@ import {
   syncWorkingTmp,
   upsertPlace,
 } from './db'
-import type { FieldDef, FlightRecord, LogFile, PlaceRecord, PosFile, TmpFlag } from './types'
-import type { MastersFile } from './catalog'
+import type { FieldDef, FlightRecord, PlaceRecord } from './types'
 import {
   droneTypeFrom,
   getDroneIds,
@@ -65,8 +55,10 @@ import {
   beginDirectoryPick,
   directoryStatus,
   EmptyFolderUnreported,
+  localAutoAccessOn,
   pickerWasCancelled,
   rememberDirectory,
+  setLocalAutoAccess,
 } from './local-dirs'
 import {
   exportToFolder,
@@ -215,7 +207,6 @@ import {
 } from './ui-strings'
 import { fetchWeatherSet } from './weather'
 import { APP_VERSION } from './version'
-import { isIosDevice } from './platform'
 import {
   COPYRIGHT_NOTICE,
   TERMS_SUMMARY,
@@ -471,7 +462,8 @@ async function finishAutoFolderPick(name: string): Promise<void> {
   if (localStorage.getItem('flight-local-export-pending') === '1') {
     extra = '\n' + (await writeAfterCommit())
   }
-  flashMsg = `自動バックアップ: ${name}${extra}`
+  setLocalAutoAccess(true)
+  flashMsg = `Local自動バックアップ: ${name}${extra}`
   localGatePathEdit = false
   localGateDirectory = ''
   localGateMiddle = ''
@@ -509,7 +501,7 @@ async function renderLocalGate(): Promise<void> {
   const note = localGateNote
   localGateNote = ''
   const title =
-    folderScreen === 'export' ? '手動エクスポート' : folderScreen === 'import' ? '手動インポート' : '自動バックアップ'
+    folderScreen === 'export' ? '手動エクスポート' : folderScreen === 'import' ? '手動インポート' : 'Local自動バックアップ'
   const lead =
     folderScreen === 'export'
       ? '手動で書き出すフォルダを、ファイルアプリで指定してください。'
@@ -1053,64 +1045,6 @@ function choicePaneHtml(rowsHtml: string): string {
     </div>`
 }
 
-/** 出力確認。OK タップ＝ユーザー操作内で出力開始（iOS 必須） */
-function showExportConfirmDialog(filename: string, data: unknown): Promise<void> {
-  return new Promise((resolve) => {
-    const root = openDialogRoot()
-    root.classList.add('sc-dialog--alert')
-    const appEl = document.getElementById('app')
-    appEl?.setAttribute('inert', '')
-    root.innerHTML = `
-      <div class="sc-alert" role="document">
-        <p class="sc-alert-msg">${escapeHtml(filename)} を出力します</p>
-        <button type="button" class="sc-btn sc-btn-ok" id="sc-ok">OK</button>
-        ${appVersionFoot()}
-      </div>`
-    let done = false
-    const finish = () => {
-      if (done) return
-      done = true
-      appEl?.removeAttribute('inert')
-      closeDialogSafely(root, () => resolve())
-    }
-    root.querySelector('#sc-ok')?.addEventListener('click', (e) => {
-      e.preventDefault()
-      e.stopPropagation()
-      const { done } = startDeviceExport(filename, data, {
-        preferShare: isIosDevice(),
-      })
-      finish()
-      void done.then(async (outcome) => {
-        const applyIoMsg = (t: string, kind: 'ok' | 'bad') => {
-          const el = app.querySelector<HTMLElement>('#msg')
-          if (el && view === 'io') {
-            el.textContent = t
-            el.classList.toggle('ok', kind === 'ok')
-            el.classList.toggle('bad', kind === 'bad')
-            return
-          }
-          flashMsg = t
-        }
-        if (outcome === 'cancelled') {
-          applyIoMsg('出力を中止しました', 'ok')
-          return
-        }
-        if (outcome === 'error') {
-          applyIoMsg('出力に失敗しました', 'bad')
-          return
-        }
-        await showNoticeDialog(
-          `${filename}\nファイル出力が成功したか確認してください。`,
-        )
-        applyIoMsg(`確認してください（${filename}）`, 'ok')
-      })
-    })
-    root.querySelector('.sc-alert')?.addEventListener('click', (e) => {
-      e.stopPropagation()
-    })
-  })
-}
-
 /** 通常アプリ風の通知ダイアログ（半透明オーバーレイ＋中央パネル＋OK） */
 function showNoticeDialog(prompt: string): Promise<void> {
   return new Promise((resolve) => {
@@ -1250,11 +1184,17 @@ function showConfirmSheet(opts: {
 
 /** 手動入出力で対象ファイルを個別に選ぶ。戻るは null。settings はフォルダ指定だけ。 */
 function chooseManualFiles(
-  action: 'export' | 'import',
-  scope: 'folder' | 'google',
+  action: 'export' | 'import' | 'reset',
+  scope: 'folder' | 'google' | 'data',
 ): Promise<ManualIoKey[] | null> {
-  const title = action === 'export' ? '手動エクスポート' : '手動インポート'
-  const detail = action === 'export' ? '書き出すファイルを選んでください。' : '取り込むファイルを選んでください。'
+  const title =
+    action === 'export' ? '手動エクスポート' : action === 'import' ? '手動インポート' : 'PWA初期化'
+  const detail =
+    action === 'reset'
+      ? '初期化するファイルを選んでください。'
+      : action === 'export'
+        ? '書き出すファイルを選んでください。'
+        : '取り込むファイルを選んでください。'
   const choices = MANUAL_IO_FILES.filter((item) => scope === 'folder' || !item.folderOnly)
   return new Promise((resolve) => {
     document.getElementById('sc-confirm')?.remove()
@@ -1350,7 +1290,7 @@ function reviewGoogleFolderSheet(kind: GoogleFolderKind): Promise<'ok' | 'change
     ? '<button type="button" class="sc-confirm-btn sc-confirm-btn--ok" data-act="ok">このフォルダで確定</button>'
     : ''
   const changeLabel = saved ? '別のフォルダを選ぶ' : 'フォルダを選ぶ'
-  const title = kind === 'auto' ? 'Google 自動送信' : 'Google 手動'
+  const title = kind === 'auto' ? 'Google自動バックアップ' : 'Google 手動'
   const root = mountChoiceSheet(`
     <div class="sc-confirm-backdrop" data-act="cancel" aria-hidden="true"></div>
     <div class="sc-confirm-sheet" role="document">
@@ -1409,7 +1349,7 @@ function pickDriveFolderHit(
 
 function searchGoogleFolderSheet(kind: GoogleFolderKind): Promise<{ folderName: string; folderId: string } | null> {
   const initial = loadGoogleFolder(kind)?.folderName || ''
-  const title = kind === 'auto' ? 'Google 自動送信' : 'Google 手動'
+  const title = kind === 'auto' ? 'Google自動バックアップ' : 'Google 手動'
   const root = mountChoiceSheet(`
     <div class="sc-confirm-backdrop" data-act="cancel" aria-hidden="true"></div>
     <div class="sc-confirm-sheet" role="document">
@@ -7037,7 +6977,10 @@ async function renderIO(): Promise<void> {
   const manualDir = await directoryStatus('manual')
   const manualGoogle = googleFolderLabel('manual')
   const autoGoogle = googleFolderLabel('auto')
-  const googleAccess = isGoogleSignedIn() ? 'オン' : 'オフ'
+  const localOn = localAutoAccessOn() && autoDir !== '未設定'
+  const googleOn = isGoogleSignedIn() && autoGoogle !== '未設定'
+  const localAccess = localOn ? 'オン' : 'オフ'
+  const googleAccess = googleOn ? 'オン' : 'オフ'
   const placeLines = `
             <p class="places-ui-io-hint">フォルダ: ${escapeHtml(manualDir)}</p>
             <p class="places-ui-io-hint">Google: ${escapeHtml(manualGoogle)}</p>`
@@ -7070,17 +7013,19 @@ async function renderIO(): Promise<void> {
               <a class="places-ui-cmd" id="openManual" href="./manual.html">マニュアル</a>
             </div>
 
-            <h2 class="places-ui-io-h">自動バックアップ</h2>
+            <h2 class="places-ui-io-h">Local自動バックアップ</h2>
+            <p class="places-ui-io-hint">アクセス: ${localAccess}</p>
             <p class="places-ui-io-hint">フォルダ: ${escapeHtml(autoDir)}</p>
-            <div class="places-ui-cmds">
+            <div class="places-ui-cmds places-ui-cmds--wrap">
+              ${cmd(localOn ? 'localAccessOff' : 'localAccessOn', localOn ? 'オフ' : 'オン')}
               ${cmd('pickAuto', 'フォルダ変更')}
             </div>
 
-            <h2 class="places-ui-io-h">Google 自動送信</h2>
+            <h2 class="places-ui-io-h">Google自動バックアップ</h2>
             <p class="places-ui-io-hint">アクセス: ${googleAccess}</p>
             <p class="places-ui-io-hint">フォルダ: ${escapeHtml(autoGoogle)}</p>
             <div class="places-ui-cmds places-ui-cmds--wrap">
-              ${cmd(isGoogleSignedIn() ? 'googleAccessOff' : 'googleAccessOn', isGoogleSignedIn() ? 'オフ' : 'オン')}
+              ${cmd(googleOn ? 'googleAccessOff' : 'googleAccessOn', googleOn ? 'オフ' : 'オン')}
               ${cmd('pickGoogleAuto', 'フォルダ変更')}
             </div>
 
@@ -7098,41 +7043,10 @@ async function renderIO(): Promise<void> {
               ${cmd('impGoogle', 'Google')}
             </div>
 
-            <h2 class="places-ui-io-h">取込</h2>
-            <p class="places-ui-io-hint">JSON を選ぶと端末の最新として反映します。サーバー障害時の復旧にも使えます。</p>
-            <div class="places-ui-cmds places-ui-cmds--wrap">
-              ${cmd('impLog', 'log')}
-              ${cmd('impPos', 'pos')}
-              ${cmd('impTmp', 'tmp')}
-              ${cmd('impMasters', 'masters')}
-            </div>
-            <div class="io-file-inputs" aria-hidden="true">
-              <input type="file" id="logFile" accept="application/json,.json" />
-              <input type="file" id="posFile" accept="application/json,.json" />
-              <input type="file" id="tmpFile" accept="application/json,.json" />
-              <input type="file" id="mastersFile" accept="application/json,.json" />
-            </div>
-
-            <h2 class="places-ui-io-h">書出</h2>
-            <p class="places-ui-io-hint">準備後に出力。保存完了は OS 側のため、終了後に確認ダイアログを出します。</p>
-            <div class="places-ui-cmds places-ui-cmds--wrap">
-              ${cmd('exLog', 'log')}
-              ${cmd('exPos', 'pos')}
-              ${cmd('exTmp', 'tmp')}
-              ${cmd('exMasters', 'masters')}
-            </div>
-
-            <h2 class="places-ui-io-h">初期化（端末）</h2>
-            <p class="places-ui-io-hint">確認後に実行。端末の飛行データだけを初期化します。</p>
-            <label class="places-ui-io-choice">
-              <input type="checkbox" id="wipeServer" disabled />
-              <span>サーバー上も空で上書き（準備中・現在は無効）</span>
-            </label>
-            <div class="places-ui-cmds places-ui-cmds--wrap">
-              ${cmd('rstLog', 'log', { danger: true })}
-              ${cmd('rstPos', 'pos', { danger: true })}
-              ${cmd('rstTmp', 'tmp', { danger: true })}
-              ${cmd('rstMasters', 'masters', { danger: true })}
+            <h2 class="places-ui-io-h">PWA初期化</h2>
+            <p class="places-ui-io-hint">PWA内部データを初期化します。</p>
+            <div class="places-ui-cmds">
+              ${cmd('pwaReset', '初期化', { danger: true })}
             </div>
 
             <h2 class="places-ui-io-h">${escapeHtml(TERMS_TITLE)}</h2>
@@ -7229,6 +7143,32 @@ async function renderIO(): Promise<void> {
       await render()
     })()
   })
+  app.querySelector('#localAccessOff')?.addEventListener('click', () => {
+    if (ioBusy) return
+    void (async () => {
+      const offOk = await confirmYesNo({
+        title: 'Local自動バックアップをオフにしますか？\nフォルダの記憶は残します。',
+        okLabel: '1.オフにする',
+        cancelLabel: '2.戻る',
+      })
+      if (!offOk) return
+      setLocalAutoAccess(false)
+      flashMsg = 'Local自動バックアップ: オフ'
+      await render()
+    })()
+  })
+  app.querySelector('#localAccessOn')?.addEventListener('click', () => {
+    if (ioBusy) return
+    void (async () => {
+      if ((await directoryStatus('auto')) === '未設定') {
+        setMsg('フォルダが未設定です', 'bad')
+        return
+      }
+      setLocalAutoAccess(true)
+      flashMsg = 'Local自動バックアップ: オン'
+      await render()
+    })()
+  })
   const openManualFolder = (action: 'export' | 'import') => {
     void (async () => {
       if (ioBusy) return
@@ -7284,7 +7224,7 @@ async function renderIO(): Promise<void> {
     void (async () => {
       const ready = await chooseGoogleFolder('auto')
       if (!ready) return
-      flashMsg = `Google 自動送信: ${googleFolderLabel('auto')}`
+      flashMsg = `Google自動バックアップ: ${googleFolderLabel('auto')}`
       await render()
     })()
   })
@@ -7293,6 +7233,10 @@ async function renderIO(): Promise<void> {
     const btn = ev.currentTarget as HTMLElement
     void withIoBusy(btn, 'ログイン中…', 'Google ログイン画面を開いています…', async () => {
       try {
+        if (!loadGoogleFolder('auto')) {
+          setMsg('フォルダが未設定です', 'bad')
+          return
+        }
         await requestGoogleAccessToken()
         flashMsg = 'Google アクセス: オン'
         await render()
@@ -7321,151 +7265,29 @@ async function renderIO(): Promise<void> {
     await showNoticeDialog(text)
   }
 
-  const bindImport = (
-    btnId: string,
-    fileId: string,
-    handler: (data: unknown, fileName: string) => Promise<string>,
-  ) => {
-    const input = app.querySelector<HTMLInputElement>(`#${fileId}`)!
-    const btn = app.querySelector(`#${btnId}`)!
-    btn.addEventListener('click', () => {
-      if (ioBusy) return
-      setMsg(`${btnId.replace('imp', '')} のファイルを選んでください…`, 'busy')
-      input.click()
-    })
-    input.addEventListener('change', async (ev) => {
-      const file = (ev.target as HTMLInputElement).files?.[0]
-      if (!file) {
-        setMsg('ファイル選択をキャンセルしました', 'ok')
-        return
-      }
-      await withIoBusy(btn as HTMLElement, '取込中…', `取込中: ${file.name}…`, async () => {
-        try {
-          const data = JSON.parse(await file.text()) as unknown
-          const text = await handler(data, file.name)
-          await showResult(text, 'ok')
-        } catch (e) {
-          await showResult(`失敗: ${(e as Error).message}`, 'bad')
-        }
+  app.querySelector('#pwaReset')?.addEventListener('click', () => {
+    if (ioBusy) return
+    void (async () => {
+      const keys = await chooseManualFiles('reset', 'data')
+      if (!keys?.length) return
+      const names = MANUAL_IO_FILES.filter((item) => keys.includes(item.key)).map((item) => item.file)
+      const ok = await confirmYesNo({
+        title: `次の内部データを初期化しますか？\n${names.join('\n')}`,
+        okLabel: '1.初期化する',
+        cancelLabel: '2.戻る',
+        destructive: true,
       })
-      ;(ev.target as HTMLInputElement).value = ''
-    })
-  }
-
-  bindImport('impLog', 'logFile', async (data, name) => {
-    const n = await importLog(data as LogFile)
-    return `取込完了: log（${name}）→ ${n} 件を最新として反映しました`
-  })
-  bindImport('impPos', 'posFile', async (data, name) => {
-    const n = await importPos(data as PosFile)
-    return `取込完了: pos（${name}）→ ${n} 件を最新として反映しました`
-  })
-  bindImport('impTmp', 'tmpFile', async (data, name) => {
-    await importTmp(data as TmpFlag)
-    return `取込完了: tmp（${name}）を最新として反映しました`
-  })
-  bindImport('impMasters', 'mastersFile', async (data, name) => {
-    await importMasters(data as MastersFile)
-    return `取込完了: masters（${name}）を最新として反映しました`
-  })
-
-  type ExportKey = 'log' | 'pos' | 'tmp' | 'masters'
-  const exportCache: Partial<Record<ExportKey, unknown>> = {}
-  const exportSpecs: {
-    key: ExportKey
-    btn: string
-    file: string
-    load: () => Promise<unknown>
-  }[] = [
-    { key: 'log', btn: 'exLog', file: 'log.json', load: () => exportLog() },
-    { key: 'pos', btn: 'exPos', file: 'pos.json', load: () => exportPos() },
-    { key: 'tmp', btn: 'exTmp', file: 'tmp.json', load: () => exportTmp() },
-    { key: 'masters', btn: 'exMasters', file: 'masters.json', load: () => exportMasters() },
-  ]
-
-  void withIoBusy(null, '', 'エクスポート準備中…', async () => {
-    try {
-      await Promise.all(
-        exportSpecs.map(async (s) => {
-          exportCache[s.key] = await s.load()
-        }),
-      )
-      setMsg('エクスポートの準備ができました。ボタンを押して出力してください。', 'ok')
-    } catch (e) {
-      setMsg(`準備失敗: ${(e as Error).message}`, 'bad')
-    }
-  })
-
-  for (const spec of exportSpecs) {
-    app.querySelector(`#${spec.btn}`)!.addEventListener('click', (ev) => {
-      const el = ev.currentTarget as HTMLElement
-      if (ioBusy) return
-      const cached = exportCache[spec.key]
-      if (cached !== undefined) {
-        void withIoBusy(el, '出力中…', `${spec.file} を出力しています…`, async () => {
-          const { done } = startDeviceExport(spec.file, cached, {
-            preferShare: isIosDevice(),
-          })
-          const outcome = await done
-          if (outcome === 'cancelled') {
-            setMsg('出力を中止しました', 'ok')
-            return
-          }
-          if (outcome === 'error') {
-            setMsg('出力に失敗しました', 'bad')
-            return
-          }
-          await showNoticeDialog(
-            `${spec.file}\nファイル出力が成功したか確認してください。`,
-          )
-          setMsg(`確認してください（${spec.file}）`, 'ok')
-          void spec.load().then((d) => {
-            exportCache[spec.key] = d
-          })
-        })
-        return
-      }
-      void withIoBusy(el, '準備中…', `${spec.file} を準備しています…`, async () => {
-        try {
-          const data = await spec.load()
-          exportCache[spec.key] = data
-          await showExportConfirmDialog(spec.file, data)
-          setMsg(`確認してください（${spec.file}）`, 'ok')
-        } catch (e) {
-          await showResult(`失敗: ${(e as Error).message}`, 'bad')
-        }
+      if (!ok) return
+      const btn = app.querySelector<HTMLElement>('#pwaReset')
+      await withIoBusy(btn, '初期化中…', 'PWA内部データを初期化しています…', async () => {
+        if (keys.includes('log')) await resetLog()
+        if (keys.includes('pos')) await resetPos()
+        if (keys.includes('tmp')) await resetTmp()
+        if (keys.includes('masters')) await resetMasters()
+        await showResult(`初期化しました（${names.join(', ')}）`, 'ok')
       })
-    })
-  }
-
-  const confirmReset = async (label: string): Promise<boolean> =>
-    confirmYesNo({
-      title: `本当に端末の ${label} を初期化しますか？\n（サーバーは変更しません）`,
-      okLabel: '1.初期化する',
-      cancelLabel: '2.戻る',
-      destructive: true,
-    })
-
-  const bindReset = (btnId: string, label: string, work: () => Promise<void>, doneMsg: string) => {
-    app.querySelector(`#${btnId}`)!.addEventListener('click', async (ev) => {
-      if (ioBusy) return
-      const btn = ev.currentTarget as HTMLElement
-      if (!(await confirmReset(label))) return
-      await withIoBusy(btn, '初期化中…', `${label} を初期化しています…`, async () => {
-        await work()
-        await showResult(doneMsg, 'ok')
-      })
-    })
-  }
-  bindReset('rstLog', 'log', () => resetLog(), '初期化完了: log（空の NEW）')
-  bindReset('rstPos', 'pos', () => resetPos(), '初期化完了: pos（空）')
-  bindReset('rstTmp', 'tmp', () => resetTmp(), '初期化完了: tmp')
-  bindReset(
-    'rstMasters',
-    'masters',
-    () => resetMasters(),
-    '初期化完了: masters を default に戻しました',
-  )
+    })()
+  })
 }
 
 

@@ -217,8 +217,6 @@ export function settingsDetailLines(): string[] {
       `folderId: ${String(g.folderId || '（空＝名前で検索）')}`,
     )
   }
-  if (s.manualLocal?.folderName) lines.push(`Local: ${s.manualLocal.folderName}`)
-  if (s.icloud?.folderName) lines.push(`iCloud: ${s.icloud.folderName}`)
   if (s.notes) lines.push(`notes: ${s.notes}`)
   return lines
 }

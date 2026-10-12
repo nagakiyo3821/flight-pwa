@@ -387,7 +387,7 @@ async function render(): Promise<void> {
   // lock 解除後にリセット（overflow:hidden 中だと効かない端末がある）
   resetViewportScroll()
   await ensureBootstrap()
-  if (localGatePathEdit && localGateDirectory) {
+  if (folderScreenOpen || (localGatePathEdit && localGateDirectory)) {
     await renderLocalGate()
     return
   }
@@ -424,6 +424,8 @@ let localGateDirectory = ''
 let localGatePathEdit = false
 let localGateRoot = 'このiPhone内'
 let localGateMiddle = ''
+let folderScreen: 'auto' | 'export' | 'import' = 'auto'
+let folderScreenOpen = false
 let suppressMenuTimersOnce = false
 
 const DIR_ROOTS = ['このiPhone内', 'iCloud Drive'] as const
@@ -465,6 +467,18 @@ function showStoredDirectory(label: string): void {
   localGateNote = ''
 }
 
+function beginFolderReview(screen: 'auto' | 'export' | 'import', label: string): void {
+  folderScreen = screen
+  folderScreenOpen = true
+  if (label !== '未設定') showStoredDirectory(label)
+  else {
+    localGatePathEdit = false
+    localGateDirectory = ''
+    localGateMiddle = ''
+    localGateNote = ''
+  }
+}
+
 async function finishAutoFolderPick(name: string): Promise<void> {
   const picked = app.querySelector('#pickAutoFolder') as HTMLButtonElement | null
   if (picked) picked.disabled = true
@@ -478,8 +492,29 @@ async function finishAutoFolderPick(name: string): Promise<void> {
   localGatePathEdit = false
   localGateDirectory = ''
   localGateMiddle = ''
+  folderScreen = 'auto'
+  folderScreenOpen = false
   suppressMenuTimersOnce = true
   await new Promise((resolve) => window.setTimeout(resolve, 400))
+  await render()
+}
+
+async function finishManualFolder(action: 'export' | 'import', _name: string): Promise<void> {
+  const picked = app.querySelector('#pickAutoFolder') as HTMLButtonElement | null
+  if (picked) picked.disabled = true
+  const confirmBtn = app.querySelector('#confirmDir') as HTMLButtonElement | null
+  if (confirmBtn) confirmBtn.disabled = true
+  try {
+    flashMsg =
+      action === 'export' ? await exportToFolder('manual') : await importFromFolder('manual')
+  } catch (e) {
+    flashMsg = `${action === 'export' ? 'フォルダへ書き出せませんでした' : 'フォルダから取り込めませんでした'}: ${(e as Error).message}`
+  }
+  folderScreen = 'auto'
+  folderScreenOpen = false
+  localGatePathEdit = false
+  localGateDirectory = ''
+  localGateMiddle = ''
   await render()
 }
 
@@ -488,24 +523,31 @@ async function renderLocalGate(): Promise<void> {
   const pending = localStorage.getItem('flight-local-export-pending') === '1'
   const note = localGateNote
   localGateNote = ''
+  const title =
+    folderScreen === 'export' ? '手動エクスポート' : folderScreen === 'import' ? '手動インポート' : '自動バックアップ'
+  const lead =
+    folderScreen === 'export'
+      ? '手動で書き出すフォルダを、ファイルアプリで指定してください。'
+      : folderScreen === 'import'
+        ? '手動で取り込むフォルダを、ファイルアプリで指定してください。'
+        : pending
+          ? '前回の本登録が自動バックアップへ書けていません。フォルダを確認して書き出します。'
+          : '使用する前にデータを自動バックアップ保管するフォルダを選択してください。'
+  const dirKind = folderScreen === 'auto' ? 'auto' : 'manual'
   app.classList.add('places-ui-app')
   document.documentElement.classList.add('places-ui-lock')
   app.innerHTML = `
   <header class="top">
     <div class="top-titles">
       <h1 class="prompt places-ui-title">
-        <span class="places-ui-title-text">自動バックアップ</span>
+        <span class="places-ui-title-text">${title}</span>
         ${versionBadgeHtml('sc-dialog-top-nav-ver')}
       </h1>
     </div>
   </header>
   <main class="places-ui-main">
-    <p class="places-ui-io-hint">${
-      pending
-        ? '前回の本登録が自動バックアップへ書けていません。フォルダを確認して書き出します。'
-        : '使用する前にデータを自動バックアップ保管するフォルダを選択してください。'
-    }<br>事前に対象フォルダ（最低１つのファイル含む）の準備が必要です。${
-      localGatePathEdit ? '<br>選択したフォルダディレクトリを以下に登録してください。' : ''
+    <p class="places-ui-io-hint">${lead}<br>事前に対象フォルダ（最低１つのファイル含む）の準備が必要です。${
+      localGatePathEdit ? '<br>選択したフォルダを以下に登録してください。' : ''
     }</p>
     ${
       localGatePathEdit
@@ -545,9 +587,16 @@ async function renderLocalGate(): Promise<void> {
       middleInput?.value ?? localGateMiddle,
       localGateDirectory,
     )
-    rememberDirectory('auto', full)
+    rememberDirectory(dirKind, full)
     localGatePathEdit = false
-    void finishAutoFolderPick(full)
+    folderScreenOpen = false
+    if (folderScreen === 'auto') {
+      void finishAutoFolderPick(full)
+      return
+    }
+    const action = folderScreen
+    folderScreen = 'auto'
+    void finishManualFolder(action, full)
   })
   if (middleInput) {
     window.setTimeout(() => {
@@ -558,7 +607,7 @@ async function renderLocalGate(): Promise<void> {
   app.querySelector('#pickAutoFolder')!.addEventListener('click', () => {
     void (async () => {
       try {
-        const name = await beginDirectoryPick('auto')
+        const name = await beginDirectoryPick(dirKind)
         openDirectoryPathEdit(name)
         await render()
       } catch (e) {
@@ -6768,13 +6817,8 @@ async function renderIO(): Promise<void> {
   const clientOk = isGoogleClientConfigured()
   const signedIn = isGoogleSignedIn()
   const autoDir = await directoryStatus('auto')
-  const localPicked = await directoryStatus('manual')
-  const icloudPicked = await directoryStatus('icloud')
+  const manualDir = await directoryStatus('manual')
   const configured = getSettings()
-  const localDir =
-    localPicked !== '未設定' ? localPicked : configured.manualLocal?.folderName || '未設定'
-  const icloudDir =
-    icloudPicked !== '未設定' ? icloudPicked : configured.icloud?.folderName || '未設定'
   const googleCfg = configured.providers.google
   const googleName = String(googleCfg?.folderName || '').trim()
   const googleId = String(googleCfg?.folderId || '').trim()
@@ -6785,8 +6829,7 @@ async function renderIO(): Promise<void> {
         : googleName
       : '未設定'
   const placeLines = `
-            <p class="places-ui-io-hint">Local: ${escapeHtml(localDir)}</p>
-            <p class="places-ui-io-hint">iCloud: ${escapeHtml(icloudDir)}</p>
+            <p class="places-ui-io-hint">フォルダ: ${escapeHtml(manualDir)}</p>
             <p class="places-ui-io-hint">Google: ${escapeHtml(googleDir)}</p>`
   const syncNote = syncOn
     ? `<p class="places-ui-io-hint places-ui-io-hint--stub">${escapeHtml(syncNotImplementedMessage())}</p>`
@@ -6845,16 +6888,14 @@ async function renderIO(): Promise<void> {
             <h2 class="places-ui-io-h">手動エクスポート</h2>
             ${placeLines}
             <div class="places-ui-cmds places-ui-cmds--wrap">
-              ${cmd('expLocal', 'Local')}
-              ${cmd('expIcloud', 'iCloud')}
+              ${cmd('expFolder', 'フォルダ指定')}
               ${cmd('expGoogle', 'Google')}
             </div>
 
             <h2 class="places-ui-io-h">手動インポート</h2>
             ${placeLines}
             <div class="places-ui-cmds places-ui-cmds--wrap">
-              ${cmd('impLocal', 'Local')}
-              ${cmd('impIcloud', 'iCloud')}
+              ${cmd('impFolder', 'フォルダ指定')}
               ${cmd('impGoogle', 'Google')}
             </div>
 
@@ -6998,17 +7039,27 @@ async function renderIO(): Promise<void> {
   app.querySelector('#pickAuto')?.addEventListener('click', () => {
     if (ioBusy) return
     void (async () => {
-      const current = await directoryStatus('auto')
-      if (current !== '未設定') showStoredDirectory(current)
-      else {
-        localGatePathEdit = false
-        localGateDirectory = ''
-        localGateMiddle = ''
-        localGateNote = ''
-      }
+      beginFolderReview('auto', await directoryStatus('auto'))
       await render()
     })()
   })
+  const openManualFolder = (action: 'export' | 'import') => {
+    void (async () => {
+      if (ioBusy) return
+      beginFolderReview(action, await directoryStatus('manual'))
+      await render()
+    })()
+  }
+  app.querySelector('#expFolder')?.addEventListener('click', () => openManualFolder('export'))
+  app.querySelector('#impFolder')?.addEventListener('click', () => openManualFolder('import'))
+  const runGoogleManual = async (direction: 'push' | 'pull'): Promise<string> => {
+    if (!isServerSyncConfigured() || getSettings().active !== 'google') {
+      throw new Error('Google のフォルダが未設定です。settings でディレクトリを指定してください')
+    }
+    if (!isGoogleSignedIn()) await requestGoogleAccessToken()
+    const report = await runGoogleDriveSync(direction)
+    return report.lines.join('\n')
+  }
   const runPlaceIo = (
     id: string,
     work: () => Promise<string>,
@@ -7026,12 +7077,8 @@ async function renderIO(): Promise<void> {
       })()
     })
   }
-  runPlaceIo('expLocal', () => exportToFolder('manual'), 'Local へ書き出せませんでした')
-  runPlaceIo('expIcloud', () => exportToFolder('icloud'), 'iCloud へ書き出せませんでした')
-  runPlaceIo('expGoogle', () => runGoogleDriveSync('push').then((r) => r.lines.join('\n')), 'Google へ書き出せませんでした')
-  runPlaceIo('impLocal', () => importFromFolder('manual'), 'Local から取り込めませんでした')
-  runPlaceIo('impIcloud', () => importFromFolder('icloud'), 'iCloud から取り込めませんでした')
-  runPlaceIo('impGoogle', () => runGoogleDriveSync('pull').then((r) => r.lines.join('\n')), 'Google から取り込めませんでした')
+  runPlaceIo('expGoogle', () => runGoogleManual('push'), 'Google へ書き出せませんでした')
+  runPlaceIo('impGoogle', () => runGoogleManual('pull'), 'Google から取り込めませんでした')
 
   app.querySelector('#settingsOff')!.addEventListener('click', async (ev) => {
     if (!isServerSyncConfigured() || ioBusy) return

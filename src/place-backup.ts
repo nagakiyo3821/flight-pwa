@@ -33,6 +33,7 @@ export async function internalIsInitialEmpty(): Promise<boolean> {
 
 export async function needsLocalGate(): Promise<boolean> {
   if (!localAutoAccessOn()) return false
+  if (!(await internalIsInitialEmpty())) return false
   if (localStorage.getItem(PENDING) === '1') return true
   return !(await autoFolderReady())
 }

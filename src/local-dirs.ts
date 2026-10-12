@@ -95,6 +95,7 @@ export class EmptyFolderUnreported extends Error {
 export function rememberDirectory(kind: DirKind, name: string): void {
   const trimmed = name.trim() || '空のフォルダ'
   sessionStorage.setItem(labelKey(kind), trimmed)
+  localStorage.setItem(labelKey(kind), trimmed)
   if (kind === 'auto') sessionStorage.setItem(SESSION_OK, '1')
 }
 
@@ -104,7 +105,9 @@ export function acceptEmptyAutoFolder(name = ''): void {
 
 /** この端末で選んであるフォルダ名。未選択は「未設定」。 */
 export async function directoryStatus(kind: DirKind): Promise<string> {
-  const fromSession = sessionStorage.getItem(labelKey(kind))?.trim()
+  const fromSession = (
+    sessionStorage.getItem(labelKey(kind)) || localStorage.getItem(labelKey(kind))
+  )?.trim()
   if (fromSession) return fromSession
   try {
     const handle = await idbGet(kind)
@@ -215,7 +218,8 @@ export async function writeJsonFiles(
 ): Promise<string[]> {
   const handle = await storedDirectory(kind)
   if (!handle) {
-    if (!canPersistDirectory() && sessionStorage.getItem(labelKey(kind))) {
+    const remembered = sessionStorage.getItem(labelKey(kind)) || localStorage.getItem(labelKey(kind))
+    if (!canPersistDirectory() && remembered) {
       return shareOrDownload(files)
     }
     throw new Error('フォルダが未指定か、許可が切れています')

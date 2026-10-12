@@ -6982,10 +6982,10 @@ async function renderIO(): Promise<void> {
   const autoGoogle = googleFolderLabel('auto')
   const localOn = localAutoAccessOn() && autoDir !== '未設定'
   const googleOn = isGoogleSignedIn() && autoGoogle !== '未設定'
-  const localAccess = localOn ? 'オン' : 'オフ'
-  const googleAccess = googleOn ? 'オン' : 'オフ'
-  const localToggle = localAccess === 'オン' ? 'オフ' : 'オン'
-  const googleToggle = googleAccess === 'オン' ? 'オフ' : 'オン'
+  const localAccess = localOn ? '動作中' : '停止中'
+  const googleAccess = googleOn ? '動作中' : '停止中'
+  const localToggle = localOn ? '停止' : '動作'
+  const googleToggle = googleOn ? '停止' : '動作'
   const placeLines = `
             <p class="places-ui-io-hint">フォルダ: ${escapeHtml(manualDir)}</p>
             <p class="places-ui-io-hint">Google: ${escapeHtml(manualGoogle)}</p>`
@@ -7152,13 +7152,13 @@ async function renderIO(): Promise<void> {
     if (ioBusy) return
     void (async () => {
       const offOk = await confirmYesNo({
-        title: 'Local自動バックアップをオフにしますか？\nフォルダの記憶は残します。',
-        okLabel: '1.オフにする',
+        title: 'Local自動バックアップを停止しますか？\nフォルダの記憶は残します。',
+        okLabel: '1.停止する',
         cancelLabel: '2.戻る',
       })
       if (!offOk) return
       setLocalAutoAccess(false)
-      flashMsg = 'Local自動バックアップ: オフ'
+      flashMsg = 'Local自動バックアップ: 停止'
       await render()
     })()
   })
@@ -7170,7 +7170,7 @@ async function renderIO(): Promise<void> {
         return
       }
       setLocalAutoAccess(true)
-      flashMsg = 'Local自動バックアップ: オン'
+      flashMsg = 'Local自動バックアップ: 動作'
       await render()
     })()
   })
@@ -7243,7 +7243,7 @@ async function renderIO(): Promise<void> {
           return
         }
         await requestGoogleAccessToken()
-        flashMsg = 'Google アクセス: オン'
+        flashMsg = 'Google自動バックアップ: 動作'
         await render()
       } catch (e) {
         setMsg(`失敗: ${(e as Error).message}`, 'bad')
@@ -7254,13 +7254,13 @@ async function renderIO(): Promise<void> {
     if (ioBusy) return
     void (async () => {
       const offOk = await confirmYesNo({
-        title: 'Google のアクセスをオフにしますか？\nフォルダの記憶は残します。',
-        okLabel: '1.オフにする',
+        title: 'Google自動バックアップを停止しますか？\nフォルダの記憶は残します。',
+        okLabel: '1.停止する',
         cancelLabel: '2.戻る',
       })
       if (!offOk) return
       clearGoogleSession()
-      flashMsg = 'Google アクセス: オフ'
+      flashMsg = 'Google自動バックアップ: 停止'
       await render()
     })()
   })

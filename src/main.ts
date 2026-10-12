@@ -1182,7 +1182,7 @@ function showConfirmSheet(opts: {
   })
 }
 
-/** 手動入出力で対象ファイルを個別に選ぶ。戻るは null。settings はフォルダ指定だけ。 */
+/** 手動入出力で対象ファイルを個別に選ぶ。戻るは null。settings は手動インポートのフォルダ指定だけ。 */
 function chooseManualFiles(
   action: 'export' | 'import' | 'reset',
   scope: 'folder' | 'google' | 'data',
@@ -1195,7 +1195,10 @@ function chooseManualFiles(
       : action === 'export'
         ? '書き出すファイルを選んでください。'
         : '取り込むファイルを選んでください。'
-  const choices = MANUAL_IO_FILES.filter((item) => scope === 'folder' || !item.folderOnly)
+  const choices = MANUAL_IO_FILES.filter((item) => {
+    if (item.key === 'settings') return action === 'import' && scope === 'folder'
+    return scope === 'folder' || !item.folderOnly
+  })
   return new Promise((resolve) => {
     document.getElementById('sc-confirm')?.remove()
     const root = document.createElement('div')
@@ -6981,6 +6984,8 @@ async function renderIO(): Promise<void> {
   const googleOn = isGoogleSignedIn() && autoGoogle !== '未設定'
   const localAccess = localOn ? 'オン' : 'オフ'
   const googleAccess = googleOn ? 'オン' : 'オフ'
+  const localToggle = localAccess === 'オン' ? 'オフ' : 'オン'
+  const googleToggle = googleAccess === 'オン' ? 'オフ' : 'オン'
   const placeLines = `
             <p class="places-ui-io-hint">フォルダ: ${escapeHtml(manualDir)}</p>
             <p class="places-ui-io-hint">Google: ${escapeHtml(manualGoogle)}</p>`
@@ -7017,7 +7022,7 @@ async function renderIO(): Promise<void> {
             <p class="places-ui-io-hint">アクセス: ${localAccess}</p>
             <p class="places-ui-io-hint">フォルダ: ${escapeHtml(autoDir)}</p>
             <div class="places-ui-cmds places-ui-cmds--wrap">
-              ${cmd(localOn ? 'localAccessOff' : 'localAccessOn', localOn ? 'オフ' : 'オン')}
+              ${cmd(localOn ? 'localAccessOff' : 'localAccessOn', localToggle)}
               ${cmd('pickAuto', 'フォルダ変更')}
             </div>
 
@@ -7025,7 +7030,7 @@ async function renderIO(): Promise<void> {
             <p class="places-ui-io-hint">アクセス: ${googleAccess}</p>
             <p class="places-ui-io-hint">フォルダ: ${escapeHtml(autoGoogle)}</p>
             <div class="places-ui-cmds places-ui-cmds--wrap">
-              ${cmd(googleOn ? 'googleAccessOff' : 'googleAccessOn', googleOn ? 'オフ' : 'オン')}
+              ${cmd(googleOn ? 'googleAccessOff' : 'googleAccessOn', googleToggle)}
               ${cmd('pickGoogleAuto', 'フォルダ変更')}
             </div>
 

@@ -494,9 +494,7 @@ async function finishManualFolder(action: 'export' | 'import', _name: string): P
   } catch (e) {
     flashMsg = `${action === 'export' ? 'フォルダへ書き出せませんでした' : 'フォルダから取り込めませんでした'}: ${(e as Error).message}`
   }
-  const settingsNote = await backupSettingsNow()
-  if (done) flashMsg = settingsNote ? `${done}\n${settingsNote}` : done
-  else if (settingsNote && flashMsg) flashMsg = `${flashMsg}\n${settingsNote}`
+  if (done) flashMsg = done
   folderScreen = 'auto'
   folderScreenOpen = false
   localGatePathEdit = false

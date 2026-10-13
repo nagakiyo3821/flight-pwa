@@ -51,6 +51,13 @@ export function clearGoogleFolder(kind: GoogleFolderKind): void {
   localStorage.removeItem(KEYS[kind])
 }
 
+/** 自動・手動と、旧1か所指定をまとめて消す。 */
+export function clearGoogleFolders(): void {
+  localStorage.removeItem(KEYS.auto)
+  localStorage.removeItem(KEYS.manual)
+  localStorage.removeItem(LEGACY_KEY)
+}
+
 export function googleFolderLabel(kind: GoogleFolderKind): string {
   const saved = loadGoogleFolder(kind)
   return saved ? `マイドライブ/${saved.folderName}` : '未設定'

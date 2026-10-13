@@ -3,8 +3,15 @@
  * 出し入れする正本は端末の管理データ（version 3）。古いスキーマは内部互換用。
  */
 
-import { clearGoogleFolder, loadGoogleFolder, saveGoogleFolder } from './google-folder'
-import { directoryLabel, localAutoAccessOn, restoreDirectoryLabel, setLocalAutoAccess } from './local-dirs'
+import { clearGoogleFolder, clearGoogleFolders, loadGoogleFolder, saveGoogleFolder } from './google-folder'
+import { resumeGoogleAutoIntent } from './google-auth'
+import {
+  clearLocalSetupDone,
+  directoryLabel,
+  localAutoAccessOn,
+  restoreDirectoryLabel,
+  setLocalAutoAccess,
+} from './local-dirs'
 
 export type SyncProviderId = 'none' | 'google' | 'webdav' | 's3compatible'
 
@@ -212,6 +219,18 @@ export async function applySettingsDocument(raw: unknown): Promise<void> {
   }
   applyGoogle('auto', googleAuto)
   applyGoogle('manual', googleManual)
+}
+
+/** 端末の管理データを未設定へ戻す。ログインと、外にある settings.json は残す。 */
+export async function resetDeviceSettings(): Promise<void> {
+  localStorage.removeItem('flight-local-auto-access')
+  localStorage.removeItem('flight-local-export-pending')
+  localStorage.removeItem('flight-settings-backup-pending')
+  await restoreDirectoryLabel('auto', '')
+  await restoreDirectoryLabel('manual', '')
+  clearGoogleFolders()
+  clearLocalSetupDone()
+  resumeGoogleAutoIntent()
 }
 
 let current: SettingsFile = defaultSettingsNone()

@@ -85,7 +85,7 @@ import {
 import { downloadJsonByName, drivePathSegments, listDriveFolders, resolveSyncFolder, uploadJsonByName, withDriveDeadline } from './google-drive'
 import { googleFolderLabel, loadGoogleFolder, saveGoogleFolder, type GoogleFolderKind } from './google-folder'
 import { maybeAutoSync, runGoogleDriveSync } from './google-sync'
-import { applySettingsDocument, settingsDocument } from './settings'
+import { applySettingsDocument, resetDeviceSettings, settingsDocument } from './settings'
 import {
   COMMIT_BACK,
   COMMIT_OK,
@@ -1266,7 +1266,7 @@ function showConfirmSheet(opts: {
   })
 }
 
-/** 手動入出力で対象ファイルを個別に選ぶ。戻るは null。settings は初期化の対象にしない。 */
+/** 手動入出力と PWA初期化で対象ファイルを個別に選ぶ。戻るは null。 */
 function chooseManualFiles(
   action: 'export' | 'import' | 'reset',
   scope: 'folder' | 'google' | 'data',
@@ -1280,7 +1280,7 @@ function chooseManualFiles(
         ? '書き出すファイルを選んでください。'
         : '取り込むファイルを選んでください。'
   const choices = MANUAL_IO_FILES.filter((item) => {
-    if (item.key === 'settings') return action !== 'reset'
+    if (item.key === 'settings') return true
     return scope === 'folder' || !item.folderOnly
   })
   return new Promise((resolve) => {
@@ -7412,8 +7412,10 @@ async function renderIO(): Promise<void> {
         if (keys.includes('log') || keys.includes('pos')) clearLocalSetupDone()
         if (keys.includes('tmp')) await resetTmp()
         if (keys.includes('masters')) await resetMasters()
+        if (keys.includes('settings')) await resetDeviceSettings()
         await showResult(`初期化しました（${names.join(', ')}）`, 'ok')
       })
+      await render()
     })()
   })
 }

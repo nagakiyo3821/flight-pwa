@@ -6,7 +6,7 @@
 import { db, exportLog, exportMasters, exportPos, exportTmp, importLog, importMasters, importPos, importTmp, PLAIN_NEW_KEY } from './db'
 import { isGoogleSignedIn } from './google-auth'
 import { runGoogleDriveSync } from './google-sync'
-import { autoFolderReady, beginDirectoryPick, directoryStatus, EmptyFolderUnreported, localAutoAccessOn, readJsonFiles, rememberDirectory, storedDirectory, writeJsonFiles } from './local-dirs'
+import { autoFolderReady, beginDirectoryPick, directoryStatus, EmptyFolderUnreported, localAutoAccessOn, localSetupDone, readJsonFiles, rememberDirectory, storedDirectory, writeJsonFiles } from './local-dirs'
 import { loadGoogleFolder } from './google-folder'
 import { resolveSyncFolder, uploadJsonByName } from './google-drive'
 import { applySettingsDocument, getSettings, settingsDocument } from './settings'
@@ -37,6 +37,7 @@ export async function needsLocalGate(): Promise<boolean> {
   if (!localAutoAccessOn()) return false
   if (!(await internalIsInitialEmpty())) return false
   if (localStorage.getItem(PENDING) === '1') return true
+  if (localSetupDone()) return false
   return !(await autoFolderReady())
 }
 

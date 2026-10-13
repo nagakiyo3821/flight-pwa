@@ -53,9 +53,11 @@ import {
 } from './catalog'
 import {
   beginDirectoryPick,
+  clearLocalSetupDone,
   directoryStatus,
   EmptyFolderUnreported,
   localAutoAccessOn,
+  markLocalSetupDone,
   pickerWasCancelled,
   rememberDirectory,
   setLocalAutoAccess,
@@ -666,15 +668,16 @@ async function renderLocalGate(): Promise<void> {
         if (!data) return
         await applySettingsDocument(data)
         const restored = 'settings.json を取り込みました。'
-        if (!localAutoAccessOn()) {
-          flashMsg = restored
-          folderScreenOpen = false
-          localGatePathEdit = false
+        if (localAutoAccessOn() && (await directoryStatus('auto')) === '未設定') {
+          localGateNoteOk = true
+          localGateNote = `${restored} Local のフォルダは未設定です。`
           await render()
           return
         }
-        localGateNoteOk = true
-        localGateNote = restored
+        markLocalSetupDone()
+        flashMsg = restored
+        folderScreenOpen = false
+        localGatePathEdit = false
         await render()
       } catch (e) {
         localGateNoteOk = false
@@ -7393,6 +7396,7 @@ async function renderIO(): Promise<void> {
       await withIoBusy(btn, '初期化中…', 'PWA内部データを初期化しています…', async () => {
         if (keys.includes('log')) await resetLog()
         if (keys.includes('pos')) await resetPos()
+        if (keys.includes('log') || keys.includes('pos')) clearLocalSetupDone()
         if (keys.includes('tmp')) await resetTmp()
         if (keys.includes('masters')) await resetMasters()
         await showResult(`初期化しました（${names.join(', ')}）`, 'ok')

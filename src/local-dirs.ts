@@ -242,6 +242,7 @@ export async function autoFolderReady(): Promise<boolean> {
 }
 
 const AUTO_ACCESS = 'flight-local-auto-access'
+const LOCAL_SETUP_DONE = 'flight-local-setup-done'
 
 /** 未設定はオン。明示的にオフにしたときだけ '0'。 */
 export function localAutoAccessOn(): boolean {
@@ -250,6 +251,19 @@ export function localAutoAccessOn(): boolean {
 
 export function setLocalAutoAccess(on: boolean): void {
   localStorage.setItem(AUTO_ACCESS, on ? '1' : '0')
+}
+
+/** settings の取り込みで Local 自動バックアップの初期設定を終えた。 */
+export function markLocalSetupDone(): void {
+  localStorage.setItem(LOCAL_SETUP_DONE, '1')
+}
+
+export function clearLocalSetupDone(): void {
+  localStorage.removeItem(LOCAL_SETUP_DONE)
+}
+
+export function localSetupDone(): boolean {
+  return localStorage.getItem(LOCAL_SETUP_DONE) === '1'
 }
 
 export async function writeJsonFiles(

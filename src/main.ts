@@ -78,7 +78,7 @@ import {
   isGoogleSignedIn,
   requestGoogleAccessToken,
 } from './google-auth'
-import { downloadJsonByName, drivePathSegments, listDriveFolders, resolveSyncFolder, uploadJsonByName } from './google-drive'
+import { downloadJsonByName, drivePathSegments, listDriveFolders, resolveSyncFolder, uploadJsonByName, withDriveDeadline } from './google-drive'
 import { googleFolderLabel, loadGoogleFolder, saveGoogleFolder, type GoogleFolderKind } from './google-folder'
 import { maybeAutoSync, runGoogleDriveSync } from './google-sync'
 import { applySettingsDocument, settingsDocument } from './settings'
@@ -7272,25 +7272,27 @@ async function renderIO(): Promise<void> {
   ): Promise<string> => {
     if (!loadGoogleFolder('manual')) throw new Error('Google のフォルダが未選択です')
     if (!isGoogleSignedIn()) await requestGoogleAccessToken()
-    const ordered = MANUAL_IO_FILES.filter((item) => keys.includes(item.key)).map((item) => item.file)
-    const dataKeys = keys.filter((key) => key !== 'settings')
-    const { folderName, folderId } = await resolveSyncFolder('manual')
-    if (direction === 'push') {
-      if (dataKeys.length) await runGoogleDriveSync(direction, dataKeys, 'manual')
-      if (keys.includes('settings')) {
-        await uploadJsonByName(folderId, 'settings.json', settingsDocument())
+    return withDriveDeadline(async () => {
+      const ordered = MANUAL_IO_FILES.filter((item) => keys.includes(item.key)).map((item) => item.file)
+      const dataKeys = keys.filter((key) => key !== 'settings')
+      const { folderName, folderId } = await resolveSyncFolder('manual')
+      if (direction === 'push') {
+        if (dataKeys.length) await runGoogleDriveSync(direction, dataKeys, 'manual')
+        if (keys.includes('settings')) {
+          await uploadJsonByName(folderId, 'settings.json', settingsDocument())
+        }
+      } else {
+        if (dataKeys.length) await runGoogleDriveSync(direction, dataKeys, 'manual')
+        if (keys.includes('settings')) {
+          const data = await downloadJsonByName(folderId, 'settings.json')
+          if (!data) throw new Error('settings.json がありません')
+          await applySettingsDocument(data)
+        }
       }
-    } else {
-      if (dataKeys.length) await runGoogleDriveSync(direction, dataKeys, 'manual')
-      if (keys.includes('settings')) {
-        const data = await downloadJsonByName(folderId, 'settings.json')
-        if (!data) throw new Error('settings.json がありません')
-        await applySettingsDocument(data)
-      }
-    }
-    if (!ordered.length) throw new Error('ファイルが選ばれていません')
-    const verb = direction === 'push' ? '送信' : '取得'
-    return `フォルダ: ${folderName} (${folderId})\n${verb}: ${ordered.join(' / ')}`
+      if (!ordered.length) throw new Error('ファイルが選ばれていません')
+      const verb = direction === 'push' ? '送信' : '取得'
+      return `フォルダ: ${folderName} (${folderId})\n${verb}: ${ordered.join(' / ')}`
+    })
   }
   const runPlaceIo = (
     id: string,
@@ -7305,11 +7307,16 @@ async function renderIO(): Promise<void> {
         if (!keys) return
         const ready = await chooseGoogleFolder('manual')
         if (!ready) return
-        try {
-          flashMsg = await runGoogleManual(direction, keys)
-        } catch (e) {
-          flashMsg = `${failLabel}: ${(e as Error).message}`
-        }
+        const btn = app.querySelector<HTMLElement>(`#${id}`)
+        const status = direction === 'push' ? 'Google へ書き出しています…' : 'Google から取り込んでいます…'
+        await withIoBusy(btn, '処理中…', status, async () => {
+          try {
+            flashMsg = await runGoogleManual(direction, keys)
+          } catch (e) {
+            const message = (e as Error).message
+            flashMsg = message.includes('時間内に終わりませんでした') ? message : `${failLabel}: ${message}`
+          }
+        })
         await render()
       })()
     })
@@ -7324,8 +7331,16 @@ async function renderIO(): Promise<void> {
       const ready = await chooseGoogleFolder('auto')
       if (!ready) return
       const changed = before !== JSON.stringify(loadGoogleFolder('auto'))
-      const settingsNote = changed ? await backupSettingsNow() : ''
-      flashMsg = `Google自動バックアップ: ${googleFolderLabel('auto')}${settingsNote ? `\n${settingsNote}` : ''}`
+      const btn = app.querySelector<HTMLElement>('#pickGoogleAuto')
+      await withIoBusy(btn, '処理中…', 'Google のフォルダを確認しています…', async () => {
+        try {
+          const settingsNote =
+            changed && isGoogleSignedIn() ? await withDriveDeadline(() => backupSettingsNow()) : ''
+          flashMsg = `Google自動バックアップ: ${googleFolderLabel('auto')}${settingsNote ? `\n${settingsNote}` : ''}`
+        } catch (e) {
+          flashMsg = (e as Error).message
+        }
+      })
       await render()
     })()
   })

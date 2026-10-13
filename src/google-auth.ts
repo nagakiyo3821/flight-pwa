@@ -149,14 +149,24 @@ export async function requestGoogleAccessToken(opts?: {
   if (!oauth2) throw new Error('Google Identity Services が利用できません')
 
   return new Promise((resolve, reject) => {
+    let settled = false
+    const timer = window.setTimeout(() => {
+      finish(() => reject(new Error('Google ログインが時間内に終わりませんでした。もう一度実行してください。')))
+    }, 180_000)
+    const finish = (fn: () => void) => {
+      if (settled) return
+      settled = true
+      window.clearTimeout(timer)
+      fn()
+    }
     const client = oauth2.initTokenClient({
       client_id: clientId,
       scope: DRIVE_SCOPE,
       callback: (resp) => {
         if (resp.error || !resp.access_token) {
-          reject(
-            new Error(
-              resp.error_description || resp.error || 'Google ログインに失敗しました',
+          finish(() =>
+            reject(
+              new Error(resp.error_description || resp.error || 'Google ログインに失敗しました'),
             ),
           )
           return
@@ -165,10 +175,10 @@ export async function requestGoogleAccessToken(opts?: {
         const sec = Number(resp.expires_in) || 3600
         tokenExpiresAt = Date.now() + sec * 1000
         persistToken()
-        resolve(accessToken)
+        finish(() => resolve(accessToken as string))
       },
       error_callback: (err) => {
-        reject(new Error(err.message || err.type || 'Google ログインがキャンセルされました'))
+        finish(() => reject(new Error(err.message || err.type || 'Google ログインがキャンセルされました')))
       },
     })
     client.requestAccessToken({

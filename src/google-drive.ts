@@ -9,6 +9,29 @@ import { getSettings, type GoogleProviderConfig } from './settings'
 
 export type DriveFileHit = { id: string; name: string; mimeType: string }
 
+const DRIVE_DEADLINE_MS = 60_000
+let driveSignal: AbortSignal | undefined
+
+/** Drive への通信が止まったまま画面を占有しない。 */
+export async function withDriveDeadline<T>(work: () => Promise<T>): Promise<T> {
+  const ctrl = new AbortController()
+  const prev = driveSignal
+  driveSignal = ctrl.signal
+  let timer = 0
+  const timeout = new Promise<never>((_, reject) => {
+    timer = window.setTimeout(() => {
+      ctrl.abort()
+      reject(new Error('Google の処理が時間内に終わりませんでした。通信を確認して、もう一度実行してください。'))
+    }, DRIVE_DEADLINE_MS)
+  })
+  try {
+    return await Promise.race([work(), timeout])
+  } finally {
+    window.clearTimeout(timer)
+    driveSignal = prev
+  }
+}
+
 async function driveFetch(path: string, init?: RequestInit): Promise<Response> {
   const token = getAccessToken()
   if (!token) throw new Error('Google にログインしていません')
@@ -17,7 +40,7 @@ async function driveFetch(path: string, init?: RequestInit): Promise<Response> {
     : `https://www.googleapis.com/drive/v3/${path.replace(/^\//, '')}`
   const headers = new Headers(init?.headers)
   headers.set('Authorization', `Bearer ${token}`)
-  return fetch(url, { ...init, headers })
+  return fetch(url, { ...init, headers, signal: driveSignal })
 }
 
 async function driveJson<T>(path: string, init?: RequestInit): Promise<T> {

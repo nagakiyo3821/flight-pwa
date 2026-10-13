@@ -16,10 +16,10 @@ import type { MastersFile } from './catalog'
 const PENDING = 'flight-local-export-pending'
 const SETTINGS_PENDING = 'flight-settings-backup-pending'
 export const MANUAL_IO_FILES = [
-  { key: 'log', file: 'log.json', folderOnly: false, checked: true },
-  { key: 'pos', file: 'pos.json', folderOnly: false, checked: true },
-  { key: 'tmp', file: 'tmp.json', folderOnly: false, checked: true },
-  { key: 'masters', file: 'masters.json', folderOnly: false, checked: true },
+  { key: 'log', file: 'log.json', folderOnly: false, checked: false },
+  { key: 'pos', file: 'pos.json', folderOnly: false, checked: false },
+  { key: 'tmp', file: 'tmp.json', folderOnly: false, checked: false },
+  { key: 'masters', file: 'masters.json', folderOnly: false, checked: false },
   { key: 'settings', file: 'settings.json', folderOnly: true, checked: false },
 ] as const
 export type ManualIoKey = (typeof MANUAL_IO_FILES)[number]['key']

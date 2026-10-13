@@ -7272,28 +7272,25 @@ async function renderIO(): Promise<void> {
   ): Promise<string> => {
     if (!loadGoogleFolder('manual')) throw new Error('Google のフォルダが未選択です')
     if (!isGoogleSignedIn()) await requestGoogleAccessToken()
+    const ordered = MANUAL_IO_FILES.filter((item) => keys.includes(item.key)).map((item) => item.file)
     const dataKeys = keys.filter((key) => key !== 'settings')
-    const lines: string[] = []
-    if (dataKeys.length) {
-      const report = await runGoogleDriveSync(direction, dataKeys, 'manual')
-      lines.push(report.lines.join('\n'))
-    }
-    if (keys.includes('settings')) {
-      const { folderId } = await resolveSyncFolder('manual')
-      if (direction === 'push') {
+    const { folderName, folderId } = await resolveSyncFolder('manual')
+    if (direction === 'push') {
+      if (dataKeys.length) await runGoogleDriveSync(direction, dataKeys, 'manual')
+      if (keys.includes('settings')) {
         await uploadJsonByName(folderId, 'settings.json', settingsDocument())
-        lines.push('送信: settings.json')
-      } else {
+      }
+    } else {
+      if (dataKeys.length) await runGoogleDriveSync(direction, dataKeys, 'manual')
+      if (keys.includes('settings')) {
         const data = await downloadJsonByName(folderId, 'settings.json')
         if (!data) throw new Error('settings.json がありません')
         await applySettingsDocument(data)
-        lines.push('取得: settings.json')
-        const extra = await backupSettingsNow()
-        if (extra) lines.push(extra)
       }
     }
-    if (!lines.length) throw new Error('ファイルが選ばれていません')
-    return lines.join('\n')
+    if (!ordered.length) throw new Error('ファイルが選ばれていません')
+    const verb = direction === 'push' ? '送信' : '取得'
+    return `フォルダ: ${folderName} (${folderId})\n${verb}: ${ordered.join(' / ')}`
   }
   const runPlaceIo = (
     id: string,
@@ -7306,18 +7303,10 @@ async function renderIO(): Promise<void> {
       void (async () => {
         const keys = await chooseManualFiles(action, 'google')
         if (!keys) return
-        const before = JSON.stringify(loadGoogleFolder('manual'))
         const ready = await chooseGoogleFolder('manual')
         if (!ready) return
         try {
-          let msg = await runGoogleManual(direction, keys)
-          const folderChanged = before !== JSON.stringify(loadGoogleFolder('manual'))
-          const pulledSettings = direction === 'pull' && keys.includes('settings')
-          if (folderChanged && !pulledSettings) {
-            const note = await backupSettingsNow()
-            if (note) msg = `${msg}\n${note}`
-          }
-          flashMsg = msg
+          flashMsg = await runGoogleManual(direction, keys)
         } catch (e) {
           flashMsg = `${failLabel}: ${(e as Error).message}`
         }

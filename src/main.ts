@@ -68,7 +68,6 @@ import {
   MANUAL_IO_FILES,
   needsLocalGate,
   restoreFromAutoIfEmpty,
-  settingsBackupPending,
   writeAfterCommit,
   type ManualIoKey,
 } from './place-backup'
@@ -7239,8 +7238,7 @@ async function renderIO(): Promise<void> {
       })
       if (!offOk) return
       setLocalAutoAccess(false)
-      const settingsNote = await backupSettingsNow()
-      flashMsg = `Local自動バックアップ: 停止${settingsNote ? `\n${settingsNote}` : ''}`
+      flashMsg = 'Local自動バックアップ: 停止'
       await render()
     })()
   })
@@ -7252,8 +7250,7 @@ async function renderIO(): Promise<void> {
         return
       }
       setLocalAutoAccess(true)
-      const settingsNote = await backupSettingsNow()
-      flashMsg = `Local自動バックアップ: 動作${settingsNote ? `\n${settingsNote}` : ''}`
+      flashMsg = 'Local自動バックアップ: 動作'
       await render()
     })()
   })
@@ -7353,8 +7350,7 @@ async function renderIO(): Promise<void> {
           return
         }
         await requestGoogleAccessToken()
-        const settingsNote = settingsBackupPending() ? await backupSettingsNow() : ''
-        flashMsg = `Google自動バックアップ: 動作${settingsNote ? `\n${settingsNote}` : ''}`
+        flashMsg = 'Google自動バックアップ: 動作'
         await render()
       } catch (e) {
         setMsg(`失敗: ${(e as Error).message}`, 'bad')

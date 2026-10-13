@@ -175,6 +175,58 @@ function directoryNameFromInput(input: HTMLInputElement): string {
   return common.join('/')
 }
 
+const pickedFiles = new Map<DirKind, File[]>()
+let primedRead: Promise<DirHandle | null> | null = null
+
+function rememberPickedFiles(kind: DirKind, list: FileList | File[]): void {
+  pickedFiles.set(kind, Array.from(list))
+}
+
+async function reopenStoredDirectory(kind: DirKind): Promise<DirHandle | null> {
+  const handle = await idbGet(kind)
+  if (!handle) return null
+  const h = handle as FileSystemDirectoryHandle & {
+    queryPermission?: (d: { mode: 'readwrite' }) => Promise<PermissionState>
+    requestPermission?: (d: { mode: 'readwrite' }) => Promise<PermissionState>
+  }
+  try {
+    let state: PermissionState = 'granted'
+    if (h.queryPermission) state = await h.queryPermission({ mode: 'readwrite' })
+    if (state === 'prompt' && h.requestPermission) {
+      state = await h.requestPermission({ mode: 'readwrite' })
+    }
+    return state === 'granted' ? handle : null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * 取り込み確定のクリックで呼ぶ。
+ * Safari はフォルダを後から開けないので、選んだファイルを残す。無ければその場で選び直す。
+ * Chromium は切れた許可を同じ操作の中で開き直す。
+ */
+export function primeDirectoryRead(kind: DirKind): void {
+  if (!canPersistDirectory()) {
+    if (pickedFiles.get(kind)?.length) {
+      primedRead = Promise.resolve(null)
+      return
+    }
+    primedRead = pickWithFileInput(kind, { keepLabel: true }).then(() => null)
+    return
+  }
+  primedRead = (async () => {
+    const existing = await reopenStoredDirectory(kind)
+    if (existing) return existing
+    const pick = picker()
+    if (!pick) return null
+    const handle = await pick({ mode: 'readwrite' })
+    await idbSet(kind, handle)
+    if (!directoryLabel(kind)) rememberDirectory(kind, handle.name)
+    return handle
+  })()
+}
+
 /** クリックの直後に呼ぶ。対応ブラウザはフォルダ許可、それ以外はファイルアプリ。 */
 export function beginDirectoryPick(kind: DirKind): Promise<string> {
   const pick = picker()
@@ -193,7 +245,7 @@ export function beginDirectoryPick(kind: DirKind): Promise<string> {
   return pickWithFileInput(kind)
 }
 
-function pickWithFileInput(kind: DirKind): Promise<string> {
+function pickWithFileInput(kind: DirKind, opts?: { keepLabel?: boolean }): Promise<string> {
   return new Promise((resolve, reject) => {
     const input = document.createElement('input')
     input.type = 'file'
@@ -205,7 +257,7 @@ function pickWithFileInput(kind: DirKind): Promise<string> {
       if (settled) return
       settled = true
       input.remove()
-      rememberDirectory(kind, name)
+      if (!opts?.keepLabel) rememberDirectory(kind, name)
       resolve(name)
     }
     const fail = (error: Error) => {
@@ -221,6 +273,7 @@ function pickWithFileInput(kind: DirKind): Promise<string> {
         fail(new EmptyFolderUnreported(folder))
         return
       }
+      rememberPickedFiles(kind, input.files || [])
       succeed(folder)
     })
     input.addEventListener('cancel', () => {
@@ -317,21 +370,98 @@ async function shareOrDownload(files: Record<string, unknown>): Promise<string[]
   return shared.map((file) => file.name)
 }
 
-export async function readJsonFiles(
-  kind: DirKind,
+function pathDepth(file: File): number {
+  const relative = (file as File & { webkitRelativePath?: string }).webkitRelativePath || file.name
+  return relative.split('/').filter(Boolean).length
+}
+
+function fileByName(files: readonly File[], name: string): File | undefined {
+  const exact = files.filter((file) => file.name === name)
+  const pool = exact.length ? exact : files.filter((file) => file.name.toLowerCase() === name.toLowerCase())
+  return [...pool].sort((a, b) => pathDepth(a) - pathDepth(b))[0]
+}
+
+async function parseJsonFile(name: string, text: string, strict: boolean): Promise<unknown | null> {
+  try {
+    return JSON.parse(text) as unknown
+  } catch {
+    if (strict) throw new Error(`${name} の内容を読めません`)
+    return null
+  }
+}
+
+async function readHandleFiles(
+  handle: DirHandle,
   names: string[],
+  strict: boolean,
 ): Promise<Record<string, unknown> | null> {
-  const handle = await storedDirectory(kind)
-  if (!handle) return null
   const out: Record<string, unknown> = {}
   for (const name of names) {
     try {
       const fh = await handle.getFileHandle(name)
       const text = await (await fh.getFile()).text()
-      out[name] = JSON.parse(text) as unknown
-    } catch {
-      return null
+      const parsed = await parseJsonFile(name, text, strict)
+      if (parsed == null && !strict) return null
+      out[name] = parsed
+    } catch (error) {
+      if (!strict) return null
+      if (error instanceof Error && error.message.includes('内容を読めません')) throw error
+      const missing = error instanceof DOMException && (error.name === 'NotFoundError' || error.name === 'TypeMismatchError')
+      throw new Error(missing ? `${name} がフォルダにありません` : `${name} を読めませんでした`)
     }
   }
   return out
+}
+
+async function readPickedFiles(
+  files: readonly File[],
+  names: string[],
+  strict: boolean,
+): Promise<Record<string, unknown> | null> {
+  const out: Record<string, unknown> = {}
+  for (const name of names) {
+    const file = fileByName(files, name)
+    if (!file) {
+      if (!strict) return null
+      throw new Error(`${name} がフォルダにありません`)
+    }
+    let text = ''
+    try {
+      text = await file.text()
+    } catch {
+      if (!strict) return null
+      throw new Error(`${name} を読めませんでした`)
+    }
+    const parsed = await parseJsonFile(name, text, strict)
+    if (parsed == null && !strict) return null
+    out[name] = parsed
+  }
+  return out
+}
+
+export async function readJsonFiles(
+  kind: DirKind,
+  names: string[],
+  opts?: { strict?: boolean },
+): Promise<Record<string, unknown> | null> {
+  const strict = !!opts?.strict
+  const primed = primedRead
+  primedRead = null
+  let primedHandle: DirHandle | null = null
+  if (primed) {
+    try {
+      primedHandle = await primed
+    } catch (error) {
+      if (strict) throw error
+      return null
+    }
+  }
+  const handle = primedHandle || (await storedDirectory(kind))
+  if (handle) return readHandleFiles(handle, names, strict)
+  const files = pickedFiles.get(kind)
+  if (files?.length) return readPickedFiles(files, names, strict)
+  if (strict) {
+    throw new Error('フォルダ名だけでは中のファイルを開けません。フォルダを選び直してください。')
+  }
+  return null
 }

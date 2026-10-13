@@ -59,6 +59,7 @@ import {
   localAutoAccessOn,
   markLocalSetupDone,
   pickerWasCancelled,
+  primeDirectoryRead,
   rememberDirectory,
   setLocalAutoAccess,
 } from './local-dirs'
@@ -496,7 +497,13 @@ async function finishManualFolder(action: 'export' | 'import', _name: string): P
         ? await exportToFolder('manual', manualIoKeys)
         : await importFromFolder('manual', manualIoKeys)
   } catch (e) {
-    flashMsg = `${action === 'export' ? 'フォルダへ書き出せませんでした' : 'フォルダから取り込めませんでした'}: ${(e as Error).message}`
+    if (action === 'import' && pickerWasCancelled(e)) {
+      flashMsg = 'フォルダの選択をキャンセルしました。'
+    } else if (action === 'import' && e instanceof EmptyFolderUnreported) {
+      flashMsg = '選んだフォルダからファイルを読めません。中にファイルがあるフォルダを選び直してください。'
+    } else {
+      flashMsg = `${action === 'export' ? 'フォルダへ書き出せませんでした' : 'フォルダから取り込めませんでした'}: ${(e as Error).message}`
+    }
   }
   if (done) flashMsg = done
   folderScreen = 'auto'
@@ -632,6 +639,7 @@ async function renderLocalGate(): Promise<void> {
     }
     const action = folderScreen
     folderScreen = 'auto'
+    if (action === 'import') primeDirectoryRead(dirKind)
     void finishManualFolder(action, full)
   })
   if (middleInput) {

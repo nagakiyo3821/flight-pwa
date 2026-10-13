@@ -193,7 +193,7 @@ export async function importFromFolder(
   await ensureDirectory(kind)
   const names = MANUAL_IO_FILES.filter((item) => keys.includes(item.key)).map((item) => item.file)
   if (!names.length) throw new Error('ファイルが選ばれていません')
-  const files = await readJsonFiles(kind, names)
+  const files = await readJsonFiles(kind, names, { strict: true })
   if (!files) throw new Error('選んだファイルをフォルダから読めませんでした')
   if (files['log.json']) await importLog(files['log.json'] as LogFile)
   if (files['pos.json']) await importPos(files['pos.json'] as PosFile)

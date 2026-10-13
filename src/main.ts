@@ -457,7 +457,7 @@ function beginFolderReview(screen: 'auto' | 'export' | 'import', label: string):
   }
 }
 
-async function finishAutoFolderPick(name: string): Promise<void> {
+async function finishAutoFolderPick(name: string, opts?: { backupSettings?: boolean }): Promise<void> {
   const picked = app.querySelector('#pickAutoFolder') as HTMLButtonElement | null
   if (picked) picked.disabled = true
   const confirmBtn = app.querySelector('#confirmDir') as HTMLButtonElement | null
@@ -467,7 +467,7 @@ async function finishAutoFolderPick(name: string): Promise<void> {
     extra = '\n' + (await writeAfterCommit())
   }
   setLocalAutoAccess(true)
-  const settingsNote = await backupSettingsNow()
+  const settingsNote = opts?.backupSettings ? await backupSettingsNow() : ''
   flashMsg = `Local自動バックアップ: ${name}${extra}${settingsNote ? `\n${settingsNote}` : ''}`
   localGatePathEdit = false
   localGateDirectory = ''
@@ -599,7 +599,7 @@ async function renderLocalGate(): Promise<void> {
           ? '<button type="button" class="places-ui-cmd" id="confirmDir">このフォルダで確定</button>'
           : ''
       }
-      ${startupGate ? '<button type="button" class="places-ui-cmd" id="importSettingsFile">settings.json を取り込む</button>' : ''}
+      ${startupGate && !localGatePathEdit ? '<button type="button" class="places-ui-cmd" id="importSettingsFile">settings.json を取り込む</button>' : ''}
     </div>
   </main>`
   const middleInput = app.querySelector('#dirMiddle') as HTMLInputElement | null
@@ -619,11 +619,12 @@ async function renderLocalGate(): Promise<void> {
       middleInput?.value ?? localGateMiddle,
       localGateDirectory,
     )
+    const startupConfirm = folderScreen === 'auto' && !folderScreenOpen
     rememberDirectory(dirKind, full)
     localGatePathEdit = false
     folderScreenOpen = false
     if (folderScreen === 'auto') {
-      void finishAutoFolderPick(full)
+      void finishAutoFolderPick(full, { backupSettings: !startupConfirm })
       return
     }
     const action = folderScreen

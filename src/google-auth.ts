@@ -41,6 +41,7 @@ let tokenExpiresAt = 0
 let gisLoad: Promise<void> | null = null
 
 const TOKEN_STORE = 'flight-pwa.google.access'
+const AUTO_PAUSED = 'flight-google-auto-paused'
 
 function persistToken(): void {
   try {
@@ -110,6 +111,37 @@ export function clearGoogleSession(): void {
     } catch {
       /* ignore */
     }
+  }
+}
+
+/** 「停止」を押したあとは、ログインが残っていても動作中へ戻さない。 */
+export function pauseGoogleAuto(): void {
+  localStorage.setItem(AUTO_PAUSED, '1')
+}
+
+export function resumeGoogleAutoIntent(): void {
+  localStorage.removeItem(AUTO_PAUSED)
+}
+
+export function googleAutoPaused(): boolean {
+  return localStorage.getItem(AUTO_PAUSED) === '1'
+}
+
+let googleResumeTried = false
+
+/**
+ * フォルダが設定済みで、停止されていず、ブラウザ側の Google 許可が残っていればトークンを取り直す。
+ * 画面は出さない。失敗しても停止中のまま。
+ */
+export async function resumeGoogleAutoIfGranted(): Promise<boolean> {
+  if (googleResumeTried || googleAutoPaused()) return isGoogleSignedIn()
+  googleResumeTried = true
+  if (isGoogleSignedIn()) return true
+  try {
+    await requestGoogleAccessToken()
+    return true
+  } catch {
+    return false
   }
 }
 

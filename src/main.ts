@@ -75,8 +75,12 @@ import {
 } from './place-backup'
 import {
   clearGoogleSession,
+  googleAutoPaused,
   isGoogleSignedIn,
+  pauseGoogleAuto,
   requestGoogleAccessToken,
+  resumeGoogleAutoIfGranted,
+  resumeGoogleAutoIntent,
 } from './google-auth'
 import { downloadJsonByName, drivePathSegments, listDriveFolders, resolveSyncFolder, uploadJsonByName, withDriveDeadline } from './google-drive'
 import { googleFolderLabel, loadGoogleFolder, saveGoogleFolder, type GoogleFolderKind } from './google-folder'
@@ -7062,6 +7066,11 @@ async function renderIO(): Promise<void> {
   const autoGoogle = googleFolderLabel('auto')
   const localOn = localAutoAccessOn() && autoDir !== '未設定'
   const googleOn = isGoogleSignedIn() && autoGoogle !== '未設定'
+  if (!googleOn && autoGoogle !== '未設定' && !googleAutoPaused()) {
+    void resumeGoogleAutoIfGranted().then((ok) => {
+      if (ok && view === 'io') void render()
+    })
+  }
   const localAccess = localOn ? '動作中' : '停止中'
   const googleAccess = googleOn ? '動作中' : '停止中'
   const localToggle = localOn ? '停止' : '動作'
@@ -7354,6 +7363,7 @@ async function renderIO(): Promise<void> {
           return
         }
         await requestGoogleAccessToken()
+        resumeGoogleAutoIntent()
         flashMsg = 'Google自動バックアップ: 動作'
         await render()
       } catch (e) {
@@ -7371,6 +7381,7 @@ async function renderIO(): Promise<void> {
       })
       if (!offOk) return
       clearGoogleSession()
+      pauseGoogleAuto()
       flashMsg = 'Google自動バックアップ: 停止'
       await render()
     })()

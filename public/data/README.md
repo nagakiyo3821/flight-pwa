@@ -10,10 +10,10 @@
 | `log.json` / `pos.json` / `tmp.json` | **除外** | 開発用シード。**初回自動取込はしない** |
 | `masters.json` / `settings.json` | **除外** | 個人用。`settings.json` は端末の管理データ（フォルダ名、Google のフォルダ ID、Local の動作／停止） |
 
-出し入れするファイル名:
+出し入れするファイルは 5 つです。
 
-- `log.json` / `pos.json` / `tmp.json` / `masters.json`
-- `settings.json` は手動入出力で選べる。初期状態はオフ。データ登録の自動書き出しには含めない
+- `log.json` / `pos.json` / `tmp.json` / `masters.json` は飛行の記録です。データ登録の自動書き出しは、この 4 つです
+- `settings.json` は端末のフォルダ記憶です。手動入出力と PWA初期化で選べ、初期状態はオフです。データ登録では書きません。中身と読み書きのタイミングはマニュアルの「2. 準備するデータ」です
 - 旧ショートカットの `log03.json` 等も取込可（中身互換）。ファイル名の Ver 数字は使わない
 
 ## バックアップの保管先

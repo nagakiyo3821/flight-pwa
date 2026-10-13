@@ -197,7 +197,7 @@
     <p>利用条件の同意のあと、中の記録が空のときだけ Local自動バックアップのフォルダ選択が出ます。初期状態は動作させる前提です。フォルダは事前に作り、中にファイルを1つ以上置いておきます。アプリはフォルダを作りません。空のフォルダは名前が取れません。飛行記録や場所は、ファイルを取り込むまで空です。サンプルデータは自動では入りません。停止中にすると、この選択は出ません。記録が残っているときは、アプリを閉じてもう一度開いてもフォルダ選択には戻らず、前回の記録から始まります。起動のたびに <code>settings.json</code> を探すことはありません。戻すときは、フォルダ選択画面の「settings.json を取り込む」を押します。</p>
 
     <h2 id="sec-2" class="sec"><span>2. 準備するデータ</span><a class="to-top" href="#top" data-to-top aria-label="先頭へ"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 3.2 2.6 9.2h3.1V13h4.6V9.2h3.1L8 3.2z"/></svg></a></h2>
-    <p>出し入れするデータは 4 種類です。拡張子はすべて <code>.json</code> です。接続先などの最小管理データは <code>settings.json</code> です。ログインのトークンは書きません。</p>
+    <p>出し入れするファイルは 5 つです。拡張子はすべて <code>.json</code> です。飛行の記録は <code>log.json</code> <code>pos.json</code> <code>tmp.json</code> <code>masters.json</code> の 4 つです。<code>settings.json</code> はこの端末のフォルダ記憶です。ログインのトークンは書きません。</p>
     <table>
       <thead>
         <tr><th>ファイル</th><th>中身</th><th>いつ要るか</th></tr>
@@ -207,6 +207,7 @@
         <tr><td><code>log.json</code></td><td>飛行ごとの点検記録</td><td>過去の記録を引き継ぐとき。無ければ空で開始</td></tr>
         <tr><td><code>pos.json</code></td><td>場所（名前・住所・緯度経度・高度）</td><td>よく飛ぶ場所を先に入れておくとき。無くても当日登録できる</td></tr>
         <tr><td><code>tmp.json</code></td><td>作業中の進行状態と、気象セットした時刻</td><td>作業の途中を別端末へ移すとき。通常はアプリが持つ</td></tr>
+        <tr><td><code>settings.json</code></td><td>フォルダ名、Google のフォルダ ID、Local の動作／停止</td><td>別の端末へフォルダ記憶を渡すとき。飛行記録とは別に扱う</td></tr>
       </tbody>
     </table>
     <p>旧ショートカットの <code>log03.json</code> のように、名前の末尾に番号が付いたファイルも、中身が同じ形式なら取り込めます。値はすべて文字です。数値も <code>"15"</code> のように文字で入ります。</p>
@@ -287,9 +288,24 @@
         <tr><td><code>labels</code></td><td>「任意の入力」欄の表示名</td></tr>
       </tbody>
     </table>
-    <p><strong>バックアップの保管先</strong></p>
-    <p>Local と Google のフォルダは、システム設定でこの端末に覚えます。その内容は <code>settings.json</code> に書き、Local と Google の自動バックアップ先へ、設定が変わったときに出します。手動エクスポートでも選べます。フォルダ名と Google のフォルダ ID、Local の動作／停止が入ります。ログインのトークンは入りません。<code>settings.json</code> を取り込んでも、フォルダの書き込み許可と Google のログインは戻りません。許可はフォルダの選び直し、ログインは「動作」で行います。</p>
-    <p>記録が残っている再起動は、前回の続きから始まります。PWA初期化で記録が空になったとき、または内部データが失われたときは、Local自動バックアップのフォルダ選択から始まります。その画面の「settings.json を取り込む」は、ファイルを読んでフォルダ名、Google のフォルダ ID、Local の動作／停止を戻します。Local のフォルダ名が戻るか、Local が停止なら、初期設定は終わり、ホームへ進みます。ここから <code>settings.json</code> を書き出しません。</p>
+    <p><strong>settings.json（端末の管理）</strong></p>
+    <p>飛行記録ではありません。この端末が覚えているフォルダです。<code>version</code> が 3 のときだけ取り込めます。</p>
+    <table>
+      <thead><tr><th>キー</th><th>意味</th></tr></thead>
+      <tbody>
+        <tr><td><code>version</code></td><td><code>3</code></td></tr>
+        <tr><td><code>localAuto.access</code></td><td>Local自動バックアップを動作させるか</td></tr>
+        <tr><td><code>localAuto.folderName</code></td><td>Local自動のフォルダ名</td></tr>
+        <tr><td><code>localManual.folderName</code></td><td>手動入出力のフォルダ名</td></tr>
+        <tr><td><code>googleAuto.folderName</code> / <code>googleAuto.folderId</code></td><td>Google自動のフォルダ名とフォルダ ID</td></tr>
+        <tr><td><code>googleManual.folderName</code> / <code>googleManual.folderId</code></td><td>Google手動のフォルダ名とフォルダ ID</td></tr>
+      </tbody>
+    </table>
+    <p>ログインのトークンと、フォルダへの書き込み許可は入りません。</p>
+    <p>データ登録では書きません。そのとき書くのは <code>log.json</code> <code>pos.json</code> <code>tmp.json</code> <code>masters.json</code> の 4 つです。<code>settings.json</code> を書くのは、Local自動または Google自動のフォルダを変えたときです。自動バックアップ先へ出します。「動作」と「停止」、初期設定でフォルダを確定したとき、手動エクスポートのフォルダ指定では書きません。</p>
+    <p>手動エクスポート、手動インポート、PWA初期化では、他の 4 つと同じ一覧に出ます。はじめはオフです。</p>
+    <p>読み込むのは、初期設定の「settings.json を取り込む」、手動インポート、Google からの取得だけです。起動のたびに探すことはありません。取り込みで戻るのは、フォルダ名、Google のフォルダ ID、Local の動作／停止です。書き込み許可はフォルダの選び直し、ログインは「動作」で行います。Local のフォルダ名が戻るか、Local が停止なら、初期設定は終わり、ホームへ進みます。この取り込みから <code>settings.json</code> は書き出しません。</p>
+    <p>PWA初期化で選ぶと、端末内のフォルダ名、Google のフォルダ ID、Local の動作／停止を消し、未設定に戻します。外にあるファイルとログインは残ります。初期のフォルダ選択に戻すときは、<code>log.json</code> と <code>pos.json</code> も一緒に初期化します。記録が残っていると、<code>settings.json</code> だけを消してもフォルダ選択には戻りません。</p>
     <h3>準備しないときと、準備したとき</h3>
     <p>ファイルを何も取り込まなくても、飛行の記録は始められます。アプリには初期の選択肢（飛行目的、飛行条件、障害物、正常／異常、機種名 Mavic2Pro / Tello / Other など）が入っています。</p>
     <table>

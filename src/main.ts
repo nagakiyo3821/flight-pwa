@@ -665,8 +665,7 @@ async function renderLocalGate(): Promise<void> {
         const data = await readSettingsFile()
         if (!data) return
         await applySettingsDocument(data)
-        const settingsNote = await backupSettingsNow()
-        const restored = `settings.json を取り込みました。${settingsNote}`
+        const restored = 'settings.json を取り込みました。'
         if (!localAutoAccessOn()) {
           flashMsg = restored
           folderScreenOpen = false
@@ -675,7 +674,7 @@ async function renderLocalGate(): Promise<void> {
           return
         }
         localGateNoteOk = true
-        localGateNote = `${restored} フォルダの書き込み許可は、フォルダを選び直してください。`
+        localGateNote = restored
         await render()
       } catch (e) {
         localGateNoteOk = false

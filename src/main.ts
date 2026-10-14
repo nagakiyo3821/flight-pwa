@@ -7109,7 +7109,7 @@ async function renderIO(): Promise<void> {
   const localToggle = localOn ? '停止' : '動作'
   const googleToggle = googleOn ? '停止' : '動作'
   const placeLines = `
-            <p class="places-ui-io-hint">フォルダ: ${escapeHtml(manualDir)}</p>
+            ${phoneFiles ? '' : `<p class="places-ui-io-hint">フォルダ: ${escapeHtml(manualDir)}</p>`}
             <p class="places-ui-io-hint">Google: ${escapeHtml(manualGoogle)}</p>`
   const cmd = (id: string, label: string, opts?: { disabled?: boolean; danger?: boolean }) => {
     const danger = opts?.danger ? ' places-ui-cmd--danger' : ''
@@ -7143,7 +7143,7 @@ async function renderIO(): Promise<void> {
             <h2 class="places-ui-io-h">Local自動バックアップ</h2>
             ${
               phoneFiles
-                ? '<p class="places-ui-io-hint">iPhone ではフォルダの位置を指定できないため、登録のあと自動では書けません。フォルダへ残すときは手動エクスポートを使います。</p>'
+                ? '<p class="places-ui-io-hint">iPhone ではファイルアプリを使わないため、フォルダへの書き出しと取り込みはありません。外へ残すときは Google を使います。</p>'
                 : `<p class="places-ui-io-hint">アクセス: ${localAccess}</p>
             <p class="places-ui-io-hint">フォルダ: ${escapeHtml(autoDir)}</p>
             <div class="places-ui-cmds places-ui-cmds--wrap">
@@ -7163,14 +7163,14 @@ async function renderIO(): Promise<void> {
             <h2 class="places-ui-io-h">手動エクスポート</h2>
             ${placeLines}
             <div class="places-ui-cmds places-ui-cmds--wrap">
-              ${cmd('expFolder', 'フォルダ指定')}
+              ${phoneFiles ? '' : cmd('expFolder', 'フォルダ指定')}
               ${cmd('expGoogle', 'Google')}
             </div>
 
             <h2 class="places-ui-io-h">手動インポート</h2>
             ${placeLines}
             <div class="places-ui-cmds places-ui-cmds--wrap">
-              ${cmd('impFolder', 'フォルダ指定')}
+              ${phoneFiles ? '' : cmd('impFolder', 'フォルダ指定')}
               ${cmd('impGoogle', 'Google')}
             </div>
 
@@ -7302,7 +7302,7 @@ async function renderIO(): Promise<void> {
   })
   const openManualFolder = (action: 'export' | 'import') => {
     void (async () => {
-      if (ioBusy) return
+      if (ioBusy || !canPersistDirectory()) return
       const keys = await chooseManualFiles(action, 'folder')
       if (!keys) return
       manualIoKeys = keys

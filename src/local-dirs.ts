@@ -346,11 +346,11 @@ export async function writeJsonFiles(
   const payload = applyLocalStamp(files, localStamp())
   const handle = await storedDirectory(kind)
   if (!handle) {
-    const remembered = sessionStorage.getItem(labelKey(kind)) || localStorage.getItem(labelKey(kind))
-    if (!canPersistDirectory() && remembered) {
-      return shareOrDownload(payload)
-    }
-    throw new Error('フォルダが未指定か、許可が切れています')
+    throw new Error(
+      canPersistDirectory()
+        ? 'フォルダが未指定か、許可が切れています'
+        : 'この端末はファイルアプリへ書きません。Google を使ってください。',
+    )
   }
   const written: string[] = []
   const errors: string[] = []
@@ -372,26 +372,6 @@ export async function writeJsonFiles(
     throw new Error(`未完了（${written.join(', ') || 'なし'}） ${errors.join(' / ')}`)
   }
   return written
-}
-
-function shareableFiles(files: Record<string, unknown>): File[] {
-  const nav = navigator as Navigator & { canShare?: (d: { files: File[] }) => boolean }
-  const build = (type: string) =>
-    Object.entries(files).map(([name, data]) => new File([JSON.stringify(data, null, 2)], name, { type }))
-  const asJson = build('application/json')
-  if (asJson.length && nav.canShare?.({ files: asJson })) return asJson
-  const asText = build('text/plain')
-  if (asText.length && nav.canShare?.({ files: asText })) return asText
-  return []
-}
-
-async function shareOrDownload(files: Record<string, unknown>): Promise<string[]> {
-  const shared = shareableFiles(files)
-  if (!shared.length || !navigator.share) {
-    throw new Error('この端末は指定フォルダへ直接書けません。共有シートでもこのファイルを渡せませんでした')
-  }
-  await navigator.share({ files: shared })
-  return shared.map((file) => file.name)
 }
 
 function pathDepth(file: File): number {

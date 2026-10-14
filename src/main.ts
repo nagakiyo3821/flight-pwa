@@ -538,10 +538,10 @@ function readSettingsFile(): Promise<unknown | null> {
         try {
           finish(JSON.parse(String(reader.result || '')))
         } catch {
-          finish(null, new Error('settings.json を読めません'))
+          finish(null, new Error('set を読めません'))
         }
       }
-      reader.onerror = () => finish(null, new Error('settings.json を読めません'))
+      reader.onerror = () => finish(null, new Error('set を読めません'))
       reader.readAsText(file)
     })
     input.addEventListener('cancel', () => finish(null))
@@ -609,7 +609,7 @@ async function renderLocalGate(): Promise<void> {
           ? '<button type="button" class="places-ui-cmd" id="confirmDir">このフォルダで確定</button>'
           : ''
       }
-      ${startupGate && !localGatePathEdit ? '<button type="button" class="places-ui-cmd" id="importSettingsFile">settings.json を取り込む</button>' : ''}
+      ${startupGate && !localGatePathEdit ? '<button type="button" class="places-ui-cmd" id="importSettingsFile">set を取り込む</button>' : ''}
     </div>
   </main>`
   const middleInput = app.querySelector('#dirMiddle') as HTMLInputElement | null
@@ -677,7 +677,7 @@ async function renderLocalGate(): Promise<void> {
         const data = await readSettingsFile()
         if (!data) return
         await applySettingsDocument(data)
-        const restored = 'settings.json を取り込みました。'
+        const restored = 'set を取り込みました。'
         if (localAutoAccessOn() && (await directoryStatus('auto')) === '未設定') {
           localGateNoteOk = true
           localGateNote = `${restored} Local のフォルダは未設定です。`
@@ -1302,7 +1302,7 @@ function chooseManualFiles(
     const rows = choices.map(
       (item) => `<label class="sc-file-pick">
         <input type="checkbox" data-file="${item.key}"${item.checked ? ' checked' : ''} />
-        <span>${escapeHtml(item.file)}</span>
+        <span>${escapeHtml(item.label)}</span>
       </label>`,
     ).join('')
     root.innerHTML = `
@@ -7405,7 +7405,7 @@ async function renderIO(): Promise<void> {
     void (async () => {
       const keys = await chooseManualFiles('reset', 'data')
       if (!keys?.length) return
-      const names = MANUAL_IO_FILES.filter((item) => keys.includes(item.key)).map((item) => item.file)
+      const names = MANUAL_IO_FILES.filter((item) => keys.includes(item.key)).map((item) => item.label)
       const ok = await confirmYesNo({
         title: `次の内部データを初期化しますか？\n${names.join('\n')}`,
         okLabel: '1.初期化する',

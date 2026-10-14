@@ -16,11 +16,11 @@ import type { MastersFile } from './catalog'
 const PENDING = 'flight-local-export-pending'
 const SETTINGS_PENDING = 'flight-settings-backup-pending'
 export const MANUAL_IO_FILES = [
-  { key: 'log', file: 'log.json', folderOnly: false, checked: false },
-  { key: 'pos', file: 'pos.json', folderOnly: false, checked: false },
-  { key: 'tmp', file: 'tmp.json', folderOnly: false, checked: false },
-  { key: 'masters', file: 'masters.json', folderOnly: false, checked: false },
-  { key: 'settings', file: 'settings.json', folderOnly: true, checked: false },
+  { key: 'log', file: 'log.json', label: 'log', folderOnly: false, checked: false },
+  { key: 'pos', file: 'pos.json', label: 'pos', folderOnly: false, checked: false },
+  { key: 'tmp', file: 'tmp.json', label: 'tmp', folderOnly: false, checked: false },
+  { key: 'masters', file: 'masters.json', label: 'mst', folderOnly: false, checked: false },
+  { key: 'settings', file: 'settings.json', label: 'set', folderOnly: true, checked: false },
 ] as const
 export type ManualIoKey = (typeof MANUAL_IO_FILES)[number]['key']
 const FILE_NAMES = MANUAL_IO_FILES.filter((item) => !item.folderOnly).map((item) => item.file)
@@ -66,8 +66,9 @@ async function bundleFromDb(): Promise<Record<string, unknown>> {
 
 export async function restoreFromAutoIfEmpty(isEmpty: boolean): Promise<string | null> {
   if (!isEmpty) return null
-  const files = await readJsonFiles('auto', [...FILE_NAMES])
-  if (!files) return null
+  const read = await readJsonFiles('auto', [...FILE_NAMES])
+  if (!read) return null
+  const files = read.files
   await importLog(files['log.json'] as LogFile)
   await importPos(files['pos.json'] as PosFile)
   await importTmp(files['tmp.json'] as TmpFlag)
@@ -126,8 +127,8 @@ export async function backupSettingsNow(): Promise<string> {
   let pending = false
   if ((await directoryStatus('auto')) !== '未設定') {
     try {
-      await writeJsonFiles('auto', { 'settings.json': doc })
-      lines.push('settings.json を Local へ書き出しました')
+      const written = await writeJsonFiles('auto', { 'settings.json': doc })
+      lines.push(`${written.join(', ')} を Local へ書き出しました`)
     } catch (e) {
       pending = true
       lines.push(`settings.json は Local へ書けませんでした。${(e as Error).message}`)
@@ -193,8 +194,9 @@ export async function importFromFolder(
   await ensureDirectory(kind)
   const names = MANUAL_IO_FILES.filter((item) => keys.includes(item.key)).map((item) => item.file)
   if (!names.length) throw new Error('ファイルが選ばれていません')
-  const files = await readJsonFiles(kind, names, { strict: true })
-  if (!files) throw new Error('選んだファイルをフォルダから読めませんでした')
+  const read = await readJsonFiles(kind, names, { strict: true })
+  if (!read) throw new Error('選んだファイルをフォルダから読めませんでした')
+  const files = read.files
   if (files['log.json']) await importLog(files['log.json'] as LogFile)
   if (files['pos.json']) await importPos(files['pos.json'] as PosFile)
   if (files['tmp.json']) await importTmp(files['tmp.json'] as TmpFlag)
@@ -202,5 +204,5 @@ export async function importFromFolder(
   if (files['settings.json']) await applySettingsDocument(files['settings.json'])
   const dir = await directoryStatus(kind)
   const label = kind === 'manual' ? 'Local' : 'iCloud'
-  return `${label}「${dir}」から取り込みました（${names.join(', ')}）`
+  return `${label}「${dir}」から取り込みました（${read.used.join(', ')}）`
 }

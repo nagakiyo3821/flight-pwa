@@ -4,6 +4,8 @@
  * Safari は許可を保存できないので、起動のたびに選び直す。
  */
 
+import { applyLocalStamp, localKindLabel, localStamp, pickLatestEntry } from './local-file-names'
+
 const DB = 'flight-local-dirs'
 const STORE = 'handles'
 const SESSION_OK = 'flight-auto-folder-ok'
@@ -25,6 +27,12 @@ function picker(): ((opts?: { mode?: 'readwrite' }) => Promise<DirHandle>) | nul
 
 export function canPersistDirectory(): boolean {
   return picker() !== null
+}
+
+/** iPhone と Android は日時付きの新しいファイルを書く。パソコンは同じ名前を置き換える。 */
+export function stampLocalFileNames(): boolean {
+  if (!canPersistDirectory()) return true
+  return /Android/i.test(navigator.userAgent)
 }
 
 function openDb(): Promise<IDBDatabase> {
@@ -323,17 +331,18 @@ export async function writeJsonFiles(
   kind: DirKind,
   files: Record<string, unknown>,
 ): Promise<string[]> {
+  const payload = stampLocalFileNames() ? applyLocalStamp(files, localStamp()) : files
   const handle = await storedDirectory(kind)
   if (!handle) {
     const remembered = sessionStorage.getItem(labelKey(kind)) || localStorage.getItem(labelKey(kind))
     if (!canPersistDirectory() && remembered) {
-      return shareOrDownload(files)
+      return shareOrDownload(payload)
     }
     throw new Error('フォルダが未指定か、許可が切れています')
   }
   const written: string[] = []
   const errors: string[] = []
-  for (const [name, data] of Object.entries(files)) {
+  for (const [name, data] of Object.entries(payload)) {
     try {
       const fh = await handle.getFileHandle(name, { create: true })
       const w = await fh.createWritable()
@@ -375,12 +384,6 @@ function pathDepth(file: File): number {
   return relative.split('/').filter(Boolean).length
 }
 
-function fileByName(files: readonly File[], name: string): File | undefined {
-  const exact = files.filter((file) => file.name === name)
-  const pool = exact.length ? exact : files.filter((file) => file.name.toLowerCase() === name.toLowerCase())
-  return [...pool].sort((a, b) => pathDepth(a) - pathDepth(b))[0]
-}
-
 async function parseJsonFile(name: string, text: string, strict: boolean): Promise<unknown | null> {
   try {
     return JSON.parse(text) as unknown
@@ -390,60 +393,84 @@ async function parseJsonFile(name: string, text: string, strict: boolean): Promi
   }
 }
 
+async function namesInDirectory(handle: DirHandle): Promise<string[]> {
+  const names: string[] = []
+  const dir = handle as FileSystemDirectoryHandle & {
+    entries?: () => AsyncIterable<[string, FileSystemHandle]>
+  }
+  if (!dir.entries) return names
+  for await (const [name, entry] of dir.entries()) {
+    if (entry.kind === 'file') names.push(name)
+  }
+  return names
+}
+
 async function readHandleFiles(
   handle: DirHandle,
   names: string[],
   strict: boolean,
-): Promise<Record<string, unknown> | null> {
+): Promise<{ files: Record<string, unknown>; used: string[] } | null> {
+  const present = (await namesInDirectory(handle)).map((fileName) => ({ item: fileName, fileName, depth: 1 }))
   const out: Record<string, unknown> = {}
+  const used: string[] = []
   for (const name of names) {
+    const picked = pickLatestEntry(present, name)
+    const label = localKindLabel(name)
+    if (!picked) {
+      if (!strict) return null
+      throw new Error(`${label} がフォルダにありません`)
+    }
     try {
-      const fh = await handle.getFileHandle(name)
+      const fh = await handle.getFileHandle(picked.item)
       const text = await (await fh.getFile()).text()
-      const parsed = await parseJsonFile(name, text, strict)
+      const parsed = await parseJsonFile(picked.fileName, text, strict)
       if (parsed == null && !strict) return null
       out[name] = parsed
+      used.push(picked.fileName)
     } catch (error) {
       if (!strict) return null
       if (error instanceof Error && error.message.includes('内容を読めません')) throw error
-      const missing = error instanceof DOMException && (error.name === 'NotFoundError' || error.name === 'TypeMismatchError')
-      throw new Error(missing ? `${name} がフォルダにありません` : `${name} を読めませんでした`)
+      throw new Error(`${label} を読めませんでした`)
     }
   }
-  return out
+  return { files: out, used }
 }
 
 async function readPickedFiles(
   files: readonly File[],
   names: string[],
   strict: boolean,
-): Promise<Record<string, unknown> | null> {
+): Promise<{ files: Record<string, unknown>; used: string[] } | null> {
+  const present = files.map((file) => ({ item: file, fileName: file.name, depth: pathDepth(file) }))
   const out: Record<string, unknown> = {}
+  const used: string[] = []
   for (const name of names) {
-    const file = fileByName(files, name)
-    if (!file) {
+    const picked = pickLatestEntry(present, name)
+    const label = localKindLabel(name)
+    if (!picked) {
       if (!strict) return null
-      throw new Error(`${name} がフォルダにありません`)
+      throw new Error(`${label} がフォルダにありません`)
     }
     let text = ''
     try {
-      text = await file.text()
+      text = await picked.item.text()
     } catch {
       if (!strict) return null
-      throw new Error(`${name} を読めませんでした`)
+      throw new Error(`${label} を読めませんでした`)
     }
-    const parsed = await parseJsonFile(name, text, strict)
+    const parsed = await parseJsonFile(picked.fileName, text, strict)
     if (parsed == null && !strict) return null
     out[name] = parsed
+    used.push(picked.fileName)
   }
-  return out
+  return { files: out, used }
 }
 
 export async function readJsonFiles(
   kind: DirKind,
   names: string[],
   opts?: { strict?: boolean },
-): Promise<Record<string, unknown> | null> {
+): Promise<{ files: Record<string, unknown>; used: string[] } | null> {
   const strict = !!opts?.strict
   const primed = primedRead
   primedRead = null

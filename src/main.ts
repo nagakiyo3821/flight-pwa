@@ -584,12 +584,18 @@ async function renderLocalGate(): Promise<void> {
   </header>
   <main class="places-ui-main">
     <p class="places-ui-io-hint">${lead}<br>事前に対象フォルダ（最低１つのファイル含む）の準備が必要です。${
-      localGatePathEdit ? '<br>選択したフォルダを以下に登録してください。' : ''
+      localGatePathEdit
+        ? `<br>選択したフォルダを以下に登録してください。<br>保存する場所は「${escapeHtml(localGateRoot)}」です。共有シートでも、同じ場所を開いてください。`
+        : ''
     }</p>
     ${
       localGatePathEdit
         ? `<div class="dir-path">
-      <button type="button" class="dir-path-root" id="dirRoot">${escapeHtml(localGateRoot)}</button>
+      <span class="dir-path-roots">${DIR_ROOTS.map((root) =>
+        root === localGateRoot
+          ? `<span class="dir-path-root is-selected">${escapeHtml(root)}</span>`
+          : `<button type="button" class="dir-path-root" data-root="${escapeHtml(root)}">${escapeHtml(root)}</button>`,
+      ).join('')}</span>
       <span class="dir-path-fixed">/</span>
       <input id="dirMiddle" class="dir-path-middle" type="text" enterkeyhint="done" autocomplete="off" autocapitalize="off" spellcheck="false" value="${escapeHtml(localGateMiddle)}" aria-label="追加のディレクトリ" />
       <span class="dir-path-fixed" id="dirMidSlash">${localGateMiddle.trim() ? '/' : ''}</span>
@@ -619,10 +625,14 @@ async function renderLocalGate(): Promise<void> {
     localGateMiddle = middleInput.value
     if (midSlash) midSlash.textContent = middleInput.value.trim() ? '/' : ''
   })
-  app.querySelector('#dirRoot')?.addEventListener('click', () => {
-    localGateMiddle = middleInput?.value ?? localGateMiddle
-    localGateRoot = localGateRoot === DIR_ROOTS[0] ? DIR_ROOTS[1] : DIR_ROOTS[0]
-    void render()
+  app.querySelectorAll<HTMLButtonElement>('[data-root]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const next = button.dataset.root
+      if (!next || next === localGateRoot) return
+      localGateMiddle = middleInput?.value ?? localGateMiddle
+      localGateRoot = next === DIR_ROOTS[1] ? DIR_ROOTS[1] : DIR_ROOTS[0]
+      void render()
+    })
   })
   app.querySelector('#confirmDir')?.addEventListener('click', () => {
     const full = composeDirectoryLabel(

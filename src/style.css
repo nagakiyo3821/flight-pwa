@@ -2525,14 +2525,25 @@ button.ghost.is-busy,
   line-height: 1.45;
   color: var(--ink);
 }
+.dir-path-roots {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
 .dir-path-root {
   border: 0;
   padding: 0.15rem 0;
   background: transparent;
-  color: var(--accent, #0b5f7a);
+  color: var(--muted);
   font: inherit;
   text-decoration: underline;
   cursor: pointer;
+}
+.dir-path-root.is-selected {
+  color: var(--ink);
+  font-weight: 700;
+  text-decoration: none;
+  cursor: default;
 }
 .dir-path-middle {
   flex: 1 1 2.5rem;

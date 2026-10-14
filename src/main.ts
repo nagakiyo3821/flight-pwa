@@ -7096,7 +7096,8 @@ async function renderIO(): Promise<void> {
   const manualDir = await directoryStatus('manual')
   const manualGoogle = googleFolderLabel('manual')
   const autoGoogle = googleFolderLabel('auto')
-  const localOn = localAutoAccessOn() && autoDir !== '未設定'
+  const phoneFiles = !canPersistDirectory()
+  const localOn = !phoneFiles && localAutoAccessOn() && autoDir !== '未設定'
   const googleOn = isGoogleSignedIn() && autoGoogle !== '未設定'
   if (!googleOn && autoGoogle !== '未設定' && !googleAutoPaused()) {
     void resumeGoogleAutoIfGranted().then((ok) => {
@@ -7140,12 +7141,16 @@ async function renderIO(): Promise<void> {
             </div>
 
             <h2 class="places-ui-io-h">Local自動バックアップ</h2>
-            <p class="places-ui-io-hint">アクセス: ${localAccess}</p>
+            ${
+              phoneFiles
+                ? '<p class="places-ui-io-hint">iPhone ではフォルダの位置を指定できないため、登録のあと自動では書けません。フォルダへ残すときは手動エクスポートを使います。</p>'
+                : `<p class="places-ui-io-hint">アクセス: ${localAccess}</p>
             <p class="places-ui-io-hint">フォルダ: ${escapeHtml(autoDir)}</p>
             <div class="places-ui-cmds places-ui-cmds--wrap">
               ${cmd(localOn ? 'localAccessOff' : 'localAccessOn', localToggle)}
               ${cmd('pickAuto', 'フォルダ変更')}
-            </div>
+            </div>`
+            }
 
             <h2 class="places-ui-io-h">Google自動バックアップ</h2>
             <p class="places-ui-io-hint">アクセス: ${googleAccess}</p>

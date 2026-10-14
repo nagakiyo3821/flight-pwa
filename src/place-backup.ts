@@ -6,7 +6,7 @@
 import { db, exportLog, exportMasters, exportPos, exportTmp, importLog, importMasters, importPos, importTmp, PLAIN_NEW_KEY } from './db'
 import { isGoogleSignedIn } from './google-auth'
 import { runGoogleDriveSync } from './google-sync'
-import { autoFolderReady, beginDirectoryPick, directoryStatus, EmptyFolderUnreported, localAutoAccessOn, localSetupDone, readJsonFiles, rememberDirectory, storedDirectory, writeJsonFiles } from './local-dirs'
+import { autoFolderReady, beginDirectoryPick, canPersistDirectory, directoryStatus, EmptyFolderUnreported, localAutoAccessOn, localSetupDone, readJsonFiles, rememberDirectory, storedDirectory, writeJsonFiles } from './local-dirs'
 import { loadGoogleFolder } from './google-folder'
 import { resolveSyncFolder, uploadStampedJson } from './google-drive'
 import { applySettingsDocument, getSettings, settingsDocument } from './settings'
@@ -34,6 +34,7 @@ export async function internalIsInitialEmpty(): Promise<boolean> {
 }
 
 export async function needsLocalGate(): Promise<boolean> {
+  if (!canPersistDirectory()) return false
   if (!localAutoAccessOn()) return false
   if (!(await internalIsInitialEmpty())) return false
   if (localStorage.getItem(PENDING) === '1') return true
@@ -79,7 +80,9 @@ export async function restoreFromAutoIfEmpty(isEmpty: boolean): Promise<string |
 /** 本登録のあと。失敗しても本登録は戻さない。 */
 export async function writeAfterCommit(): Promise<string> {
   const lines: string[] = []
-  if (localAutoAccessOn()) {
+  if (!canPersistDirectory()) {
+    localStorage.removeItem(PENDING)
+  } else if (localAutoAccessOn()) {
     try {
       const written = await writeJsonFiles('auto', await bundleFromDb())
       localStorage.removeItem(PENDING)
@@ -125,7 +128,7 @@ export async function backupSettingsNow(): Promise<string> {
   localStorage.setItem(SETTINGS_PENDING, '1')
   const lines: string[] = []
   let pending = false
-  if ((await directoryStatus('auto')) !== '未設定') {
+  if (canPersistDirectory() && (await directoryStatus('auto')) !== '未設定') {
     try {
       const written = await writeJsonFiles('auto', { 'settings.json': doc })
       lines.push(`${written.join(', ')} を Local へ書き出しました`)

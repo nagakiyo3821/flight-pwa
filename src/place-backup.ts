@@ -183,7 +183,9 @@ export async function exportToFolder(
   const written = await writeJsonFiles(kind, await bundleSelected(keys))
   const dir = await directoryStatus(kind)
   const label = kind === 'manual' ? 'Local' : 'iCloud'
-  return `${label}「${dir}」へ書き出しました（${written.join(', ')}）`
+  const where = (await storedDirectory(kind))?.name
+  const folderNote = where && !dir.endsWith(where) ? `\n書き込んだフォルダは「${where}」です。` : ''
+  return `${label}「${dir}」へ書き出しました（${written.join(', ')}）${folderNote}`
 }
 
 /** 手動インポート。選んだファイルだけ端末データを更新する。 */

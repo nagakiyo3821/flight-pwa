@@ -338,10 +338,13 @@ export async function writeJsonFiles(
   const errors: string[] = []
   for (const [name, data] of Object.entries(payload)) {
     try {
+      const body = JSON.stringify(data, null, 2)
       const fh = await handle.getFileHandle(name, { create: true })
       const w = await fh.createWritable()
-      await w.write(JSON.stringify(data, null, 2))
+      await w.write(new Blob([body], { type: 'application/json' }))
       await w.close()
+      const saved = await (await fh.getFile()).text()
+      if (saved !== body) throw new Error(`${name} をフォルダに確認できませんでした`)
       written.push(name)
     } catch (e) {
       errors.push(`${name}: ${(e as Error).message}`)
@@ -353,23 +356,23 @@ export async function writeJsonFiles(
   return written
 }
 
-async function shareOrDownload(files: Record<string, unknown>): Promise<string[]> {
-  const shared = Object.entries(files).map(([name, data]) => {
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
-    return new File([blob], name, { type: 'application/json' })
-  })
+function shareableFiles(files: Record<string, unknown>): File[] {
   const nav = navigator as Navigator & { canShare?: (d: { files: File[] }) => boolean }
-  if (shared.length && nav.canShare?.({ files: shared }) && navigator.share) {
-    await navigator.share({ files: shared })
-    return shared.map((file) => file.name)
+  const build = (type: string) =>
+    Object.entries(files).map(([name, data]) => new File([JSON.stringify(data, null, 2)], name, { type }))
+  const asJson = build('application/json')
+  if (asJson.length && nav.canShare?.({ files: asJson })) return asJson
+  const asText = build('text/plain')
+  if (asText.length && nav.canShare?.({ files: asText })) return asText
+  return []
+}
+
+async function shareOrDownload(files: Record<string, unknown>): Promise<string[]> {
+  const shared = shareableFiles(files)
+  if (!shared.length || !navigator.share) {
+    throw new Error('この端末は指定フォルダへ直接書けません。共有シートでもこのファイルを渡せませんでした')
   }
-  for (const file of shared) {
-    const a = document.createElement('a')
-    a.href = URL.createObjectURL(file)
-    a.download = file.name
-    a.click()
-    URL.revokeObjectURL(a.href)
-  }
+  await navigator.share({ files: shared })
   return shared.map((file) => file.name)
 }
 

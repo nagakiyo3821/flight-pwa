@@ -18,9 +18,9 @@ export type DirKind = 'auto' | 'manual' | 'icloud'
 
 type DirHandle = FileSystemDirectoryHandle
 
-function picker(): ((opts?: { mode?: 'readwrite' }) => Promise<DirHandle>) | null {
+function picker(): ((opts?: { mode?: 'readwrite'; id?: string }) => Promise<DirHandle>) | null {
   const w = window as Window & {
-    showDirectoryPicker?: (opts?: { mode?: 'readwrite' }) => Promise<DirHandle>
+    showDirectoryPicker?: (opts?: { mode?: 'readwrite'; id?: string }) => Promise<DirHandle>
   }
   return typeof w.showDirectoryPicker === 'function' ? w.showDirectoryPicker.bind(w) : null
 }
@@ -226,13 +226,25 @@ async function reopenStoredDirectory(kind: DirKind): Promise<DirHandle | null> {
  * Safari はフォルダを後から開けないので、選んだファイルを残す。無ければその場で選び直す。
  * Chromium は切れた許可を同じ操作の中で開き直す。
  */
-export function primeDirectoryRead(kind: DirKind): void {
+export function primeDirectoryRead(kind: DirKind, opts?: { fresh?: boolean }): void {
   if (!canPersistDirectory()) {
-    if (pickedFiles.get(kind)?.length) {
+    if (opts?.fresh) pickedFiles.delete(kind)
+    else if (pickedFiles.get(kind)?.length) {
       primedRead = Promise.resolve(null)
       return
     }
     primedRead = pickWithFileInput(kind, { keepLabel: true }).then(() => null)
+    return
+  }
+  if (opts?.fresh) {
+    const pick = picker()
+    primedRead = pick
+      ? pick({ mode: 'readwrite', id: `flight-${kind}-${Date.now()}` }).then(async (handle) => {
+          await idbSet(kind, handle)
+          rememberDirectory(kind, handle.name)
+          return handle
+        })
+      : Promise.resolve(null)
     return
   }
   primedRead = (async () => {
@@ -248,11 +260,14 @@ export function primeDirectoryRead(kind: DirKind): void {
 }
 
 /** クリックの直後に呼ぶ。対応ブラウザはフォルダ許可、それ以外はファイルアプリ。 */
-export function beginDirectoryPick(kind: DirKind): Promise<string> {
+export function beginDirectoryPick(kind: DirKind, opts?: { fresh?: boolean }): Promise<string> {
   const pick = picker()
   if (pick) {
     try {
-      return pick({ mode: 'readwrite' }).then(async (handle) => {
+      const pickerOpts = opts?.fresh
+        ? { mode: 'readwrite' as const, id: `flight-${kind}-${Date.now()}` }
+        : { mode: 'readwrite' as const }
+      return pick(pickerOpts).then(async (handle) => {
         await idbSet(kind, handle)
         rememberDirectory(kind, handle.name)
         return handle.name
@@ -493,10 +508,11 @@ export async function readJsonFiles(
       return null
     }
   }
-  const handle = primedHandle || (await storedDirectory(kind))
-  if (handle) return readHandleFiles(handle, names, strict)
+  if (primedHandle) return readHandleFiles(primedHandle, names, strict)
   const files = pickedFiles.get(kind)
   if (files?.length) return readPickedFiles(files, names, strict)
+  const handle = await storedDirectory(kind)
+  if (handle) return readHandleFiles(handle, names, strict)
   if (strict) {
     throw new Error('フォルダ名だけでは中のファイルを開けません。フォルダを選び直してください。')
   }

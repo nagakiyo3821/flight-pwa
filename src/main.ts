@@ -1439,15 +1439,18 @@ function pickDriveFolderHit(
   })
 }
 
-function searchGoogleFolderSheet(kind: GoogleFolderKind): Promise<{ folderName: string; folderId: string } | null> {
-  const initial = loadGoogleFolder(kind)?.folderName || ''
+function searchGoogleFolderSheet(
+  kind: GoogleFolderKind,
+  opts?: { blank?: boolean },
+): Promise<{ folderName: string; folderId: string } | null> {
+  const initial = opts?.blank ? '' : loadGoogleFolder(kind)?.folderName || ''
   const title = kind === 'auto' ? 'Google自動バックアップ' : 'Google 手動'
   const root = mountChoiceSheet(`
     <div class="sc-confirm-backdrop" data-act="cancel" aria-hidden="true"></div>
     <div class="sc-confirm-sheet" role="document">
       <div class="sc-confirm-card">
         <p class="sc-confirm-title">${title}</p>
-        <p class="sc-confirm-detail">マイドライブからのフォルダを入力してください。</p>
+        <p class="sc-confirm-detail">${opts?.blank ? '毎回、マイドライブからのフォルダを入力してください。' : 'マイドライブからのフォルダを入力してください。'}</p>
         <input id="googlePath" class="sc-google-path" type="text" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false" value="${escapeHtml(initial)}" aria-label="マイドライブからのフォルダ" />
         <p class="sc-file-pick-note" id="sc-file-note" hidden></p>
         <button type="button" class="sc-confirm-btn sc-confirm-btn--ok" data-act="search">検索</button>
@@ -1511,7 +1514,7 @@ function searchGoogleFolderSheet(kind: GoogleFolderKind): Promise<{ folderName: 
 /** 戻るは false。確定で true。自動送信と手動は別のフォルダ。手動は毎回パスを選ぶ。 */
 async function chooseGoogleFolder(kind: GoogleFolderKind, opts?: { free?: boolean }): Promise<boolean> {
   if (opts?.free) {
-    const picked = await searchGoogleFolderSheet(kind)
+    const picked = await searchGoogleFolderSheet(kind, { blank: true })
     if (!picked) return false
     saveGoogleFolder(kind, picked)
     return true
@@ -7256,10 +7259,10 @@ async function renderIO(): Promise<void> {
           return
         }
         if (phone && action === 'import') {
-          primeDirectoryRead('manual')
+          primeDirectoryRead('manual', { fresh: true })
           return
         }
-        pickTask = beginDirectoryPick('manual')
+        pickTask = beginDirectoryPick('manual', { fresh: true })
       })
       if (!keys) return
       manualIoKeys = keys

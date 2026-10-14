@@ -53,6 +53,7 @@ import {
 } from './catalog'
 import {
   beginDirectoryPick,
+  canPersistDirectory,
   clearLocalSetupDone,
   directoryStatus,
   EmptyFolderUnreported,
@@ -571,6 +572,10 @@ async function renderLocalGate(): Promise<void> {
           ? '前回の本登録が自動バックアップへ書けていません。フォルダを確認して書き出します。'
           : '使用する前にデータを自動バックアップ保管するフォルダを選択してください。'
   const dirKind = folderScreen === 'auto' ? 'auto' : 'manual'
+  const phoneFiles = !canPersistDirectory()
+  const phoneFilesHint = phoneFiles
+    ? '<br>ファイルアプリは、この画面では「このiPhone内」になりません。iCloud Drive で開いたときは「ブラウズ」を押し、「このiPhone内」を開いてください。'
+    : ''
   app.classList.add('places-ui-app')
   document.documentElement.classList.add('places-ui-lock')
   app.innerHTML = `
@@ -583,20 +588,26 @@ async function renderLocalGate(): Promise<void> {
     </div>
   </header>
   <main class="places-ui-main">
-    <p class="places-ui-io-hint">${lead}<br>事前に対象フォルダ（最低１つのファイル含む）の準備が必要です。${
+    <p class="places-ui-io-hint">${lead}<br>事前に対象フォルダ（最低１つのファイル含む）の準備が必要です。${phoneFilesHint}${
       localGatePathEdit
-        ? `<br>選択したフォルダを以下に登録してください。<br>保存する場所は「${escapeHtml(localGateRoot)}」です。共有シートでも、同じ場所を開いてください。`
+        ? phoneFiles
+          ? '<br>選択したフォルダを以下に登録してください。'
+          : `<br>選択したフォルダを以下に登録してください。<br>保存する場所は「${escapeHtml(localGateRoot)}」です。共有シートでも、同じ場所を開いてください。`
         : ''
     }</p>
     ${
       localGatePathEdit
         ? `<div class="dir-path">
-      <span class="dir-path-roots">${DIR_ROOTS.map((root) =>
-        root === localGateRoot
-          ? `<span class="dir-path-root is-selected">${escapeHtml(root)}</span>`
-          : `<button type="button" class="dir-path-root" data-root="${escapeHtml(root)}">${escapeHtml(root)}</button>`,
-      ).join('')}</span>
-      <span class="dir-path-fixed">/</span>
+      ${
+        phoneFiles
+          ? ''
+          : `<span class="dir-path-roots">${DIR_ROOTS.map((root) =>
+              root === localGateRoot
+                ? `<span class="dir-path-root is-selected">${escapeHtml(root)}</span>`
+                : `<button type="button" class="dir-path-root" data-root="${escapeHtml(root)}">${escapeHtml(root)}</button>`,
+            ).join('')}</span>
+      <span class="dir-path-fixed">/</span>`
+      }
       <input id="dirMiddle" class="dir-path-middle" type="text" enterkeyhint="done" autocomplete="off" autocapitalize="off" spellcheck="false" value="${escapeHtml(localGateMiddle)}" aria-label="追加のディレクトリ" />
       <span class="dir-path-fixed" id="dirMidSlash">${localGateMiddle.trim() ? '/' : ''}</span>
       <span class="dir-path-fixed" id="dirLeaf">${escapeHtml(localGateDirectory)}</span>
@@ -635,11 +646,13 @@ async function renderLocalGate(): Promise<void> {
     })
   })
   app.querySelector('#confirmDir')?.addEventListener('click', () => {
-    const full = composeDirectoryLabel(
-      localGateRoot,
-      middleInput?.value ?? localGateMiddle,
-      localGateDirectory,
-    )
+    const full = phoneFiles
+      ? composeDirectoryLabel('', middleInput?.value ?? localGateMiddle, localGateDirectory)
+      : composeDirectoryLabel(
+          localGateRoot,
+          middleInput?.value ?? localGateMiddle,
+          localGateDirectory,
+        )
     const startupConfirm = folderScreen === 'auto' && !folderScreenOpen
     rememberDirectory(dirKind, full)
     localGatePathEdit = false

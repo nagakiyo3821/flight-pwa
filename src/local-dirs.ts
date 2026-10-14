@@ -29,6 +29,20 @@ export function canPersistDirectory(): boolean {
   return picker() !== null
 }
 
+const PHONE_ROOTS = ['iCloud Drive', 'このiPhone内']
+
+/** iPhone の先頭表示はファイルアプリの場所ではない。表示と保存から外す。 */
+export function withoutPhoneRoot(label: string): string {
+  let rest = label.trim()
+  const roots = [...PHONE_ROOTS].sort((a, b) => b.length - a.length)
+  for (const candidate of roots) {
+    if (rest === candidate || rest.startsWith(`${candidate}/`)) {
+      return rest.slice(candidate.length).replace(/^\//, '')
+    }
+  }
+  return rest
+}
+
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(DB, 1)
@@ -150,7 +164,11 @@ export async function directoryStatus(kind: DirKind): Promise<string> {
   const fromSession = (
     sessionStorage.getItem(labelKey(kind)) || localStorage.getItem(labelKey(kind))
   )?.trim()
-  if (fromSession) return fromSession
+  if (fromSession) {
+    if (canPersistDirectory()) return fromSession
+    const stripped = withoutPhoneRoot(fromSession)
+    if (stripped) return stripped
+  }
   try {
     const handle = await idbGet(kind)
     const fromHandle = handle?.name?.trim()

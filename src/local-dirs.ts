@@ -29,12 +29,6 @@ export function canPersistDirectory(): boolean {
   return picker() !== null
 }
 
-/** iPhone と Android は日時付きの新しいファイルを書く。パソコンは同じ名前を置き換える。 */
-export function stampLocalFileNames(): boolean {
-  if (!canPersistDirectory()) return true
-  return /Android/i.test(navigator.userAgent)
-}
-
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(DB, 1)
@@ -331,7 +325,7 @@ export async function writeJsonFiles(
   kind: DirKind,
   files: Record<string, unknown>,
 ): Promise<string[]> {
-  const payload = stampLocalFileNames() ? applyLocalStamp(files, localStamp()) : files
+  const payload = applyLocalStamp(files, localStamp())
   const handle = await storedDirectory(kind)
   if (!handle) {
     const remembered = sessionStorage.getItem(labelKey(kind)) || localStorage.getItem(labelKey(kind))

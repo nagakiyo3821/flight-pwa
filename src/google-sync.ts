@@ -17,11 +17,12 @@ import {
   importTmp,
 } from './db'
 import {
-  downloadJsonByName,
-  googleFileNames,
+  listAllChildren,
+  readListedJson,
   resolveSyncFolder,
-  uploadJsonByName,
+  uploadStampedJson,
 } from './google-drive'
+import { localKindLabel, localStamp } from './local-file-names'
 import type { GoogleFolderKind } from './google-folder'
 import {
   ensureGoogleAccessToken,
@@ -37,6 +38,7 @@ export type SyncReport = {
   folderId: string
   folderName: string
   lines: string[]
+  used: string[]
 }
 
 function uniqStrings(a: string[] = [], b: string[] = []): string[] {
@@ -146,6 +148,7 @@ export async function runGoogleDriveSync(
   direction: SyncDirection,
   only?: readonly DriveDataKey[],
   kind: GoogleFolderKind = 'auto',
+  stamp = localStamp(),
 ): Promise<SyncReport> {
   if (!isGoogleClientConfigured()) {
     throw new Error('VITE_GOOGLE_CLIENT_ID が未設定です')
@@ -153,34 +156,39 @@ export async function runGoogleDriveSync(
   await ensureGoogleAccessToken()
 
   const { folderName, folderId } = await resolveSyncFolder(kind)
-  const names = googleFileNames()
   const keys = selectedDriveKeys(only)
   const lines: string[] = [`フォルダ: ${folderName} (${folderId})`]
-  const fileName: Record<DriveDataKey, string> = {
-    log: names.log,
-    pos: names.pos,
-    tmp: names.tmp,
-    masters: names.masters,
+  const canonical: Record<DriveDataKey, string> = {
+    log: 'log.json',
+    pos: 'pos.json',
+    tmp: 'tmp.json',
+    masters: 'masters.json',
   }
+  const used: string[] = []
 
   if (direction === 'pull' || direction === 'both') {
+    const children = await listAllChildren(folderId)
+    const got: string[] = []
+    const take = async (key: DriveDataKey) => {
+      const latest = await readListedJson(children, canonical[key])
+      if (!latest) throw new Error(`${localKindLabel(canonical[key])} がありません`)
+      got.push(latest.name)
+      return latest.data
+    }
     if (keys.includes('log')) {
-      const remoteLog = asLog(await downloadJsonByName(folderId, names.log))
-      await importLog(mergeLog(remoteLog, await exportLog()))
+      await importLog(mergeLog(asLog(await take('log')), await exportLog()))
     }
     if (keys.includes('pos')) {
-      const remotePos = asPos(await downloadJsonByName(folderId, names.pos))
-      await importPos(mergePos(remotePos, await exportPos()))
+      await importPos(mergePos(asPos(await take('pos')), await exportPos()))
     }
     if (keys.includes('tmp')) {
-      const remoteTmp = asTmp(await downloadJsonByName(folderId, names.tmp))
-      await importTmp(mergeTmp(remoteTmp, await exportTmp()))
+      await importTmp(mergeTmp(asTmp(await take('tmp')), await exportTmp()))
     }
     if (keys.includes('masters')) {
-      const remoteMasters = asMasters(await downloadJsonByName(folderId, names.masters))
-      await importMasters(mergeMasters(remoteMasters, await exportMasters()))
+      await importMasters(mergeMasters(asMasters(await take('masters')), await exportMasters()))
     }
-    lines.push(`取得: ${keys.map((key) => fileName[key]).join(' / ')}`)
+    used.push(...got)
+    lines.push(`取得: ${got.join(' / ')}`)
   }
 
   if (direction === 'push' || direction === 'both') {
@@ -190,13 +198,15 @@ export async function runGoogleDriveSync(
       tmp: exportTmp,
       masters: exportMasters,
     }
+    const sent: string[] = []
     for (const key of keys) {
-      await uploadJsonByName(folderId, fileName[key], await payloads[key]())
+      sent.push(await uploadStampedJson(folderId, canonical[key], await payloads[key](), stamp))
     }
-    lines.push(`送信: ${keys.map((key) => fileName[key]).join(' / ')}`)
+    used.push(...sent)
+    lines.push(`送信: ${sent.join(' / ')}`)
   }
 
-  return { ok: true, folderId, folderName, lines }
+  return { ok: true, folderId, folderName, lines, used }
 }
 
 /** 起動時・通信復帰の自動同期はしない。書き出しは 5.データ登録のあと。 */

@@ -4,6 +4,7 @@
 
 import { splitFolderPath } from './folder-path'
 import { loadGoogleFolder, type GoogleFolderKind } from './google-folder'
+import { localStamp, pickLatestEntry, stampedFileName } from './local-file-names'
 import { getAccessToken } from './google-auth'
 import { getSettings, type GoogleProviderConfig } from './settings'
 
@@ -151,6 +152,57 @@ export async function downloadJsonByFileId(fileId: string): Promise<unknown> {
     throw new Error(`Drive 読込 ${res.status}: ${body.slice(0, 200) || res.statusText}`)
   }
   return JSON.parse(await res.text()) as unknown
+}
+
+/** フォルダ内のファイルをページ単位で全部読む。 */
+export async function listAllChildren(folderId: string): Promise<DriveFileHit[]> {
+  const out: DriveFileHit[] = []
+  let pageToken = ''
+  do {
+    const q = `'${folderId}' in parents and trashed=false`
+    const token = pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : ''
+    const data = await driveJson<{ files?: DriveFileHit[]; nextPageToken?: string }>(
+      `files?pageSize=100&fields=nextPageToken,files(id,name,mimeType)&q=${encodeURIComponent(q)}&orderBy=name${token}`,
+    )
+    out.push(...(data.files ?? []))
+    pageToken = data.nextPageToken || ''
+  } while (pageToken)
+  return out
+}
+
+/** 一覧の中から、種類ごとにいちばん新しい JSON を読む。無ければ null */
+export async function readListedJson(
+  files: readonly DriveFileHit[],
+  canonical: string,
+): Promise<{ name: string; data: unknown } | null> {
+  const picked = pickLatestEntry(
+    files
+      .filter((file) => file.mimeType !== 'application/vnd.google-apps.folder')
+      .map((file) => ({ item: file, fileName: file.name, depth: 1 })),
+    canonical,
+  )
+  if (!picked) return null
+  return { name: picked.item.name, data: await downloadJsonByFileId(picked.item.id) }
+}
+
+/** 種類ごとに、14桁がいちばん大きい JSON を読む。無ければ null */
+export async function downloadLatestJson(
+  folderId: string,
+  canonical: string,
+): Promise<{ name: string; data: unknown } | null> {
+  return readListedJson(await listAllChildren(folderId), canonical)
+}
+
+/** 日時付きの新しいファイルを追加する。 */
+export async function uploadStampedJson(
+  folderId: string,
+  canonical: string,
+  data: unknown,
+  stamp = localStamp(),
+): Promise<string> {
+  const name = stampedFileName(canonical, stamp)
+  await uploadJsonByName(folderId, name, data)
+  return name
 }
 
 /** フォルダ内の名前で JSON を読む。無ければ null */

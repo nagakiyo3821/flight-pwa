@@ -83,7 +83,8 @@ import {
   resumeGoogleAutoIfGranted,
   resumeGoogleAutoIntent,
 } from './google-auth'
-import { downloadJsonByName, drivePathSegments, listDriveFolders, resolveSyncFolder, uploadJsonByName, withDriveDeadline } from './google-drive'
+import { downloadLatestJson, drivePathSegments, listDriveFolders, resolveSyncFolder, uploadStampedJson, withDriveDeadline } from './google-drive'
+import { localStamp } from './local-file-names'
 import { googleFolderLabel, loadGoogleFolder, saveGoogleFolder, type GoogleFolderKind } from './google-folder'
 import { maybeAutoSync, runGoogleDriveSync } from './google-sync'
 import { applySettingsDocument, resetDeviceSettings, settingsDocument } from './settings'
@@ -7290,25 +7291,33 @@ async function renderIO(): Promise<void> {
     if (!loadGoogleFolder('manual')) throw new Error('Google のフォルダが未選択です')
     if (!isGoogleSignedIn()) await requestGoogleAccessToken()
     return withDriveDeadline(async () => {
-      const ordered = MANUAL_IO_FILES.filter((item) => keys.includes(item.key)).map((item) => item.file)
       const dataKeys = keys.filter((key) => key !== 'settings')
       const { folderName, folderId } = await resolveSyncFolder('manual')
+      const stamp = localStamp()
+      const used: string[] = []
       if (direction === 'push') {
-        if (dataKeys.length) await runGoogleDriveSync(direction, dataKeys, 'manual')
+        if (dataKeys.length) {
+          const report = await runGoogleDriveSync(direction, dataKeys, 'manual', stamp)
+          used.push(...report.used)
+        }
         if (keys.includes('settings')) {
-          await uploadJsonByName(folderId, 'settings.json', settingsDocument())
+          used.push(await uploadStampedJson(folderId, 'settings.json', settingsDocument(), stamp))
         }
       } else {
-        if (dataKeys.length) await runGoogleDriveSync(direction, dataKeys, 'manual')
+        if (dataKeys.length) {
+          const report = await runGoogleDriveSync(direction, dataKeys, 'manual', stamp)
+          used.push(...report.used)
+        }
         if (keys.includes('settings')) {
-          const data = await downloadJsonByName(folderId, 'settings.json')
-          if (!data) throw new Error('settings.json がありません')
-          await applySettingsDocument(data)
+          const latest = await downloadLatestJson(folderId, 'settings.json')
+          if (!latest) throw new Error('set がありません')
+          await applySettingsDocument(latest.data)
+          used.push(latest.name)
         }
       }
-      if (!ordered.length) throw new Error('ファイルが選ばれていません')
+      if (!used.length) throw new Error('ファイルが選ばれていません')
       const verb = direction === 'push' ? '送信' : '取得'
-      return `フォルダ: ${folderName} (${folderId})\n${verb}: ${ordered.join(' / ')}`
+      return `フォルダ: ${folderName} (${folderId})\n${verb}: ${used.join(' / ')}`
     })
   }
   const runPlaceIo = (

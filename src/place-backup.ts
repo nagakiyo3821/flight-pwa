@@ -8,7 +8,7 @@ import { isGoogleSignedIn } from './google-auth'
 import { runGoogleDriveSync } from './google-sync'
 import { autoFolderReady, beginDirectoryPick, directoryStatus, EmptyFolderUnreported, localAutoAccessOn, localSetupDone, readJsonFiles, rememberDirectory, storedDirectory, writeJsonFiles } from './local-dirs'
 import { loadGoogleFolder } from './google-folder'
-import { resolveSyncFolder, uploadJsonByName } from './google-drive'
+import { resolveSyncFolder, uploadStampedJson } from './google-drive'
 import { applySettingsDocument, getSettings, settingsDocument } from './settings'
 import type { LogFile, PosFile, TmpFlag } from './types'
 import type { MastersFile } from './catalog'
@@ -110,7 +110,7 @@ export async function writeAfterCommit(): Promise<string> {
     } else {
       try {
         const report = await runGoogleDriveSync('push')
-        lines.push(report.lines[0] || 'Google へ書き出しました')
+        lines.push(report.lines.find((line) => line.startsWith('送信')) || 'Google へ書き出しました')
       } catch (e) {
         lines.push(`Google はスキップ（${(e as Error).message}）`)
       }
@@ -141,8 +141,8 @@ export async function backupSettingsNow(): Promise<string> {
     } else {
       try {
         const { folderId } = await resolveSyncFolder('auto')
-        await uploadJsonByName(folderId, 'settings.json', doc)
-        lines.push('settings.json を Google へ書き出しました')
+        const name = await uploadStampedJson(folderId, 'settings.json', doc)
+        lines.push(`${name} を Google へ書き出しました`)
       } catch (e) {
         pending = true
         lines.push(`settings.json は Google へ書けませんでした。${(e as Error).message}`)

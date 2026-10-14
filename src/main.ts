@@ -63,15 +63,15 @@ import {
   primeDirectoryRead,
   rememberDirectory,
   setLocalAutoAccess,
+  sharePreparedFiles,
 } from './local-dirs'
 import {
   backupSettingsNow,
   exportToFolder,
   importFromFolder,
-  internalIsInitialEmpty,
+  prepareManualFiles,
   MANUAL_IO_FILES,
   needsLocalGate,
-  restoreFromAutoIfEmpty,
   writeAfterCommit,
   type ManualIoKey,
 } from './place-backup'
@@ -379,11 +379,7 @@ async function render(): Promise<void> {
     await renderLocalGate()
     return
   }
-  if (!localRestoreDone) {
-    localRestoreDone = true
-    const restored = await restoreFromAutoIfEmpty(await internalIsInitialEmpty())
-    if (restored) flashMsg = restored
-  }
+  if (!localRestoreDone) localRestoreDone = true
   if (view === 'menu') await renderMenu()
   else if (view === 'newa') await renderEditList('A')
   else if (view === 'newb') await renderEditList('B')
@@ -430,39 +426,6 @@ function openDirectoryPathEdit(leaf: string): void {
   localGateRoot = DIR_ROOTS[0]
   localGatePathEdit = true
   localGateNote = ''
-}
-
-/** 保存済みの表示を、先頭・追加分・末尾に戻す。 */
-function showStoredDirectory(label: string): void {
-  let rest = label.trim()
-  let root: (typeof DIR_ROOTS)[number] = DIR_ROOTS[0]
-  const roots = [...DIR_ROOTS].sort((a, b) => b.length - a.length)
-  for (const candidate of roots) {
-    if (rest === candidate || rest.startsWith(`${candidate}/`)) {
-      root = candidate
-      rest = rest.slice(candidate.length).replace(/^\//, '')
-      break
-    }
-  }
-  const parts = rest.split('/').filter(Boolean)
-  const leaf = parts.pop() || rest
-  localGateRoot = root
-  localGateMiddle = parts.join('/')
-  localGateDirectory = leaf
-  localGatePathEdit = true
-  localGateNote = ''
-}
-
-function beginFolderReview(screen: 'auto' | 'export' | 'import', label: string): void {
-  folderScreen = screen
-  folderScreenOpen = true
-  if (label !== '未設定') showStoredDirectory(label)
-  else {
-    localGatePathEdit = false
-    localGateDirectory = ''
-    localGateMiddle = ''
-    localGateNote = ''
-  }
 }
 
 async function finishAutoFolderPick(name: string, opts?: { backupSettings?: boolean }): Promise<void> {
@@ -1302,6 +1265,7 @@ function showConfirmSheet(opts: {
 function chooseManualFiles(
   action: 'export' | 'import' | 'reset',
   scope: 'folder' | 'google' | 'data',
+  onConfirm?: (keys: ManualIoKey[]) => void,
 ): Promise<ManualIoKey[] | null> {
   const title =
     action === 'export' ? '手動エクスポート' : action === 'import' ? '手動インポート' : 'PWA初期化'
@@ -1371,6 +1335,15 @@ function chooseManualFiles(
       const note = root.querySelector<HTMLElement>('#sc-file-note')
       if (!keys.length) {
         if (note) note.hidden = false
+        return
+      }
+      try {
+        onConfirm?.(keys)
+      } catch (err) {
+        if (note) {
+          note.hidden = false
+          note.textContent = (err as Error).message
+        }
         return
       }
       finish(keys)
@@ -1535,8 +1508,14 @@ function searchGoogleFolderSheet(kind: GoogleFolderKind): Promise<{ folderName: 
   })
 }
 
-/** 戻るは false。確定で true。自動送信と手動は別のフォルダ。 */
-async function chooseGoogleFolder(kind: GoogleFolderKind): Promise<boolean> {
+/** 戻るは false。確定で true。自動送信と手動は別のフォルダ。手動は毎回パスを選ぶ。 */
+async function chooseGoogleFolder(kind: GoogleFolderKind, opts?: { free?: boolean }): Promise<boolean> {
+  if (opts?.free) {
+    const picked = await searchGoogleFolderSheet(kind)
+    if (!picked) return false
+    saveGoogleFolder(kind, picked)
+    return true
+  }
   for (;;) {
     const step = await reviewGoogleFolderSheet(kind)
     if (step === 'cancel') return false
@@ -7091,25 +7070,26 @@ async function onPlaceEdit(id: string, name: string, place: PlaceRecord): Promis
   }
 }
 
+function deviceFolderLabel(): string {
+  const ua = navigator.userAgent
+  if (/Android/i.test(ua)) return 'Android'
+  if (/iPhone|iPad|iPod/i.test(ua)) return 'iPhone/iCloud'
+  return 'パソコン'
+}
+
 async function renderIO(): Promise<void> {
-  const autoDir = await directoryStatus('auto')
-  const manualDir = await directoryStatus('manual')
   const manualGoogle = googleFolderLabel('manual')
   const autoGoogle = googleFolderLabel('auto')
-  const phoneFiles = !canPersistDirectory()
-  const localOn = !phoneFiles && localAutoAccessOn() && autoDir !== '未設定'
   const googleOn = isGoogleSignedIn() && autoGoogle !== '未設定'
   if (!googleOn && autoGoogle !== '未設定' && !googleAutoPaused()) {
     void resumeGoogleAutoIfGranted().then((ok) => {
       if (ok && view === 'io') void render()
     })
   }
-  const localAccess = localOn ? '動作中' : '停止中'
   const googleAccess = googleOn ? '動作中' : '停止中'
-  const localToggle = localOn ? '停止' : '動作'
   const googleToggle = googleOn ? '停止' : '動作'
+  const localFolderLabel = deviceFolderLabel()
   const placeLines = `
-            ${phoneFiles ? '' : `<p class="places-ui-io-hint">フォルダ: ${escapeHtml(manualDir)}</p>`}
             <p class="places-ui-io-hint">Google: ${escapeHtml(manualGoogle)}</p>`
   const cmd = (id: string, label: string, opts?: { disabled?: boolean; danger?: boolean }) => {
     const danger = opts?.danger ? ' places-ui-cmd--danger' : ''
@@ -7140,18 +7120,6 @@ async function renderIO(): Promise<void> {
               <a class="places-ui-cmd" id="openManual" href="./manual.html">マニュアル</a>
             </div>
 
-            <h2 class="places-ui-io-h">Local自動バックアップ</h2>
-            ${
-              phoneFiles
-                ? '<p class="places-ui-io-hint">iPhone ではファイルアプリを使わないため、フォルダへの書き出しと取り込みはありません。外へ残すときは Google を使います。</p>'
-                : `<p class="places-ui-io-hint">アクセス: ${localAccess}</p>
-            <p class="places-ui-io-hint">フォルダ: ${escapeHtml(autoDir)}</p>
-            <div class="places-ui-cmds places-ui-cmds--wrap">
-              ${cmd(localOn ? 'localAccessOff' : 'localAccessOn', localToggle)}
-              ${cmd('pickAuto', 'フォルダ変更')}
-            </div>`
-            }
-
             <h2 class="places-ui-io-h">Google自動バックアップ</h2>
             <p class="places-ui-io-hint">アクセス: ${googleAccess}</p>
             <p class="places-ui-io-hint">フォルダ: ${escapeHtml(autoGoogle)}</p>
@@ -7163,15 +7131,15 @@ async function renderIO(): Promise<void> {
             <h2 class="places-ui-io-h">手動エクスポート</h2>
             ${placeLines}
             <div class="places-ui-cmds places-ui-cmds--wrap">
-              ${phoneFiles ? '' : cmd('expFolder', 'フォルダ指定')}
-              ${cmd('expGoogle', 'Google')}
+              ${cmd('expFolder', localFolderLabel)}
+              ${cmd('expGoogle', 'GoogleDrive')}
             </div>
 
             <h2 class="places-ui-io-h">手動インポート</h2>
             ${placeLines}
             <div class="places-ui-cmds places-ui-cmds--wrap">
-              ${phoneFiles ? '' : cmd('impFolder', 'フォルダ指定')}
-              ${cmd('impGoogle', 'Google')}
+              ${cmd('impFolder', localFolderLabel)}
+              ${cmd('impGoogle', 'GoogleDrive')}
             </div>
 
             <h2 class="places-ui-io-h">PWA初期化</h2>
@@ -7267,46 +7235,57 @@ async function renderIO(): Promise<void> {
     void render()
   })
 
-  app.querySelector('#pickAuto')?.addEventListener('click', () => {
-    if (ioBusy) return
-    void (async () => {
-      beginFolderReview('auto', await directoryStatus('auto'))
-      await render()
-    })()
-  })
-  app.querySelector('#localAccessOff')?.addEventListener('click', () => {
-    if (ioBusy) return
-    void (async () => {
-      const offOk = await confirmYesNo({
-        title: 'Local自動バックアップを停止しますか？\nフォルダの記憶は残します。',
-        okLabel: '1.停止する',
-        cancelLabel: '2.戻る',
-      })
-      if (!offOk) return
-      setLocalAutoAccess(false)
-      flashMsg = 'Local自動バックアップ: 停止'
-      await render()
-    })()
-  })
-  app.querySelector('#localAccessOn')?.addEventListener('click', () => {
-    if (ioBusy) return
-    void (async () => {
-      if ((await directoryStatus('auto')) === '未設定') {
-        setMsg('フォルダが未設定です', 'bad')
-        return
-      }
-      setLocalAutoAccess(true)
-      flashMsg = 'Local自動バックアップ: 動作'
-      await render()
-    })()
-  })
   const openManualFolder = (action: 'export' | 'import') => {
     void (async () => {
-      if (ioBusy || !canPersistDirectory()) return
-      const keys = await chooseManualFiles(action, 'folder')
+      if (ioBusy) return
+      const phone = !canPersistDirectory()
+      const prepared =
+        phone && action === 'export'
+          ? await prepareManualFiles(MANUAL_IO_FILES.map((item) => item.key))
+          : null
+      let shareTask: Promise<string[]> | null = null
+      let pickTask: Promise<string> | null = null
+      const keys = await chooseManualFiles(action, 'folder', (picked) => {
+        if (phone && action === 'export') {
+          const subset: Record<string, unknown> = {}
+          for (const item of MANUAL_IO_FILES) {
+            if (!picked.includes(item.key) || !prepared || !(item.file in prepared)) continue
+            subset[item.file] = prepared[item.file]
+          }
+          shareTask = sharePreparedFiles(subset)
+          return
+        }
+        if (phone && action === 'import') {
+          primeDirectoryRead('manual')
+          return
+        }
+        pickTask = beginDirectoryPick('manual')
+      })
       if (!keys) return
       manualIoKeys = keys
-      beginFolderReview(action, await directoryStatus('manual'))
+      const btn = app.querySelector<HTMLElement>(action === 'export' ? '#expFolder' : '#impFolder')
+      await withIoBusy(btn, '処理中…', action === 'export' ? '書き出しています…' : '取り込んでいます…', async () => {
+        try {
+          if (shareTask) {
+            const names = await shareTask
+            flashMsg = `ファイルアプリで保存先を選んで書き出しました（${names.join(', ')}）`
+          } else if (pickTask) {
+            await pickTask
+            flashMsg =
+              action === 'export'
+                ? await exportToFolder('manual', keys)
+                : await importFromFolder('manual', keys, { skipPick: true })
+          } else {
+            flashMsg = await importFromFolder('manual', keys, { skipPick: true })
+          }
+        } catch (e) {
+          flashMsg = pickerWasCancelled(e)
+            ? action === 'export'
+              ? '保存をキャンセルしました。'
+              : 'フォルダの選択をキャンセルしました。'
+            : `${action === 'export' ? 'フォルダへ書き出せませんでした' : 'フォルダから取り込めませんでした'}: ${(e as Error).message}`
+        }
+      })
       await render()
     })()
   }
@@ -7359,7 +7338,7 @@ async function renderIO(): Promise<void> {
       void (async () => {
         const keys = await chooseManualFiles(action, 'google')
         if (!keys) return
-        const ready = await chooseGoogleFolder('manual')
+        const ready = await chooseGoogleFolder('manual', { free: true })
         if (!ready) return
         const btn = app.querySelector<HTMLElement>(`#${id}`)
         const status = direction === 'push' ? 'Google へ書き出しています…' : 'Google から取り込んでいます…'

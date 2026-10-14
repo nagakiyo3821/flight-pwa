@@ -6,7 +6,7 @@
 import { db, exportLog, exportMasters, exportPos, exportTmp, importLog, importMasters, importPos, importTmp, PLAIN_NEW_KEY } from './db'
 import { isGoogleSignedIn } from './google-auth'
 import { runGoogleDriveSync } from './google-sync'
-import { autoFolderReady, beginDirectoryPick, canPersistDirectory, directoryStatus, EmptyFolderUnreported, localAutoAccessOn, localSetupDone, readJsonFiles, rememberDirectory, storedDirectory, writeJsonFiles } from './local-dirs'
+import { beginDirectoryPick, directoryStatus, EmptyFolderUnreported, readJsonFiles, rememberDirectory, storedDirectory, writeJsonFiles } from './local-dirs'
 import { loadGoogleFolder } from './google-folder'
 import { resolveSyncFolder, uploadStampedJson } from './google-drive'
 import { applySettingsDocument, getSettings, settingsDocument } from './settings'
@@ -34,12 +34,7 @@ export async function internalIsInitialEmpty(): Promise<boolean> {
 }
 
 export async function needsLocalGate(): Promise<boolean> {
-  if (!canPersistDirectory()) return false
-  if (!localAutoAccessOn()) return false
-  if (!(await internalIsInitialEmpty())) return false
-  if (localStorage.getItem(PENDING) === '1') return true
-  if (localSetupDone()) return false
-  return !(await autoFolderReady())
+  return false
 }
 
 const EXPORTERS: Record<ManualIoKey, () => Promise<unknown>> = {
@@ -48,6 +43,10 @@ const EXPORTERS: Record<ManualIoKey, () => Promise<unknown>> = {
   tmp: exportTmp,
   masters: exportMasters,
   settings: () => Promise.resolve(settingsDocument()),
+}
+
+export async function prepareManualFiles(keys: readonly ManualIoKey[]): Promise<Record<string, unknown>> {
+  return bundleSelected(keys)
 }
 
 async function bundleSelected(keys: readonly ManualIoKey[]): Promise<Record<string, unknown>> {
@@ -80,18 +79,7 @@ export async function restoreFromAutoIfEmpty(isEmpty: boolean): Promise<string |
 /** 本登録のあと。失敗しても本登録は戻さない。 */
 export async function writeAfterCommit(): Promise<string> {
   const lines: string[] = []
-  if (!canPersistDirectory()) {
-    localStorage.removeItem(PENDING)
-  } else if (localAutoAccessOn()) {
-    try {
-      const written = await writeJsonFiles('auto', await bundleFromDb())
-      localStorage.removeItem(PENDING)
-      lines.push(`自動ローカルへ書き出しました（${written.join(', ')}）`)
-    } catch (e) {
-      localStorage.setItem(PENDING, '1')
-      return `自動ローカルへ書けませんでした。${(e as Error).message}`
-    }
-  }
+  localStorage.removeItem(PENDING)
 
   const s = getSettings()
   if (s.icloud?.folderName) {
@@ -128,15 +116,6 @@ export async function backupSettingsNow(): Promise<string> {
   localStorage.setItem(SETTINGS_PENDING, '1')
   const lines: string[] = []
   let pending = false
-  if (canPersistDirectory() && (await directoryStatus('auto')) !== '未設定') {
-    try {
-      const written = await writeJsonFiles('auto', { 'settings.json': doc })
-      lines.push(`${written.join(', ')} を Local へ書き出しました`)
-    } catch (e) {
-      pending = true
-      lines.push(`settings.json は Local へ書けませんでした。${(e as Error).message}`)
-    }
-  }
   if (loadGoogleFolder('auto')) {
     if (!isGoogleSignedIn()) {
       pending = true
@@ -195,8 +174,9 @@ export async function exportToFolder(
 export async function importFromFolder(
   kind: 'manual' | 'icloud',
   keys: readonly ManualIoKey[],
+  opts?: { skipPick?: boolean },
 ): Promise<string> {
-  await ensureDirectory(kind)
+  if (!opts?.skipPick) await ensureDirectory(kind)
   const names = MANUAL_IO_FILES.filter((item) => keys.includes(item.key)).map((item) => item.file)
   if (!names.length) throw new Error('ファイルが選ばれていません')
   const read = await readJsonFiles(kind, names, { strict: true })

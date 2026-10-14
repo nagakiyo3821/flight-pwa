@@ -345,13 +345,7 @@ export async function writeJsonFiles(
 ): Promise<string[]> {
   const payload = applyLocalStamp(files, localStamp())
   const handle = await storedDirectory(kind)
-  if (!handle) {
-    throw new Error(
-      canPersistDirectory()
-        ? 'フォルダが未指定か、許可が切れています'
-        : 'この端末はファイルアプリへ書きません。Google を使ってください。',
-    )
-  }
+  if (!handle) throw new Error('フォルダが未指定か、許可が切れています')
   const written: string[] = []
   const errors: string[] = []
   for (const [name, data] of Object.entries(payload)) {
@@ -372,6 +366,27 @@ export async function writeJsonFiles(
     throw new Error(`未完了（${written.join(', ') || 'なし'}） ${errors.join(' / ')}`)
   }
   return written
+}
+
+/** クリックの中で呼ぶ。ファイルアプリで保存先をその場で選ばせる。 */
+export function sharePreparedFiles(files: Record<string, unknown>): Promise<string[]> {
+  const payload = applyLocalStamp(files, localStamp())
+  const nav = navigator as Navigator & { canShare?: (d: { files: File[] }) => boolean }
+  const build = (type: string) =>
+    Object.entries(payload).map(([name, data]) => new File([JSON.stringify(data, null, 2)], name, { type }))
+  const asJson = build('application/json')
+  const asText = build('text/plain')
+  const shared =
+    asJson.length && nav.canShare?.({ files: asJson })
+      ? asJson
+      : asText.length && nav.canShare?.({ files: asText })
+        ? asText
+        : []
+  if (!shared.length || !navigator.share) {
+    throw new Error('この端末はファイルアプリへファイルを渡せません')
+  }
+  const pending = navigator.share({ files: shared })
+  return pending.then(() => shared.map((file) => file.name))
 }
 
 function pathDepth(file: File): number {

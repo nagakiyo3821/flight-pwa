@@ -290,6 +290,8 @@ let placesListSort: HubListSort = 'asc'
 let hubReturn: 'menu' | 'io' = 'menu'
 let jsonEditFile: 'masters' | 'tmp' = 'masters'
 let jsonEditKey = ''
+/** 複数値の修正、またはその位置への追加 */
+let jsonListPanel: { mode: 'edit' | 'insert'; index: number } | null = null
 /** メニュー再描画後に一度だけ出すメッセージ */
 let flashMsg = ''
 /** 場所一覧向けトースト（描画後に一度だけ） */
@@ -7152,6 +7154,64 @@ async function applyJsonEdit(row: JsonEditRow, mode: 'replace' | 'append', raw: 
   await updateTmpField(row.key as 'DATA1', raw.trim())
 }
 
+function jsonValueItems(current: string): string[] {
+  return current
+    .replace(/\r\n/g, '\n')
+    .split('\n')
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0)
+}
+
+const JSON_RESTORE_ICON =
+  '<svg class="sc-input-undo-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z"/></svg>'
+
+function jsonValueBox(value: string): string {
+  return `<div class="json-edit-field">
+    <textarea id="json-next" class="json-edit-input" aria-label="修正値">${escapeHtml(value)}</textarea>
+    <button type="button" class="sc-input-undo" id="json-restore" aria-label="元へ戻す" title="元へ戻す" tabindex="-1">${JSON_RESTORE_ICON}</button>
+    <button type="button" class="sc-input-clear" id="json-clear" aria-label="消去" tabindex="-1" hidden>&times;</button>
+  </div>`
+}
+
+function wireJsonValueBox(original: string): HTMLTextAreaElement {
+  const input = app.querySelector<HTMLTextAreaElement>('#json-next')!
+  const clearBtn = app.querySelector<HTMLButtonElement>('#json-clear')!
+  const restoreBtn = app.querySelector<HTMLButtonElement>('#json-restore')!
+  const sync = () => {
+    clearBtn.hidden = input.value.length === 0
+    const canRestore = input.value !== original
+    restoreBtn.disabled = !canRestore
+    restoreBtn.setAttribute('aria-disabled', canRestore ? 'false' : 'true')
+  }
+  clearBtn.addEventListener('click', () => {
+    input.value = ''
+    sync()
+    input.focus()
+  })
+  restoreBtn.addEventListener('click', () => {
+    input.value = original
+    sync()
+    input.focus()
+  })
+  input.addEventListener('input', sync)
+  sync()
+  return input
+}
+
+async function saveJsonList(row: JsonEditRow, items: string[]): Promise<void> {
+  const text = items.join('\n')
+  if (jsonEditFile === 'masters') {
+    updateMastersKey(row.key, 'replace', text)
+    await persistCatalog()
+    return
+  }
+  if (row.key === 'googleAuto.folderName' || row.key === 'googleAuto.folderId') {
+    await applyJsonEdit(row, 'replace', text)
+    return
+  }
+  await updateTmpField(row.key as 'DATA1', text)
+}
+
 async function renderJsonEdit(): Promise<void> {
   const title = jsonEditFile === 'masters' ? 'mst.json' : 'tmp.json'
   const rows = await jsonEditRows()
@@ -7190,13 +7250,18 @@ async function renderJsonEdit(): Promise<void> {
     app.querySelectorAll<HTMLButtonElement>('.places-ui-row[data-key]').forEach((btn) => {
       btn.addEventListener('click', () => {
         jsonEditKey = btn.dataset.key || ''
+        jsonListPanel = null
         void render()
       })
     })
     return
   }
+  const items = jsonValueItems(selected.current)
+  if (selected.kind === 'lines' || items.length > 1) {
+    await renderJsonValueList(selected, items)
+    return
+  }
   const current = selected.current.trim() ? selected.current : '（空）'
-  const addBtn = selected.kind === 'lines' ? '<button type="button" class="places-ui-cmd" id="json-add">追加</button>' : ''
   app.innerHTML = `
   <header class="top top--with-back">
     ${topNavBarHtml({ withBack: true, backId: 'json-back', backLabel: EDIT_HUB_BACK })}
@@ -7213,14 +7278,9 @@ async function renderJsonEdit(): Promise<void> {
           <h2 class="places-ui-io-h">現状値</h2>
           <pre class="json-edit-current">${escapeHtml(current)}</pre>
           <h2 class="places-ui-io-h">修正値</h2>
-          <div class="json-edit-field">
-            <textarea id="json-next" class="json-edit-input" aria-label="修正値">${escapeHtml(selected.current)}</textarea>
-            <button type="button" class="sc-input-undo" id="json-restore" aria-label="元へ戻す" title="元へ戻す" tabindex="-1" disabled><svg class="sc-input-undo-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z"/></svg></button>
-            <button type="button" class="sc-input-clear" id="json-clear" aria-label="消去" tabindex="-1" hidden>&times;</button>
-          </div>
+          ${jsonValueBox(selected.current)}
           <div class="places-ui-cmds places-ui-cmds--wrap">
             <button type="button" class="places-ui-cmd" id="json-replace">修正</button>
-            ${addBtn}
           </div>
         </div>
       `)}
@@ -7229,45 +7289,156 @@ async function renderJsonEdit(): Promise<void> {
   wireListScrollCue()
   app.querySelector('#json-back')!.addEventListener('click', () => {
     jsonEditKey = ''
+    jsonListPanel = null
     void render()
   })
-  const input = app.querySelector<HTMLTextAreaElement>('#json-next')!
-  const clearBtn = app.querySelector<HTMLButtonElement>('#json-clear')!
-  const restoreBtn = app.querySelector<HTMLButtonElement>('#json-restore')!
-  const original = selected.current
-  const syncJsonEdit = () => {
-    clearBtn.hidden = input.value.length === 0
-    const canRestore = input.value !== original
-    restoreBtn.disabled = !canRestore
-    restoreBtn.setAttribute('aria-disabled', canRestore ? 'false' : 'true')
-  }
-  clearBtn.addEventListener('click', () => {
-    input.value = ''
-    syncJsonEdit()
-    input.focus()
-  })
-  restoreBtn.addEventListener('click', () => {
-    input.value = original
-    syncJsonEdit()
-    input.focus()
-  })
-  input.addEventListener('input', syncJsonEdit)
-  syncJsonEdit()
-  const run = (mode: 'replace' | 'append') => {
+  const input = wireJsonValueBox(selected.current)
+  app.querySelector('#json-replace')!.addEventListener('click', () => {
     void (async () => {
       try {
-        await applyJsonEdit(selected, mode, input.value)
-        flashMsg = mode === 'append' ? '追加しました' : '修正しました'
-        input.value = ''
+        await applyJsonEdit(selected, 'replace', input.value)
+        flashMsg = '修正しました'
         await render()
       } catch (e) {
         flashMsg = (e as Error).message
         await render()
       }
     })()
+  })
+  if (flashMsg) {
+    showToast(flashMsg)
+    flashMsg = ''
   }
-  app.querySelector('#json-replace')!.addEventListener('click', () => run('replace'))
-  app.querySelector('#json-add')?.addEventListener('click', () => run('append'))
+}
+
+async function renderJsonValueList(selected: JsonEditRow, items: string[]): Promise<void> {
+  const panel = jsonListPanel
+  const panelHtml = (index: number, mode: 'edit' | 'insert') => {
+    if (!panel || panel.index !== index || panel.mode !== mode) return ''
+    const seed = mode === 'edit' ? items[index] || '' : ''
+    const label = mode === 'edit' ? '修正値' : '追加する値'
+    const button = mode === 'edit' ? '修正' : '追加'
+    return `<div class="json-list-panel">
+      <h2 class="places-ui-io-h">${label}</h2>
+      ${jsonValueBox(seed)}
+      <div class="places-ui-cmds places-ui-cmds--wrap">
+        <button type="button" class="places-ui-cmd" id="json-apply">${button}</button>
+      </div>
+    </div>`
+  }
+  const rows = items
+    .map((item, index) => {
+      const open = panel?.index === index ? ' is-open' : ''
+      return `<div class="json-list-item${open}">
+        ${panelHtml(index, 'insert')}
+        <p class="json-list-value">${index + 1}. ${escapeHtml(item)}</p>
+        <div class="places-ui-cmds places-ui-cmds--wrap">
+          <button type="button" class="places-ui-cmd" data-list="edit" data-i="${index}">修正</button>
+          <button type="button" class="places-ui-cmd" data-list="before" data-i="${index}">前に追加</button>
+          <button type="button" class="places-ui-cmd places-ui-cmd--danger" data-list="del" data-i="${index}">削除</button>
+        </div>
+        ${panelHtml(index, 'edit')}
+      </div>`
+    })
+    .join('')
+  const empty = items.length ? '' : '<p class="places-ui-io-hint">値はまだありません。</p>'
+  const endPanel = panel?.mode === 'insert' && panel.index === items.length ? panelHtml(items.length, 'insert') : ''
+  app.innerHTML = `
+  <header class="top top--with-back">
+    ${topNavBarHtml({ withBack: true, backId: 'json-back', backLabel: EDIT_HUB_BACK })}
+    <div class="top-titles">
+      <h1 class="prompt places-ui-title">
+        <span class="places-ui-title-text">${escapeHtml(selected.key)}</span>
+      </h1>
+    </div>
+  </header>
+  <main class="places-ui-main">
+    <section class="card places-ui-card places-ui-card--io">
+      ${placesListScrollPane(`
+        <div class="places-ui-io-body">
+          <h2 class="places-ui-io-h">値</h2>
+          ${empty}
+          ${rows}
+          <div class="places-ui-cmds">
+            <button type="button" class="places-ui-cmd" data-list="end">末尾に追加</button>
+          </div>
+          ${endPanel}
+        </div>
+      `)}
+    </section>
+  </main>`
+  wireListScrollCue()
+  app.querySelector('#json-back')!.addEventListener('click', () => {
+    jsonEditKey = ''
+    jsonListPanel = null
+    void render()
+  })
+  const input = app.querySelector('#json-next') ? wireJsonValueBox(panel?.mode === 'edit' ? items[panel.index] || '' : '') : null
+  const apply = () => {
+    if (!input || !jsonListPanel) return
+    const value = input.value.trim()
+    if (!value) {
+      flashMsg = '値を入力してください'
+      void render()
+      return
+    }
+    const next = [...items]
+    const at = jsonListPanel.index
+    if (jsonListPanel.mode === 'edit') next[at] = value
+    else next.splice(at, 0, value)
+    const verb = jsonListPanel.mode === 'edit' ? '修正しました' : '追加しました'
+    void (async () => {
+      try {
+        await saveJsonList(selected, next)
+        jsonListPanel = null
+        flashMsg = verb
+      } catch (e) {
+        flashMsg = (e as Error).message
+      }
+      await render()
+    })()
+  }
+  app.querySelector('#json-apply')?.addEventListener('click', apply)
+  app.querySelectorAll<HTMLButtonElement>('[data-list]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const act = btn.dataset.list
+      const index = Number(btn.dataset.i)
+      if (act === 'edit') {
+        jsonListPanel = { mode: 'edit', index }
+        void render()
+        return
+      }
+      if (act === 'before') {
+        jsonListPanel = { mode: 'insert', index }
+        void render()
+        return
+      }
+      if (act === 'end') {
+        jsonListPanel = { mode: 'insert', index: items.length }
+        void render()
+        return
+      }
+      if (act !== 'del') return
+      void (async () => {
+        const ok = await confirmYesNo({
+          title: `この値を削除しますか？\n${items[index] || ''}`,
+          okLabel: '1.削除する',
+          cancelLabel: '2.戻る',
+          destructive: true,
+        })
+        if (!ok) return
+        const next = items.filter((_, i) => i !== index)
+        try {
+          await saveJsonList(selected, next)
+          jsonListPanel = null
+          flashMsg = '削除しました'
+        } catch (e) {
+          flashMsg = (e as Error).message
+        }
+        await render()
+      })()
+    })
+  })
   if (flashMsg) {
     showToast(flashMsg)
     flashMsg = ''

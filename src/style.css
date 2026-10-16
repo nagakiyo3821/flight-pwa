@@ -2259,6 +2259,29 @@ code { font-size: 0.85em; }
   top: 0.28rem;
   transform: none;
 }
+.json-list-item {
+  margin: 0.15rem 0 0.45rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid var(--line);
+}
+.json-list-item.is-open {
+  background: #f6f8f9;
+  border-radius: 8px;
+  padding: 0.35rem 0.4rem 0.45rem;
+}
+.json-list-value {
+  margin: 0.2rem 0 0.3rem;
+  font-size: 14px;
+  line-height: 1.35;
+  word-break: break-word;
+}
+.json-list-panel {
+  margin-top: 0.35rem;
+}
+.json-list-item .places-ui-cmd {
+  padding-top: 0.28rem;
+  padding-bottom: 0.28rem;
+}
 .sc-file-pick {
   display: flex;
   align-items: center;

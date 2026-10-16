@@ -444,7 +444,7 @@
 
     <h2 id="sec-7" class="sec"><span>7. システム設定</span><a class="to-top" href="#top" data-to-top aria-label="先頭へ"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 3.2 2.6 9.2h3.1V13h4.6V9.2h3.1L8 3.2z"/></svg></a></h2>
     <p>画面は、操作設定方法、PWA内部データ編集、GoogleDrive自動バックアップ、手動エクスポート、手動インポート、PWA初期化、利用条件の順です。Local自動バックアップはありません。</p>
-    <p>PWA内部データ編集の説明は「PWA内部データを確認し、編集できます。」です。ボタンは <code>log.json</code> <code>pos.json</code> <code>mst.json</code> <code>tmp.json</code> の 2×2 です。<code>log.json</code> は登録データ管理、<code>pos.json</code> は場所データ管理です。<code>mst.json</code> と <code>tmp.json</code> はキーを選ぶと、修正値に現状値が入っています。消去と元へ戻すが使えます。</p>
+    <p>PWA内部データ編集の説明は「PWA内部データを確認し、編集できます。」です。ボタンは <code>log.json</code> <code>pos.json</code> <code>mst.json</code> <code>tmp.json</code> の 2×2 です。<code>log.json</code> は登録データ管理、<code>pos.json</code> は場所データ管理です。<code>mst.json</code> と <code>tmp.json</code> は、値が1つのときは修正値に現状値が入り、消去と元へ戻すが使えます。値が複数のときは一覧になり、選んだ値の修正、前や末尾への追加、削除ができます。</p>
     <p>タイトルの下は「PWA内部データをデータ登録時に自動で書き出します。」です。はじめは「アクセス: 停止中」です。動作中のとき、表示は「アクセス: 動作中」、ボタンは「停止」です。「停止」を押すと「アクセス: 停止中」になり、フォルダの記憶は残ります。ボタンは「動作」に戻ります。「動作」は、フォルダが決まっているときだけ押せます。決まっていないときは「フォルダ: 未設定」で、「動作」は押せません。となりのボタンは「フォルダ変更」です。</p>
     <h3>GoogleDrive自動バックアップ</h3>
     <p>保管先は、この端末で選んだマイドライブのフォルダです。自動用と手動用は別々に覚えます。「フォルダ変更」のあと、マイドライブ上のパス（例: <code>drone/data</code>）を探します。無いフォルダは作りません。同じ名前が複数あるときは、どれかを選びます。</p>

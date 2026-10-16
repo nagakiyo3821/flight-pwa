@@ -18,8 +18,8 @@ const SETTINGS_PENDING = 'flight-settings-backup-pending'
 export const MANUAL_IO_FILES = [
   { key: 'log', file: 'log.json', label: 'log', folderOnly: false, checked: false },
   { key: 'pos', file: 'pos.json', label: 'pos', folderOnly: false, checked: false },
-  { key: 'tmp', file: 'tmp.json', label: 'tmp', folderOnly: false, checked: false },
   { key: 'masters', file: 'masters.json', label: 'mst', folderOnly: false, checked: false },
+  { key: 'tmp', file: 'tmp.json', label: 'tmp', folderOnly: false, checked: false },
 ] as const
 export type ManualIoKey = (typeof MANUAL_IO_FILES)[number]['key']
 const FILE_NAMES = MANUAL_IO_FILES.filter((item) => !item.folderOnly).map((item) => item.file)

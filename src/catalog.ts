@@ -236,3 +236,117 @@ export async function tryLoadLocalMastersFile(): Promise<MastersFile | null> {
 export function exportCatalogClone(): MastersFile {
   return structuredClone(getCatalog())
 }
+
+export type JsonEditKind = 'text' | 'lines'
+
+export type JsonEditRow = {
+  key: string
+  kind: JsonEditKind
+  current: string
+}
+
+function linesText(value: readonly string[] | undefined): string {
+  return (value || []).filter((item) => String(item).length > 0).join('\n')
+}
+
+function parseLines(raw: string): string[] {
+  return raw
+    .replace(/\r\n/g, '\n')
+    .split('\n')
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0)
+}
+
+function appendLines(current: readonly string[] | undefined, raw: string): string[] {
+  const add = parseLines(raw)
+  if (!add.length) throw new Error('追加する値を入力してください')
+  const out = [...(current || [])]
+  for (const item of add) {
+    if (!out.includes(item)) out.push(item)
+  }
+  return out
+}
+
+/** mst.json の編集対象。配列は改行区切りで見せる。 */
+export function mastersEditRows(): JsonEditRow[] {
+  const c = getCatalog()
+  const rows: JsonEditRow[] = []
+  const listKeys = [...new Set([...LIST_KEYS, ...Object.keys(c.lists || {})])].sort()
+  for (const key of listKeys) {
+    rows.push({ key: `lists.${key}`, kind: 'lines', current: linesText(c.lists[key]) })
+  }
+  rows.push({ key: 'drones.types', kind: 'lines', current: linesText(c.drones.types) })
+  const idTypes = [...new Set([...(c.drones.types || []), ...Object.keys(c.drones.ids || {})])].sort()
+  for (const type of idTypes) {
+    rows.push({ key: `drones.ids.${type}`, kind: 'lines', current: linesText(c.drones.ids[type]) })
+  }
+  for (const type of Object.keys(c.drones.profiles || {}).sort()) {
+    const profile = c.drones.profiles?.[type]
+    rows.push({
+      key: `drones.profiles.${type}.hiddenKeys`,
+      kind: 'lines',
+      current: linesText(profile?.hiddenKeys),
+    })
+    for (const key of Object.keys(profile?.lists || {}).sort()) {
+      rows.push({
+        key: `drones.profiles.${type}.lists.${key}`,
+        kind: 'lines',
+        current: linesText(profile?.lists?.[key as ListKey]),
+      })
+    }
+  }
+  const labelKeys = [...new Set([...LABEL_KEYS, ...Object.keys(c.labels || {})])].sort()
+  for (const key of labelKeys) {
+    rows.push({ key: `labels.${key}`, kind: 'text', current: String(c.labels[key] || '') })
+  }
+  return rows
+}
+
+/** 選んだキーを置き換えるか、配列へ足す。 */
+export function updateMastersKey(path: string, mode: 'replace' | 'append', raw: string): void {
+  const c = structuredClone(getCatalog())
+  const writeLines = (current: readonly string[] | undefined): string[] =>
+    mode === 'append' ? appendLines(current, raw) : parseLines(raw)
+  if (path.startsWith('lists.')) {
+    const key = path.slice('lists.'.length)
+    c.lists[key] = writeLines(c.lists[key])
+  } else if (path === 'drones.types') {
+    c.drones.types = writeLines(c.drones.types)
+    for (const type of c.drones.types) {
+      if (!Array.isArray(c.drones.ids[type])) c.drones.ids[type] = []
+    }
+  } else if (path.startsWith('drones.ids.')) {
+    const type = path.slice('drones.ids.'.length)
+    c.drones.ids[type] = writeLines(c.drones.ids[type])
+  } else if (path.startsWith('drones.profiles.')) {
+    const rest = path.slice('drones.profiles.'.length)
+    const hiddenMark = '.hiddenKeys'
+    const listsMark = '.lists.'
+    if (rest.endsWith(hiddenMark)) {
+      const type = rest.slice(0, -hiddenMark.length)
+      c.drones.profiles = c.drones.profiles || {}
+      const profile = c.drones.profiles[type] || {}
+      profile.hiddenKeys = writeLines(profile.hiddenKeys)
+      c.drones.profiles[type] = profile
+    } else {
+      const at = rest.indexOf(listsMark)
+      if (at < 0) throw new Error('このキーは修正できません')
+      const type = rest.slice(0, at)
+      const key = rest.slice(at + listsMark.length) as ListKey
+      c.drones.profiles = c.drones.profiles || {}
+      const profile = c.drones.profiles[type] || {}
+      profile.lists = profile.lists || {}
+      profile.lists[key] = writeLines(profile.lists[key])
+      c.drones.profiles[type] = profile
+    }
+  } else if (path.startsWith('labels.')) {
+    if (mode === 'append') throw new Error('このキーは修正だけです')
+    const key = path.slice('labels.'.length)
+    const value = raw.trim()
+    if (value) c.labels[key] = value
+    else delete c.labels[key]
+  } else {
+    throw new Error('このキーは修正できません')
+  }
+  setCatalog(c)
+}

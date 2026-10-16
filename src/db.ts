@@ -474,6 +474,15 @@ export async function exportPos(): Promise<PosFile> {
   return out
 }
 
+const TMP_TEXT_KEYS = ['DATA1', 'DATA2', 'DATA3', 'DATA4', 'DATA5', 'TIME', 'DRONE', 'A_SR', 'A_SS'] as const
+
+export async function updateTmpField(key: (typeof TMP_TEXT_KEYS)[number], value: string): Promise<void> {
+  const meta = await getMeta()
+  const tmp: TmpFlag = { ...meta.tmp, [key]: value }
+  delete tmp.googleAuto
+  await patchMeta({ tmp })
+}
+
 export async function exportTmp(): Promise<TmpFlag> {
   const tmp = { ...(await getMeta()).tmp }
   delete tmp.googleAuto

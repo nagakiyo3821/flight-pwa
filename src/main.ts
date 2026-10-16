@@ -34,17 +34,22 @@ import {
   resetLog,
   resetMasters,
   resetPos,
+  persistCatalog,
   resetTmp,
   resetWorking,
   savePlaceRecord,
   saveWorking,
   setWorkingKey,
   syncWorkingTmp,
+  updateTmpField,
   upsertPlace,
 } from './db'
 import type { FieldDef, FlightRecord, PlaceRecord } from './types'
 import {
   droneTypeFrom,
+  mastersEditRows,
+  updateMastersKey,
+  type JsonEditRow,
   getDroneIds,
   getDroneTypes,
   getHiddenKeys,
@@ -85,7 +90,7 @@ import {
 } from './google-auth'
 import { drivePathSegments, listDriveFolders, resolveSyncFolder, withDriveDeadline } from './google-drive'
 import { localStamp } from './local-file-names'
-import { googleFolderLabel, loadGoogleFolder, saveGoogleFolder, type GoogleFolderKind } from './google-folder'
+import { clearGoogleFolder, googleFolderLabel, loadGoogleFolder, saveGoogleFolder, type GoogleFolderKind } from './google-folder'
 import { maybeAutoSync, runGoogleDriveSync } from './google-sync'
 import { applySettingsDocument } from './settings'
 import {
@@ -272,6 +277,7 @@ type View =
   | 'io'
   | 'places'
   | 'place-edit'
+  | 'json-edit'
 
 let view: View = 'menu'
 let placeEditName: string | null = null
@@ -280,6 +286,10 @@ let checklistFilter: 'pre' | 'post' | 'all' = 'pre'
 type HubListSort = 'asc' | 'desc'
 let recordsListSort: HubListSort = 'asc'
 let placesListSort: HubListSort = 'asc'
+/** 登録データ管理・場所データ管理の戻り先 */
+let hubReturn: 'menu' | 'io' = 'menu'
+let jsonEditFile: 'masters' | 'tmp' = 'masters'
+let jsonEditKey = ''
 /** メニュー再描画後に一度だけ出すメッセージ */
 let flashMsg = ''
 /** 場所一覧向けトースト（描画後に一度だけ） */
@@ -387,6 +397,7 @@ async function render(): Promise<void> {
   else if (view === 'checklist') await renderChecklist()
   else if (view === 'places') await renderPlaces()
   else if (view === 'place-edit') await renderPlaceEdit()
+  else if (view === 'json-edit') await renderJsonEdit()
   else await renderIO()
   resetViewportScroll()
   wirePlacesUiViewportLock(document.documentElement.classList.contains('places-ui-lock'))
@@ -5864,11 +5875,13 @@ async function onMenu(action: string): Promise<void> {
     return
   }
   if (action === 'records') {
+    hubReturn = 'menu'
     view = 'records'
     await render()
     return
   }
   if (action === 'places') {
+    hubReturn = 'menu'
     view = 'places'
     await render()
     return
@@ -6102,7 +6115,7 @@ async function renderRecords(): Promise<void> {
   )
 
   app.querySelector('#records-back')!.addEventListener('click', () => {
-    view = 'menu'
+    view = hubReturn
     void render()
   })
   app.querySelectorAll<HTMLButtonElement>('.places-ui-row[data-id]').forEach((btn) => {
@@ -6582,7 +6595,7 @@ async function renderPlaces(): Promise<void> {
   )
 
   app.querySelector('#places-ui-back')!.addEventListener('click', () => {
-    view = 'menu'
+    view = hubReturn
     placeEditName = null
     void render()
   })
@@ -7085,6 +7098,157 @@ async function onPlaceEdit(id: string, name: string, place: PlaceRecord): Promis
   }
 }
 
+function tmpEditRows(tmp: {
+  DATA1: string
+  DATA2: string
+  DATA3: string
+  DATA4: string
+  DATA5: string
+  TIME: string
+  DRONE: string
+  A_SR: string
+  A_SS: string
+}, folderName: string, folderId: string): JsonEditRow[] {
+  const keys = ['DATA1', 'DATA2', 'DATA3', 'DATA4', 'DATA5', 'TIME', 'DRONE', 'A_SR', 'A_SS'] as const
+  return [
+    ...keys.map((key) => ({ key, kind: 'text' as const, current: String(tmp[key] || '') })),
+    { key: 'googleAuto.folderName', kind: 'text', current: folderName },
+    { key: 'googleAuto.folderId', kind: 'text', current: folderId },
+  ]
+}
+
+async function jsonEditRows(): Promise<JsonEditRow[]> {
+  if (jsonEditFile === 'masters') return mastersEditRows()
+  const meta = await getMeta()
+  const folder = loadGoogleFolder('auto')
+  return tmpEditRows(meta.tmp, folder?.folderName || '', folder?.folderId || '')
+}
+
+async function applyJsonEdit(row: JsonEditRow, mode: 'replace' | 'append', raw: string): Promise<void> {
+  if (jsonEditFile === 'masters') {
+    updateMastersKey(row.key, mode, raw)
+    await persistCatalog()
+    return
+  }
+  if (row.key === 'googleAuto.folderName' || row.key === 'googleAuto.folderId') {
+    const saved = loadGoogleFolder('auto')
+    const next = {
+      folderName: saved?.folderName || '',
+      folderId: saved?.folderId || '',
+    }
+    const value = raw.trim()
+    if (row.key === 'googleAuto.folderName') next.folderName = value
+    else next.folderId = value
+    if (!next.folderName && !next.folderId) {
+      clearGoogleFolder('auto')
+      return
+    }
+    if (!next.folderName || !next.folderId) {
+      throw new Error('フォルダ名とフォルダ ID の両方が必要です')
+    }
+    saveGoogleFolder('auto', next)
+    return
+  }
+  await updateTmpField(row.key as 'DATA1', raw.trim())
+}
+
+async function renderJsonEdit(): Promise<void> {
+  const title = jsonEditFile === 'masters' ? 'mst.json' : 'tmp.json'
+  const rows = await jsonEditRows()
+  const selected = jsonEditKey ? rows.find((row) => row.key === jsonEditKey) : undefined
+  app.classList.add('places-ui-app')
+  document.documentElement.classList.add('places-ui-lock')
+  resetViewportScroll()
+  if (!selected) {
+    const list = rows
+      .map((row) => {
+        const preview = row.current.trim() ? row.current.split('\n')[0] : '（空）'
+        return `<button type="button" class="places-ui-row" data-key="${escapeHtml(row.key)}"><span class="places-ui-row-stack"><span class="places-ui-row-name">${escapeHtml(row.key)}</span><span class="places-ui-row-meta">${escapeHtml(preview)}</span></span><span class="places-ui-row-chevron" aria-hidden="true">›</span></button>`
+      })
+      .join('')
+    app.innerHTML = `
+    <header class="top top--with-back">
+      ${topNavBarHtml({ withBack: true, backId: 'json-back', backLabel: EDIT_HUB_BACK })}
+      <div class="top-titles">
+        <h1 class="prompt places-ui-title">
+          <span class="places-ui-title-text">${escapeHtml(title)}</span>
+        </h1>
+      </div>
+    </header>
+    <main class="places-ui-main">
+      <section class="card places-ui-card">
+        <p class="places-ui-io-hint">修正するキーを選んでください。</p>
+        ${placesListPaneHtml(list)}
+      </section>
+    </main>`
+    wireListScrollCue()
+    app.querySelector('#json-back')!.addEventListener('click', () => {
+      jsonEditKey = ''
+      view = 'io'
+      void render()
+    })
+    app.querySelectorAll<HTMLButtonElement>('.places-ui-row[data-key]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        jsonEditKey = btn.dataset.key || ''
+        void render()
+      })
+    })
+    return
+  }
+  const current = selected.current.trim() ? selected.current : '（空）'
+  const addBtn = selected.kind === 'lines' ? '<button type="button" class="places-ui-cmd" id="json-add">追加</button>' : ''
+  app.innerHTML = `
+  <header class="top top--with-back">
+    ${topNavBarHtml({ withBack: true, backId: 'json-back', backLabel: EDIT_HUB_BACK })}
+    <div class="top-titles">
+      <h1 class="prompt places-ui-title">
+        <span class="places-ui-title-text">${escapeHtml(selected.key)}</span>
+      </h1>
+    </div>
+  </header>
+  <main class="places-ui-main">
+    <section class="card places-ui-card places-ui-card--io">
+      ${placesListScrollPane(`
+        <div class="places-ui-io-body">
+          <h2 class="places-ui-io-h">現状値</h2>
+          <pre class="json-edit-current">${escapeHtml(current)}</pre>
+          <h2 class="places-ui-io-h">修正値</h2>
+          <textarea id="json-next" class="json-edit-input" aria-label="修正値"></textarea>
+          <div class="places-ui-cmds places-ui-cmds--wrap">
+            <button type="button" class="places-ui-cmd" id="json-replace">修正</button>
+            ${addBtn}
+          </div>
+        </div>
+      `)}
+    </section>
+  </main>`
+  wireListScrollCue()
+  app.querySelector('#json-back')!.addEventListener('click', () => {
+    jsonEditKey = ''
+    void render()
+  })
+  const input = app.querySelector<HTMLTextAreaElement>('#json-next')!
+  const run = (mode: 'replace' | 'append') => {
+    void (async () => {
+      try {
+        await applyJsonEdit(selected, mode, input.value)
+        flashMsg = mode === 'append' ? '追加しました' : '修正しました'
+        input.value = ''
+        await render()
+      } catch (e) {
+        flashMsg = (e as Error).message
+        await render()
+      }
+    })()
+  }
+  app.querySelector('#json-replace')!.addEventListener('click', () => run('replace'))
+  app.querySelector('#json-add')?.addEventListener('click', () => run('append'))
+  if (flashMsg) {
+    showToast(flashMsg)
+    flashMsg = ''
+  }
+}
+
 function deviceFolderLabel(): string {
   const ua = navigator.userAgent
   if (/Android/i.test(ua)) return 'Android'
@@ -7126,6 +7290,15 @@ async function renderIO(): Promise<void> {
             <p class="places-ui-io-hint">導入、準備するデータ、1回の飛行の進め方、場所の精度で同じ地点にまとめる考え方をまとめています。</p>
             <div class="places-ui-cmds">
               <a class="places-ui-cmd" id="openManual" href="./manual.html">マニュアル</a>
+            </div>
+
+            <h2 class="places-ui-io-h">PWA内部データ編集</h2>
+            <p class="places-ui-io-hint">PWA内部データを確認し、編集できます。</p>
+            <div class="places-ui-cmds places-ui-cmds--grid2">
+              ${cmd('editLog', 'log.json')}
+              ${cmd('editPos', 'pos.json')}
+              ${cmd('editMst', 'mst.json')}
+              ${cmd('editTmp', 'tmp.json')}
             </div>
 
             <h2 class="places-ui-io-h">GoogleDrive自動バックアップ</h2>
@@ -7170,6 +7343,29 @@ async function renderIO(): Promise<void> {
   </main>`
 
   wireListScrollCue()
+
+  const openHub = (next: 'records' | 'places') => {
+    if (ioBusy) return
+    hubReturn = 'io'
+    view = next
+    void render()
+  }
+  app.querySelector('#editLog')?.addEventListener('click', () => openHub('records'))
+  app.querySelector('#editPos')?.addEventListener('click', () => openHub('places'))
+  app.querySelector('#editMst')?.addEventListener('click', () => {
+    if (ioBusy) return
+    jsonEditFile = 'masters'
+    jsonEditKey = ''
+    view = 'json-edit'
+    void render()
+  })
+  app.querySelector('#editTmp')?.addEventListener('click', () => {
+    if (ioBusy) return
+    jsonEditFile = 'tmp'
+    jsonEditKey = ''
+    view = 'json-edit'
+    void render()
+  })
 
   app.querySelector('#openManual')?.addEventListener('click', () => {
     try {

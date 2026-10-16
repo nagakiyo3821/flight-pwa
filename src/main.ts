@@ -81,7 +81,6 @@ import {
   isGoogleSignedIn,
   pauseGoogleAuto,
   requestGoogleAccessToken,
-  resumeGoogleAutoIfGranted,
   resumeGoogleAutoIntent,
 } from './google-auth'
 import { downloadLatestJson, drivePathSegments, listDriveFolders, resolveSyncFolder, uploadStampedJson, withDriveDeadline } from './google-drive'
@@ -1283,10 +1282,14 @@ function chooseManualFiles(
     document.getElementById('sc-confirm')?.remove()
     const root = document.createElement('div')
     root.id = 'sc-confirm'
-    root.className = 'sc-confirm'
+    root.className = 'sc-confirm sc-confirm--files'
     root.setAttribute('role', 'dialog')
     root.setAttribute('aria-modal', 'true')
     root.setAttribute('aria-labelledby', 'sc-confirm-title')
+    const phoneShareGuide =
+      action === 'export' && scope === 'folder' && !canPersistDirectory()
+        ? '<p class="sc-file-pick-guide">実行後、共有の「ファイルに保存」を選び、保存するフォルダを指定してください。</p>'
+        : ''
     const rows = choices.map(
       (item) => `<label class="sc-file-pick">
         <input type="checkbox" data-file="${item.key}"${item.checked ? ' checked' : ''} />
@@ -1300,6 +1303,7 @@ function chooseManualFiles(
           <p class="sc-confirm-title" id="sc-confirm-title">${escapeHtml(title)}</p>
           <p class="sc-confirm-detail">${escapeHtml(detail)}</p>
           <div class="sc-file-picks">${rows}</div>
+          ${phoneShareGuide}
           <p class="sc-file-pick-note" id="sc-file-note" hidden>1つ以上選んでください。</p>
           <button type="button" class="sc-confirm-btn sc-confirm-btn--ok" data-act="ok">実行</button>
         </div>
@@ -1376,13 +1380,21 @@ function closeChoiceSheet(root: HTMLElement): Promise<void> {
   })
 }
 
+function googleDriveSheetTitle(
+  kind: GoogleFolderKind,
+  action?: 'export' | 'import',
+): string {
+  if (kind === 'auto') return 'GoogleDrive自動バックアップ'
+  return action === 'import' ? 'GoogleDrive手動インポート' : 'GoogleDrive手動エクスポート'
+}
+
 function reviewGoogleFolderSheet(kind: GoogleFolderKind): Promise<'ok' | 'change' | 'cancel'> {
   const saved = loadGoogleFolder(kind)
   const confirm = saved
     ? '<button type="button" class="sc-confirm-btn sc-confirm-btn--ok" data-act="ok">このフォルダで確定</button>'
     : ''
   const changeLabel = saved ? '別のフォルダを選ぶ' : 'フォルダを選ぶ'
-  const title = kind === 'auto' ? 'Google自動バックアップ' : 'Google 手動'
+  const title = googleDriveSheetTitle(kind)
   const root = mountChoiceSheet(`
     <div class="sc-confirm-backdrop" data-act="cancel" aria-hidden="true"></div>
     <div class="sc-confirm-sheet" role="document">
@@ -1441,16 +1453,16 @@ function pickDriveFolderHit(
 
 function searchGoogleFolderSheet(
   kind: GoogleFolderKind,
-  opts?: { blank?: boolean },
+  opts?: { blank?: boolean; action?: 'export' | 'import' },
 ): Promise<{ folderName: string; folderId: string } | null> {
   const initial = opts?.blank ? '' : loadGoogleFolder(kind)?.folderName || ''
-  const title = kind === 'auto' ? 'Google自動バックアップ' : 'Google 手動'
+  const title = googleDriveSheetTitle(kind, opts?.action)
   const root = mountChoiceSheet(`
     <div class="sc-confirm-backdrop" data-act="cancel" aria-hidden="true"></div>
     <div class="sc-confirm-sheet" role="document">
       <div class="sc-confirm-card">
         <p class="sc-confirm-title">${title}</p>
-        <p class="sc-confirm-detail">${opts?.blank ? '毎回、マイドライブからのフォルダを入力してください。' : 'マイドライブからのフォルダを入力してください。'}</p>
+        <p class="sc-confirm-detail">${opts?.blank ? 'マイドライブ以降の対象フォルダディレクトリ名を入力してください。' : 'マイドライブからのフォルダを入力してください。'}</p>
         <input id="googlePath" class="sc-google-path" type="text" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false" value="${escapeHtml(initial)}" aria-label="マイドライブからのフォルダ" />
         <p class="sc-file-pick-note" id="sc-file-note" hidden></p>
         <button type="button" class="sc-confirm-btn sc-confirm-btn--ok" data-act="search">検索</button>
@@ -1512,9 +1524,12 @@ function searchGoogleFolderSheet(
 }
 
 /** 戻るは false。確定で true。自動送信と手動は別のフォルダ。手動は毎回パスを選ぶ。 */
-async function chooseGoogleFolder(kind: GoogleFolderKind, opts?: { free?: boolean }): Promise<boolean> {
+async function chooseGoogleFolder(
+  kind: GoogleFolderKind,
+  opts?: { free?: boolean; action?: 'export' | 'import' },
+): Promise<boolean> {
   if (opts?.free) {
-    const picked = await searchGoogleFolderSheet(kind, { blank: true })
+    const picked = await searchGoogleFolderSheet(kind, { blank: true, action: opts.action })
     if (!picked) return false
     saveGoogleFolder(kind, picked)
     return true
@@ -7081,19 +7096,12 @@ function deviceFolderLabel(): string {
 }
 
 async function renderIO(): Promise<void> {
-  const manualGoogle = googleFolderLabel('manual')
-  const autoGoogle = googleFolderLabel('auto')
-  const googleOn = isGoogleSignedIn() && autoGoogle !== '未設定'
-  if (!googleOn && autoGoogle !== '未設定' && !googleAutoPaused()) {
-    void resumeGoogleAutoIfGranted().then((ok) => {
-      if (ok && view === 'io') void render()
-    })
-  }
+  const autoFolder = loadGoogleFolder('auto')
+  const autoGoogle = autoFolder ? googleFolderLabel('auto') : '未設定'
+  const googleOn = isGoogleSignedIn() && !!autoFolder && !googleAutoPaused()
   const googleAccess = googleOn ? '動作中' : '停止中'
   const googleToggle = googleOn ? '停止' : '動作'
   const localFolderLabel = deviceFolderLabel()
-  const placeLines = `
-            <p class="places-ui-io-hint">Google: ${escapeHtml(manualGoogle)}</p>`
   const cmd = (id: string, label: string, opts?: { disabled?: boolean; danger?: boolean }) => {
     const danger = opts?.danger ? ' places-ui-cmd--danger' : ''
     const dis = opts?.disabled ? ' disabled' : ''
@@ -7123,23 +7131,24 @@ async function renderIO(): Promise<void> {
               <a class="places-ui-cmd" id="openManual" href="./manual.html">マニュアル</a>
             </div>
 
-            <h2 class="places-ui-io-h">Google自動バックアップ</h2>
+            <h2 class="places-ui-io-h">GoogleDrive自動バックアップ</h2>
+            <p class="places-ui-io-hint">PWA内部データをデータ登録時に自動で書き出します。</p>
             <p class="places-ui-io-hint">アクセス: ${googleAccess}</p>
             <p class="places-ui-io-hint">フォルダ: ${escapeHtml(autoGoogle)}</p>
             <div class="places-ui-cmds places-ui-cmds--wrap">
-              ${cmd(googleOn ? 'googleAccessOff' : 'googleAccessOn', googleToggle)}
+              ${cmd(googleOn ? 'googleAccessOff' : 'googleAccessOn', googleToggle, { disabled: !googleOn && !autoFolder })}
               ${cmd('pickGoogleAuto', 'フォルダ変更')}
             </div>
 
             <h2 class="places-ui-io-h">手動エクスポート</h2>
-            ${placeLines}
+            <p class="places-ui-io-hint">PWA内部データを手動で書き出します。</p>
             <div class="places-ui-cmds places-ui-cmds--wrap">
               ${cmd('expFolder', localFolderLabel)}
               ${cmd('expGoogle', 'GoogleDrive')}
             </div>
 
             <h2 class="places-ui-io-h">手動インポート</h2>
-            ${placeLines}
+            <p class="places-ui-io-hint">PWA内部データを手動で読み込みます。</p>
             <div class="places-ui-cmds places-ui-cmds--wrap">
               ${cmd('impFolder', localFolderLabel)}
               ${cmd('impGoogle', 'GoogleDrive')}
@@ -7341,7 +7350,7 @@ async function renderIO(): Promise<void> {
       void (async () => {
         const keys = await chooseManualFiles(action, 'google')
         if (!keys) return
-        const ready = await chooseGoogleFolder('manual', { free: true })
+        const ready = await chooseGoogleFolder('manual', { free: true, action })
         if (!ready) return
         const btn = app.querySelector<HTMLElement>(`#${id}`)
         const status = direction === 'push' ? 'Google へ書き出しています…' : 'Google から取り込んでいます…'
@@ -7372,7 +7381,7 @@ async function renderIO(): Promise<void> {
         try {
           const settingsNote =
             changed && isGoogleSignedIn() ? await withDriveDeadline(() => backupSettingsNow()) : ''
-          flashMsg = `Google自動バックアップ: ${googleFolderLabel('auto')}${settingsNote ? `\n${settingsNote}` : ''}`
+          flashMsg = `GoogleDrive自動バックアップ: ${googleFolderLabel('auto')}${settingsNote ? `\n${settingsNote}` : ''}`
         } catch (e) {
           flashMsg = (e as Error).message
         }
@@ -7391,7 +7400,7 @@ async function renderIO(): Promise<void> {
         }
         await requestGoogleAccessToken()
         resumeGoogleAutoIntent()
-        flashMsg = 'Google自動バックアップ: 動作'
+        flashMsg = 'GoogleDrive自動バックアップ: 動作'
         await render()
       } catch (e) {
         setMsg(`失敗: ${(e as Error).message}`, 'bad')
@@ -7402,14 +7411,14 @@ async function renderIO(): Promise<void> {
     if (ioBusy) return
     void (async () => {
       const offOk = await confirmYesNo({
-        title: 'Google自動バックアップを停止しますか？\nフォルダの記憶は残します。',
+        title: 'GoogleDrive自動バックアップを停止しますか？\nフォルダの記憶は残します。',
         okLabel: '1.停止する',
         cancelLabel: '2.戻る',
       })
       if (!offOk) return
       clearGoogleSession()
       pauseGoogleAuto()
-      flashMsg = 'Google自動バックアップ: 停止'
+      flashMsg = 'GoogleDrive自動バックアップ: 停止'
       await render()
     })()
   })

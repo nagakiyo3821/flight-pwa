@@ -23,7 +23,7 @@ status: wip
 Copyright (c) 2026 nagakiyo3821
 
 公開 Pages: https://nagakiyo3821.github.io/flight-pwa/  
-利用者向け手順: [マニュアル](https://nagakiyo3821.github.io/flight-pwa/manual.html)（[MANUAL.md](./MANUAL.md)）。Local自動バックアップ、Google自動バックアップ、手動のフォルダ指定と Google、PWA初期化はマニュアルの「7. システム設定」。  
+利用者向け手順: [マニュアル](https://nagakiyo3821.github.io/flight-pwa/manual.html)（[MANUAL.md](./MANUAL.md)）。Local自動バックアップ、GoogleDrive自動バックアップ、手動のフォルダ指定と Google、PWA初期化はマニュアルの「7. システム設定」。  
 アプリ初回起動時に同意を求めます。違反時の手順は TERMS.md §3。
 
 学習用の [[pwa-demo/README|pwa-demo]] とは別。**現行ショートカット互換の JSON**（log / pos / tmp）を端末内（IndexedDB）で扱い、ファイルとして出し入れする本番向け第1弾。
@@ -42,7 +42,7 @@ Copyright (c) 2026 nagakiyo3821
 | 飛行時間↔離着陸日時の 3 値同期、日付・時刻ピッカー | 旧ショートカットの廃止 |
 | 8.場所データ管理（一覧・新規／修正・削除） | |
 | 7.登録データ管理（一覧→FREE 編集・場所一覧と同系 UI） | |
-| **システム設定**（Local自動バックアップ／Google自動バックアップ／手動入出力／PWA初期化） | |
+| **システム設定**（Local自動バックアップ／GoogleDrive自動バックアップ／手動入出力／PWA初期化） | |
 | Google Drive の手動入出力と、データ登録後の自動送信（端末のフォルダ記憶・要 OAuth） | |
 | PWA初期化（log / pos / tmp / masters / settings を選んで確認。端末内だけ。settings はフォルダの記憶を未設定に戻す） | フォルダやドライブのファイル削除 |
 | セット／リセットタイマー（T・2h／24h） | |

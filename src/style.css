@@ -2210,20 +2210,62 @@ code { font-size: 0.85em; }
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
+.sc-confirm--files .sc-confirm-sheet {
+  min-width: min(18.5rem, var(--popup-max-width));
+  max-height: calc(100dvh - var(--popup-inset) * 2 - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+  min-height: 0;
+  overflow: auto;
+}
 .sc-file-picks {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-  padding: 0 1rem 0.35rem;
+  display: grid;
+  grid-template-columns: repeat(3, max-content);
+  justify-content: center;
+  column-gap: 0.85rem;
+  row-gap: 0.05rem;
+  padding: 0 0.75rem 0.2rem;
 }
 .sc-file-pick {
   display: flex;
   align-items: center;
-  gap: 0.65rem;
-  min-height: 2.5rem;
+  gap: 0.35rem;
+  min-height: 1.65rem;
   font-size: var(--popup-font);
   font-weight: 500;
   color: var(--ink);
+}
+.sc-file-pick-guide {
+  margin: 0;
+  padding: 0.15rem 0.75rem 0.35rem;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.3;
+  text-align: center;
+  color: var(--muted);
+}
+@media (orientation: landscape) and (max-height: 520px) {
+  .sc-confirm--files .sc-confirm-title {
+    padding: 0.4rem 0.7rem 0.1rem;
+  }
+  .sc-confirm--files .sc-confirm-detail {
+    padding: 0 0.7rem 0.25rem;
+    line-height: 1.25;
+  }
+  .sc-file-picks {
+    row-gap: 0;
+    padding-bottom: 0.05rem;
+  }
+  .sc-file-pick {
+    min-height: 1.35rem;
+  }
+  .sc-file-pick-guide {
+    padding: 0 0.7rem 0.2rem;
+    font-size: 11px;
+    line-height: 1.2;
+  }
+  .sc-confirm--files .sc-confirm-btn {
+    padding-top: 0.28rem;
+    padding-bottom: 0.28rem;
+  }
 }
 .sc-file-pick input {
   width: 1.15rem;

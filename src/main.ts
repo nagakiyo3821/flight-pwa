@@ -7213,7 +7213,11 @@ async function renderJsonEdit(): Promise<void> {
           <h2 class="places-ui-io-h">現状値</h2>
           <pre class="json-edit-current">${escapeHtml(current)}</pre>
           <h2 class="places-ui-io-h">修正値</h2>
-          <textarea id="json-next" class="json-edit-input" aria-label="修正値"></textarea>
+          <div class="json-edit-field">
+            <textarea id="json-next" class="json-edit-input" aria-label="修正値">${escapeHtml(selected.current)}</textarea>
+            <button type="button" class="sc-input-undo" id="json-restore" aria-label="元へ戻す" title="元へ戻す" tabindex="-1" disabled><svg class="sc-input-undo-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z"/></svg></button>
+            <button type="button" class="sc-input-clear" id="json-clear" aria-label="消去" tabindex="-1" hidden>&times;</button>
+          </div>
           <div class="places-ui-cmds places-ui-cmds--wrap">
             <button type="button" class="places-ui-cmd" id="json-replace">修正</button>
             ${addBtn}
@@ -7228,6 +7232,27 @@ async function renderJsonEdit(): Promise<void> {
     void render()
   })
   const input = app.querySelector<HTMLTextAreaElement>('#json-next')!
+  const clearBtn = app.querySelector<HTMLButtonElement>('#json-clear')!
+  const restoreBtn = app.querySelector<HTMLButtonElement>('#json-restore')!
+  const original = selected.current
+  const syncJsonEdit = () => {
+    clearBtn.hidden = input.value.length === 0
+    const canRestore = input.value !== original
+    restoreBtn.disabled = !canRestore
+    restoreBtn.setAttribute('aria-disabled', canRestore ? 'false' : 'true')
+  }
+  clearBtn.addEventListener('click', () => {
+    input.value = ''
+    syncJsonEdit()
+    input.focus()
+  })
+  restoreBtn.addEventListener('click', () => {
+    input.value = original
+    syncJsonEdit()
+    input.focus()
+  })
+  input.addEventListener('input', syncJsonEdit)
+  syncJsonEdit()
   const run = (mode: 'replace' | 'append') => {
     void (async () => {
       try {

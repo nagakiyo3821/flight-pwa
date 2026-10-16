@@ -7,6 +7,7 @@ import { parseFlightDate } from './flight-time'
 import {
   appendDroneId,
   exportCatalogClone,
+  isCatalogReady,
   loadBundledDefault,
   mergeMasters,
   setCatalog,
@@ -230,9 +231,13 @@ export async function importMasters(data: MastersFile): Promise<void> {
 
 /** メモリ上の catalog を IndexedDB meta.masters へ保存 */
 export async function persistCatalog(): Promise<void> {
-  await ensureCatalog()
-  const meta = await getMeta()
-  await db.meta.put({ ...meta, masters: exportCatalogClone() })
+  if (!isCatalogReady()) await ensureCatalog()
+  // getMeta は保存済みの masters でメモリを上書きする。先に編集結果を取る。
+  const masters = exportCatalogClone()
+  const row = await db.meta.get(META_ID)
+  if (!row) throw new Error('端末データを保存できません')
+  await db.meta.put({ ...row, masters })
+  setCatalog(structuredClone(masters))
 }
 
 /** 機種の識別番号を追加して永続化 */

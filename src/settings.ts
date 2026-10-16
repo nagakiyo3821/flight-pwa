@@ -3,15 +3,9 @@
  * 出し入れする正本は端末の管理データ（version 3）。古いスキーマは内部互換用。
  */
 
-import { clearGoogleFolder, clearGoogleFolders, loadGoogleFolder, saveGoogleFolder } from './google-folder'
+import { clearGoogleFolder, clearGoogleFolders, saveGoogleFolder } from './google-folder'
 import { resumeGoogleAutoIntent } from './google-auth'
-import {
-  clearLocalSetupDone,
-  directoryLabel,
-  localAutoAccessOn,
-  restoreDirectoryLabel,
-  setLocalAutoAccess,
-} from './local-dirs'
+import { clearLocalSetupDone, restoreDirectoryLabel } from './local-dirs'
 
 export type SyncProviderId = 'none' | 'google' | 'webdav' | 's3compatible'
 
@@ -172,24 +166,6 @@ export function normalizeSettings(raw: unknown): SettingsFile {
   }
 }
 
-/**
- * 端末の最小管理データ（settings.json）。
- * フォルダ名、Google のフォルダ ID、Local の動作／停止。ログインのトークンは入れない。
- */
-export function settingsDocument(): Record<string, unknown> {
-  const google = (kind: 'auto' | 'manual') => {
-    const saved = loadGoogleFolder(kind)
-    return { folderName: saved?.folderName || '', folderId: saved?.folderId || '' }
-  }
-  return {
-    version: 3,
-    localAuto: { access: localAutoAccessOn(), folderName: directoryLabel('auto') },
-    localManual: { folderName: directoryLabel('manual') },
-    googleAuto: google('auto'),
-    googleManual: google('manual'),
-  }
-}
-
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' ? (value as Record<string, unknown>) : {}
 }
@@ -198,27 +174,15 @@ function textField(value: unknown): string {
   return String(value ?? '').trim()
 }
 
-/** settings.json を端末の管理データへ戻す。フォルダの書き込み許可とログインは戻らない。 */
+/** 旧 settings.json の googleAuto だけを端末へ戻す。無いファイルは取り込まない。 */
 export async function applySettingsDocument(raw: unknown): Promise<void> {
   const o = asRecord(raw)
-  if (Number(o.version) !== 3 || !o.localAuto) {
-    throw new Error('この settings.json には端末の管理データがありません')
-  }
-  const localAuto = asRecord(o.localAuto)
-  const localManual = asRecord(o.localManual)
+  if (!('googleAuto' in o)) throw new Error('このファイルに Google 自動のフォルダがありません')
   const googleAuto = asRecord(o.googleAuto)
-  const googleManual = asRecord(o.googleManual)
-  setLocalAutoAccess(localAuto.access !== false)
-  await restoreDirectoryLabel('auto', textField(localAuto.folderName))
-  await restoreDirectoryLabel('manual', textField(localManual.folderName))
-  const applyGoogle = (kind: 'auto' | 'manual', row: Record<string, unknown>) => {
-    const folderName = textField(row.folderName)
-    const folderId = textField(row.folderId)
-    if (folderName && folderId) saveGoogleFolder(kind, { folderName, folderId })
-    else clearGoogleFolder(kind)
-  }
-  applyGoogle('auto', googleAuto)
-  applyGoogle('manual', googleManual)
+  const folderName = textField(googleAuto.folderName)
+  const folderId = textField(googleAuto.folderId)
+  if (folderName && folderId) saveGoogleFolder('auto', { folderName, folderId })
+  else clearGoogleFolder('auto')
 }
 
 /** 端末の管理データを未設定へ戻す。ログインと、外にある settings.json は残す。 */

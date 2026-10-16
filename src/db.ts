@@ -1,4 +1,5 @@
 import Dexie, { type Table } from 'dexie'
+import { clearGoogleFolder, loadGoogleFolder, saveGoogleFolder } from './google-folder'
 import type { FlightRecord, LogFile, PosFile, PlaceRecord, TmpFlag } from './types'
 import { emptyRecord } from './fields'
 import { computeTmp, formatNowSeconds, newWorkingKey } from './flag'
@@ -161,13 +162,14 @@ export async function resetPos(): Promise<void> {
   await db.places.clear()
 }
 
-/** tmp 初期化: FLAG 初期（TIME 空） */
+/** tmp 初期化: FLAG 初期（TIME 空）。googleAuto も未設定に戻す。 */
 export async function resetTmp(): Promise<void> {
   const meta = await getMeta()
   const { rec } = await getWorking()
   const drone = rec.A_DRONE.split('_')[0] || meta.tmp.DRONE || 'Mavic2Pro'
   const tmp = computeTmp(rec, drone, '')
   tmp.DRONE = drone
+  clearGoogleFolder('auto')
   await db.meta.put({ ...meta, tmp })
 }
 
@@ -473,11 +475,21 @@ export async function exportPos(): Promise<PosFile> {
 }
 
 export async function exportTmp(): Promise<TmpFlag> {
-  return (await getMeta()).tmp
+  const tmp = { ...(await getMeta()).tmp }
+  delete tmp.googleAuto
+  const saved = loadGoogleFolder('auto')
+  if (!saved) return tmp
+  return { ...tmp, googleAuto: { folderName: saved.folderName, folderId: saved.folderId } }
 }
 
-/** tmp.json を取り込み（SR/SS/FLAG 等）。作業キーは TIME から NEW を復元 */
+/** tmp.json を取り込み（SR/SS/FLAG 等）。googleAuto があれば自動フォルダも戻す。 */
 export async function importTmp(tmp: TmpFlag): Promise<void> {
+  if (tmp.googleAuto) {
+    const folderName = String(tmp.googleAuto.folderName || '').trim()
+    const folderId = String(tmp.googleAuto.folderId || '').trim()
+    if (folderName && folderId) saveGoogleFolder('auto', { folderName, folderId })
+    else clearGoogleFolder('auto')
+  }
   const meta = await getMeta()
   const time = (tmp.TIME || '').trim()
   const workingKey =

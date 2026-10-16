@@ -83,11 +83,11 @@ import {
   requestGoogleAccessToken,
   resumeGoogleAutoIntent,
 } from './google-auth'
-import { downloadLatestJson, drivePathSegments, listDriveFolders, resolveSyncFolder, uploadStampedJson, withDriveDeadline } from './google-drive'
+import { drivePathSegments, listDriveFolders, resolveSyncFolder, withDriveDeadline } from './google-drive'
 import { localStamp } from './local-file-names'
 import { googleFolderLabel, loadGoogleFolder, saveGoogleFolder, type GoogleFolderKind } from './google-folder'
 import { maybeAutoSync, runGoogleDriveSync } from './google-sync'
-import { applySettingsDocument, resetDeviceSettings, settingsDocument } from './settings'
+import { applySettingsDocument } from './settings'
 import {
   COMMIT_BACK,
   COMMIT_OK,
@@ -1274,10 +1274,7 @@ function chooseManualFiles(
       : action === 'export'
         ? '書き出すファイルを選んでください。'
         : '取り込むファイルを選んでください。'
-  const choices = MANUAL_IO_FILES.filter((item) => {
-    if (item.key === 'settings') return true
-    return scope === 'folder' || !item.folderOnly
-  })
+  const choices = MANUAL_IO_FILES.filter((item) => scope === 'folder' || !item.folderOnly)
   return new Promise((resolve) => {
     document.getElementById('sc-confirm')?.remove()
     const root = document.createElement('div')
@@ -7310,30 +7307,10 @@ async function renderIO(): Promise<void> {
     if (!loadGoogleFolder('manual')) throw new Error('Google のフォルダが未選択です')
     if (!isGoogleSignedIn()) await requestGoogleAccessToken()
     return withDriveDeadline(async () => {
-      const dataKeys = keys.filter((key) => key !== 'settings')
       const { folderName, folderId } = await resolveSyncFolder('manual')
       const stamp = localStamp()
-      const used: string[] = []
-      if (direction === 'push') {
-        if (dataKeys.length) {
-          const report = await runGoogleDriveSync(direction, dataKeys, 'manual', stamp)
-          used.push(...report.used)
-        }
-        if (keys.includes('settings')) {
-          used.push(await uploadStampedJson(folderId, 'settings.json', settingsDocument(), stamp))
-        }
-      } else {
-        if (dataKeys.length) {
-          const report = await runGoogleDriveSync(direction, dataKeys, 'manual', stamp)
-          used.push(...report.used)
-        }
-        if (keys.includes('settings')) {
-          const latest = await downloadLatestJson(folderId, 'settings.json')
-          if (!latest) throw new Error('set がありません')
-          await applySettingsDocument(latest.data)
-          used.push(latest.name)
-        }
-      }
+      const report = await runGoogleDriveSync(direction, keys, 'manual', stamp)
+      const used = report.used
       if (!used.length) throw new Error('ファイルが選ばれていません')
       const verb = direction === 'push' ? '送信' : '取得'
       return `フォルダ: ${folderName} (${folderId})\n${verb}: ${used.join(' / ')}`
@@ -7448,7 +7425,6 @@ async function renderIO(): Promise<void> {
         if (keys.includes('log') || keys.includes('pos')) clearLocalSetupDone()
         if (keys.includes('tmp')) await resetTmp()
         if (keys.includes('masters')) await resetMasters()
-        if (keys.includes('settings')) await resetDeviceSettings()
         await showResult(`初期化しました（${names.join(', ')}）`, 'ok')
       })
       await render()

@@ -1,7 +1,7 @@
 /**
  * Google Drive 同期（log / pos / tmp / masters）
  * 衝突時は端末（IndexedDB）優先。手動取込＝最新方針に合わせる。
- * settings.json はデータ登録では送らない。システム設定の変更時と手動入出力だけで扱う。
+ * Google 自動フォルダは tmp.json の googleAuto。データ登録と、フォルダを変えたときに書く。
  */
 
 import type { MastersFile } from './catalog'

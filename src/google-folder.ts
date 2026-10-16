@@ -1,4 +1,4 @@
-/** この端末で選んだ Google ドライブの保管先。settings.json には書かない。 */
+/** この端末で選んだ Google ドライブの保管先。自動分は tmp.json の googleAuto にも出す。 */
 
 const LEGACY_KEY = 'flight-google-folder'
 const KEYS = {

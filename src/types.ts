@@ -2,6 +2,11 @@
 
 export type FlagLevel = '0' | '1' | '2' // ロック / 修正可能 / 設定待ち
 
+export interface GoogleAutoFolder {
+  folderName: string
+  folderId: string
+}
+
 export interface TmpFlag {
   DATA1: string
   DATA2: string
@@ -12,6 +17,8 @@ export interface TmpFlag {
   DRONE: string
   A_SR: string
   A_SS: string
+  /** GoogleDrive自動バックアップの保管先。未設定の書き出しでは付けない。 */
+  googleAuto?: GoogleAutoFolder
 }
 
 export interface FlightRecord {

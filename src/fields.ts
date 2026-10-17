@@ -210,7 +210,7 @@ function earliestField(matches: FieldDef[]): FieldDef | undefined {
 export function mastersKeyCaption(path: string): { no: number; text: string } | null {
   const field = fieldForMastersPath(path)
   if (!field) return null
-  return { no: field.no, text: `${field.no}.${field.label}(.${path})` }
+  return { no: field.no, text: `${field.no}.${field.label}` }
 }
 
 function fieldForMastersPath(path: string): FieldDef | undefined {

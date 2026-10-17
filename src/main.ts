@@ -7229,9 +7229,13 @@ function jsonRowTitle(row: JsonEditRow, index: number): string {
 }
 
 function childKeyTitle(path: string): string {
-  if (path.startsWith('drones.ids.')) return `機体識別番号(.${path})`
-  if (path.endsWith('.hiddenKeys')) return `非表示項目(.${path})`
+  if (path.startsWith('drones.ids.')) return '機体識別番号'
+  if (path.endsWith('.hiddenKeys')) return '非表示項目'
   return mastersKeyCaption(path)?.text ?? path
+}
+
+function jsonKeyRowHtml(name: string, key: string, current: string, attrs: string): string {
+  return `<button type="button" class="places-ui-row places-ui-row--field" ${attrs}><span class="places-ui-row-stack"><span class="places-ui-row-name">${escapeHtml(name)}</span><span class="places-ui-row-meta places-ui-row-meta--clip">${escapeHtml(`キー:(${key})`)}</span><span class="places-ui-row-meta places-ui-row-meta--clip">${escapeHtml(`値:${jsonKeyLine(current)}`)}</span></span><span class="places-ui-row-chevron" aria-hidden="true">›</span></button>`
 }
 
 function leaveJsonKey(): void {
@@ -7308,8 +7312,11 @@ async function renderJsonEdit(): Promise<void> {
   if (!selected) {
     const list = rows
       .map((row, index) => {
-        const preview = jsonKeyLine(row.current)
-        return `<button type="button" class="places-ui-row places-ui-row--field" data-key="${escapeHtml(row.key)}"><span class="places-ui-row-stack"><span class="places-ui-row-name">${escapeHtml(jsonRowTitle(row, index))}</span><span class="places-ui-row-meta places-ui-row-meta--clip">${escapeHtml(preview)}</span></span><span class="places-ui-row-chevron" aria-hidden="true">›</span></button>`
+        const name = jsonRowTitle(row, index)
+        if (jsonEditFile !== 'masters') {
+          return `<button type="button" class="places-ui-row places-ui-row--field" data-key="${escapeHtml(row.key)}"><span class="places-ui-row-stack"><span class="places-ui-row-name">${escapeHtml(name)}</span><span class="places-ui-row-meta places-ui-row-meta--clip">${escapeHtml(jsonKeyLine(row.current))}</span></span><span class="places-ui-row-chevron" aria-hidden="true">›</span></button>`
+        }
+        return jsonKeyRowHtml(name, row.key, row.current, `data-key="${escapeHtml(row.key)}"`)
       })
       .join('')
     app.innerHTML = `
@@ -7405,9 +7412,9 @@ async function renderJsonScalar(selected: JsonEditRow, numberedKey: string, onBa
 }
 
 function attachedLabelTitle(path: string): string {
-  if (path === 'labels.droneIdCustom') return `任意の機体識別番号(.${path})`
-  if (path === 'labels.nameCustom') return `任意の氏名(.${path})`
-  if (path === 'labels.batnCustom') return `任意のバッテリー番号(.${path})`
+  if (path === 'labels.droneIdCustom') return '任意の機体識別番号'
+  if (path === 'labels.nameCustom') return '任意の氏名'
+  if (path === 'labels.batnCustom') return '任意のバッテリー番号'
   return path
 }
 
@@ -7415,7 +7422,7 @@ async function renderJsonChildKeys(title: string, children: JsonEditRow[], onBac
   const list = children
     .map(
       (row) =>
-        `<button type="button" class="places-ui-row places-ui-row--field" data-child-key="${escapeHtml(row.key)}"><span class="places-ui-row-stack"><span class="places-ui-row-name">${escapeHtml(childKeyTitle(row.key))}</span><span class="places-ui-row-meta places-ui-row-meta--clip">${escapeHtml(jsonKeyLine(row.current))}</span></span><span class="places-ui-row-chevron" aria-hidden="true">›</span></button>`,
+        jsonKeyRowHtml(childKeyTitle(row.key), row.key, row.current, `data-child-key="${escapeHtml(row.key)}"`),
     )
     .join('')
   app.innerHTML = `
@@ -7479,7 +7486,7 @@ async function renderJsonValueList(
       const open = panel?.index === index ? ' is-open' : ''
       const children = jsonEditFile === 'masters' ? mastersChildRows(selected.key, item) : []
       const head = children.length
-        ? `<button type="button" class="places-ui-row places-ui-row--field" data-open="${index}"><span class="places-ui-row-stack"><span class="places-ui-row-name">${escapeHtml(`${index + 1}.${item}`)}</span><span class="places-ui-row-meta places-ui-row-meta--clip">${escapeHtml(jsonKeyLine(children[0].current))}</span></span><span class="places-ui-row-chevron" aria-hidden="true">›</span></button>`
+        ? jsonKeyRowHtml(`${index + 1}.${item}`, children[0].key, children[0].current, `data-open="${index}"`)
         : `<p class="json-list-value">${index + 1}. ${escapeHtml(item)}</p>`
       return `<div class="json-list-item${open}">
         ${panelHtml(index, 'insert')}
@@ -7494,7 +7501,7 @@ async function renderJsonValueList(
     })
     .join('')
   const labelHtml = label
-    ? `<button type="button" class="places-ui-row places-ui-row--field" id="json-label"><span class="places-ui-row-stack"><span class="places-ui-row-name">${escapeHtml(attachedLabelTitle(label.key))}</span><span class="places-ui-row-meta places-ui-row-meta--clip">${escapeHtml(jsonKeyLine(label.current))}</span></span><span class="places-ui-row-chevron" aria-hidden="true">›</span></button>`
+    ? jsonKeyRowHtml(attachedLabelTitle(label.key), label.key, label.current, 'id="json-label"')
     : ''
   const empty = items.length ? '' : '<p class="places-ui-io-hint">値はまだありません。</p>'
   const endPanel = panel?.mode === 'insert' && panel.index === items.length ? panelHtml(items.length, 'insert') : ''

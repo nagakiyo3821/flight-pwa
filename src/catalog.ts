@@ -302,6 +302,94 @@ export function mastersEditRows(): JsonEditRow[] {
   return rows
 }
 
+/** 親の値にぶら下がる子キー。機種名なら識別番号・非表示項目・機種別リスト。 */
+export function mastersChildRows(parentKey: string, value: string): JsonEditRow[] {
+  if (parentKey !== 'drones.types') return []
+  const name = value.trim()
+  if (!name) return []
+  const c = getCatalog()
+  const profile = c.drones.profiles?.[name]
+  const rows: JsonEditRow[] = [
+    { key: `drones.ids.${name}`, kind: 'lines', current: linesText(c.drones.ids[name]) },
+    {
+      key: `drones.profiles.${name}.hiddenKeys`,
+      kind: 'lines',
+      current: linesText(profile?.hiddenKeys),
+    },
+  ]
+  for (const key of Object.keys(profile?.lists || {}).sort()) {
+    rows.push({
+      key: `drones.profiles.${name}.lists.${key}`,
+      kind: 'lines',
+      current: linesText(profile?.lists?.[key as ListKey]),
+    })
+  }
+  return rows
+}
+
+/** 親キーの画面に畳む単一ラベル。一覧には親だけを出す。 */
+export function attachedLabelPath(parentKey: string): string | null {
+  if (parentKey === 'drones.types') return 'labels.droneIdCustom'
+  if (parentKey === 'lists.names') return 'labels.nameCustom'
+  if (parentKey === 'lists.batn') return 'labels.batnCustom'
+  return null
+}
+
+export function isNestedMastersPath(path: string): boolean {
+  if (path.startsWith('drones.ids.') || path.startsWith('drones.profiles.')) return true
+  return path === 'labels.droneIdCustom' || path === 'labels.nameCustom' || path === 'labels.batnCustom'
+}
+
+function dropDroneTypeData(c: MastersFile, type: string): void {
+  delete c.drones.ids[type]
+  if (c.drones.profiles) delete c.drones.profiles[type]
+}
+
+/** 機種名の修正・追加・削除に合わせ、識別番号と機種別設定を追従させる。 */
+function applyDroneTypes(c: MastersFile, next: string[]): void {
+  if (new Set(next).size !== next.length) throw new Error('機種名が重複しています')
+  const prev = [...(c.drones.types || [])]
+  if (next.length === prev.length) {
+    const renames = prev.map((name, index) => [name, next[index]] as const).filter(([from, to]) => from !== to)
+    for (const [, to] of renames) {
+      if (!renames.some(([from]) => from === to) && prev.includes(to)) throw new Error('機種名が重複しています')
+    }
+    const stagedIds: Record<string, string[]> = {}
+    const stagedProfiles: Record<string, DroneProfile> = {}
+    for (const [from, to] of renames) {
+      stagedIds[to] = Array.isArray(c.drones.ids[from]) ? [...c.drones.ids[from]] : []
+      const profile = c.drones.profiles?.[from]
+      if (profile) stagedProfiles[to] = structuredClone(profile)
+    }
+    for (const [from] of renames) dropDroneTypeData(c, from)
+    Object.assign(c.drones.ids, stagedIds)
+    if (Object.keys(stagedProfiles).length) {
+      c.drones.profiles = { ...(c.drones.profiles || {}), ...stagedProfiles }
+    }
+  } else if (next.length === prev.length + 1) {
+    let at = 0
+    while (at < prev.length && prev[at] === next[at]) at++
+    const tailOk = prev.every((name, index) => index < at || name === next[index + 1])
+    if (tailOk) {
+      if (!Array.isArray(c.drones.ids[next[at]])) c.drones.ids[next[at]] = []
+    } else {
+      for (const name of prev) if (!next.includes(name)) dropDroneTypeData(c, name)
+    }
+  } else if (next.length === prev.length - 1) {
+    let at = 0
+    while (at < next.length && prev[at] === next[at]) at++
+    const tailOk = next.every((name, index) => index < at || name === prev[index + 1])
+    if (tailOk) dropDroneTypeData(c, prev[at])
+    else for (const name of prev) if (!next.includes(name)) dropDroneTypeData(c, name)
+  } else {
+    for (const name of prev) if (!next.includes(name)) dropDroneTypeData(c, name)
+  }
+  c.drones.types = next
+  for (const type of next) {
+    if (!Array.isArray(c.drones.ids[type])) c.drones.ids[type] = []
+  }
+}
+
 /** 選んだキーを置き換えるか、配列へ足す。 */
 export function updateMastersKey(path: string, mode: 'replace' | 'append', raw: string): void {
   const c = structuredClone(getCatalog())
@@ -311,10 +399,7 @@ export function updateMastersKey(path: string, mode: 'replace' | 'append', raw: 
     const key = path.slice('lists.'.length)
     c.lists[key] = writeLines(c.lists[key])
   } else if (path === 'drones.types') {
-    c.drones.types = writeLines(c.drones.types)
-    for (const type of c.drones.types) {
-      if (!Array.isArray(c.drones.ids[type])) c.drones.ids[type] = []
-    }
+    applyDroneTypes(c, writeLines(c.drones.types))
   } else if (path.startsWith('drones.ids.')) {
     const type = path.slice('drones.ids.'.length)
     c.drones.ids[type] = writeLines(c.drones.ids[type])

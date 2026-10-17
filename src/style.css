@@ -2264,6 +2264,10 @@ code { font-size: 0.85em; }
   padding-bottom: 0.35rem;
   border-bottom: 1px solid var(--line);
 }
+.json-list-item .places-ui-row {
+  padding-left: 0.35rem;
+  padding-right: 0.35rem;
+}
 .json-list-item.is-open {
   background: #f6f8f9;
   border-radius: 8px;

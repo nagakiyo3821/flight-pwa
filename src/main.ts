@@ -47,6 +47,9 @@ import {
 import type { FieldDef, FlightRecord, PlaceRecord } from './types'
 import {
   droneTypeFrom,
+  attachedLabelPath,
+  isNestedMastersPath,
+  mastersChildRows,
   mastersEditRows,
   updateMastersKey,
   type JsonEditRow,
@@ -292,6 +295,8 @@ let jsonEditFile: 'masters' | 'tmp' = 'masters'
 let jsonEditKey = ''
 /** 複数値の修正、またはその位置への追加 */
 let jsonListPanel: { mode: 'edit' | 'insert'; index: number } | null = null
+/** 親の値から開いた子。childKey が空なら子キー一覧。labelKey は親に畳んだ単一ラベル。 */
+let jsonNest: { value: string; childKey: string; labelKey: string } | null = null
 /** メニュー再描画後に一度だけ出すメッセージ */
 let flashMsg = ''
 /** 場所一覧向けトースト（描画後に一度だけ） */
@@ -7223,10 +7228,22 @@ function jsonRowTitle(row: JsonEditRow, index: number): string {
   return mastersKeyCaption(row.key)?.text ?? row.key
 }
 
+function childKeyTitle(path: string): string {
+  if (path.startsWith('drones.ids.')) return `機体識別番号(.${path})`
+  if (path.endsWith('.hiddenKeys')) return `非表示項目(.${path})`
+  return mastersKeyCaption(path)?.text ?? path
+}
+
+function leaveJsonKey(): void {
+  jsonEditKey = ''
+  jsonNest = null
+  jsonListPanel = null
+}
+
 async function renderJsonEdit(): Promise<void> {
   const title = jsonEditFile === 'masters' ? 'mst.json' : 'tmp.json'
   const loaded = await jsonEditRows()
-  const rows =
+  const ordered =
     jsonEditFile === 'masters'
       ? [...loaded].sort((a, b) => {
           const na = mastersKeyCaption(a.key)?.no ?? 10000
@@ -7235,7 +7252,56 @@ async function renderJsonEdit(): Promise<void> {
           return a.key.localeCompare(b.key, 'ja')
         })
       : loaded
-  const selected = jsonEditKey ? rows.find((row) => row.key === jsonEditKey) : undefined
+  const rows = jsonEditFile === 'masters' ? ordered.filter((row) => !isNestedMastersPath(row.key)) : ordered
+  const selected = jsonEditKey ? ordered.find((row) => row.key === jsonEditKey) : undefined
+  if (jsonEditKey && !selected) {
+    leaveJsonKey()
+    await render()
+    return
+  }
+  if (selected && jsonNest?.labelKey) {
+    const label = ordered.find((row) => row.key === jsonNest?.labelKey)
+    if (label) {
+      await renderJsonScalar(label, attachedLabelTitle(label.key), () => {
+        jsonNest = null
+        jsonListPanel = null
+      })
+      return
+    }
+    jsonNest = jsonNest ? { ...jsonNest, labelKey: '' } : null
+  }
+  if (selected && jsonNest?.value) {
+    const children = mastersChildRows(selected.key, jsonNest.value)
+    const valueIndex = jsonValueItems(selected.current).indexOf(jsonNest.value)
+    const valueTitle = `${valueIndex >= 0 ? valueIndex + 1 : 1}.${jsonNest.value}`
+    if (!jsonNest.childKey) {
+      if (children.length === 1) {
+        const only = children[0]
+        await renderJsonValueList(only, jsonValueItems(only.current), childKeyTitle(only.key), () => {
+          jsonNest = null
+          jsonListPanel = null
+        })
+        return
+      }
+      await renderJsonChildKeys(valueTitle, children, () => {
+        jsonNest = null
+        jsonListPanel = null
+      })
+      return
+    }
+    const child = children.find((row) => row.key === jsonNest?.childKey)
+    if (!child) {
+      jsonNest = { value: jsonNest.value, childKey: '', labelKey: '' }
+      await render()
+      return
+    }
+    await renderJsonValueList(child, jsonValueItems(child.current), childKeyTitle(child.key), () => {
+      if (children.length > 1) jsonNest = { value: jsonNest?.value || '', childKey: '', labelKey: '' }
+      else jsonNest = null
+      jsonListPanel = null
+    })
+    return
+  }
   app.classList.add('places-ui-app')
   document.documentElement.classList.add('places-ui-lock')
   resetViewportScroll()
@@ -7263,13 +7329,14 @@ async function renderJsonEdit(): Promise<void> {
     </main>`
     wireListScrollCue()
     app.querySelector('#json-back')!.addEventListener('click', () => {
-      jsonEditKey = ''
+      leaveJsonKey()
       view = 'io'
       void render()
     })
     app.querySelectorAll<HTMLButtonElement>('.places-ui-row[data-key]').forEach((btn) => {
       btn.addEventListener('click', () => {
         jsonEditKey = btn.dataset.key || ''
+        jsonNest = null
         jsonListPanel = null
         void render()
       })
@@ -7279,9 +7346,15 @@ async function renderJsonEdit(): Promise<void> {
   const items = jsonValueItems(selected.current)
   const numberedKey = jsonRowTitle(selected, rows.findIndex((row) => row.key === selected.key))
   if (selected.kind === 'lines' || items.length > 1) {
-    await renderJsonValueList(selected, items, numberedKey)
+    const labelPath = jsonEditFile === 'masters' ? attachedLabelPath(selected.key) : null
+    const label = labelPath ? ordered.find((row) => row.key === labelPath) : undefined
+    await renderJsonValueList(selected, items, numberedKey, () => leaveJsonKey(), label)
     return
   }
+  await renderJsonScalar(selected, numberedKey, () => leaveJsonKey())
+}
+
+async function renderJsonScalar(selected: JsonEditRow, numberedKey: string, onBack: () => void): Promise<void> {
   const current = selected.current.trim() ? selected.current : '（空）'
   app.innerHTML = `
   <header class="top top--with-back">
@@ -7309,8 +7382,7 @@ async function renderJsonEdit(): Promise<void> {
   </main>`
   wireListScrollCue()
   app.querySelector('#json-back')!.addEventListener('click', () => {
-    jsonEditKey = ''
-    jsonListPanel = null
+    onBack()
     void render()
   })
   const input = wireJsonValueBox(selected.current)
@@ -7332,7 +7404,61 @@ async function renderJsonEdit(): Promise<void> {
   }
 }
 
-async function renderJsonValueList(selected: JsonEditRow, items: string[], numberedKey: string): Promise<void> {
+function attachedLabelTitle(path: string): string {
+  if (path === 'labels.droneIdCustom') return `任意の機体識別番号(.${path})`
+  if (path === 'labels.nameCustom') return `任意の氏名(.${path})`
+  if (path === 'labels.batnCustom') return `任意のバッテリー番号(.${path})`
+  return path
+}
+
+async function renderJsonChildKeys(title: string, children: JsonEditRow[], onBack: () => void): Promise<void> {
+  const list = children
+    .map(
+      (row) =>
+        `<button type="button" class="places-ui-row places-ui-row--field" data-child-key="${escapeHtml(row.key)}"><span class="places-ui-row-stack"><span class="places-ui-row-name">${escapeHtml(childKeyTitle(row.key))}</span><span class="places-ui-row-meta places-ui-row-meta--clip">${escapeHtml(jsonKeyLine(row.current))}</span></span><span class="places-ui-row-chevron" aria-hidden="true">›</span></button>`,
+    )
+    .join('')
+  app.innerHTML = `
+  <header class="top top--with-back">
+    ${topNavBarHtml({ withBack: true, backId: 'json-back', backLabel: EDIT_HUB_BACK })}
+    <div class="top-titles">
+      <h1 class="prompt places-ui-title">
+        <span class="places-ui-title-text">${escapeHtml(title)}</span>
+      </h1>
+    </div>
+  </header>
+  <main class="places-ui-main">
+    <section class="card places-ui-card">
+      <h2 class="places-ui-section">子のキー ${children.length}件</h2>
+      ${placesListPaneHtml(list)}
+    </section>
+  </main>`
+  wireListScrollCue()
+  app.querySelector('#json-back')!.addEventListener('click', () => {
+    onBack()
+    void render()
+  })
+  app.querySelectorAll<HTMLButtonElement>('[data-child-key]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      if (!jsonNest) return
+      jsonNest = { ...jsonNest, childKey: btn.dataset.childKey || '' }
+      jsonListPanel = null
+      void render()
+    })
+  })
+  if (flashMsg) {
+    showToast(flashMsg)
+    flashMsg = ''
+  }
+}
+
+async function renderJsonValueList(
+  selected: JsonEditRow,
+  items: string[],
+  numberedKey: string,
+  onBack: () => void,
+  label?: JsonEditRow,
+): Promise<void> {
   const panel = jsonListPanel
   const panelHtml = (index: number, mode: 'edit' | 'insert') => {
     if (!panel || panel.index !== index || panel.mode !== mode) return ''
@@ -7351,9 +7477,13 @@ async function renderJsonValueList(selected: JsonEditRow, items: string[], numbe
   const rows = items
     .map((item, index) => {
       const open = panel?.index === index ? ' is-open' : ''
+      const children = jsonEditFile === 'masters' ? mastersChildRows(selected.key, item) : []
+      const head = children.length
+        ? `<button type="button" class="places-ui-row places-ui-row--field" data-open="${index}"><span class="places-ui-row-stack"><span class="places-ui-row-name">${escapeHtml(`${index + 1}.${item}`)}</span><span class="places-ui-row-meta places-ui-row-meta--clip">${escapeHtml(jsonKeyLine(children[0].current))}</span></span><span class="places-ui-row-chevron" aria-hidden="true">›</span></button>`
+        : `<p class="json-list-value">${index + 1}. ${escapeHtml(item)}</p>`
       return `<div class="json-list-item${open}">
         ${panelHtml(index, 'insert')}
-        <p class="json-list-value">${index + 1}. ${escapeHtml(item)}</p>
+        ${head}
         <div class="places-ui-cmds places-ui-cmds--wrap">
           <button type="button" class="places-ui-cmd" data-list="edit" data-i="${index}">修正</button>
           <button type="button" class="places-ui-cmd" data-list="before" data-i="${index}">前に追加</button>
@@ -7363,6 +7493,9 @@ async function renderJsonValueList(selected: JsonEditRow, items: string[], numbe
       </div>`
     })
     .join('')
+  const labelHtml = label
+    ? `<button type="button" class="places-ui-row places-ui-row--field" id="json-label"><span class="places-ui-row-stack"><span class="places-ui-row-name">${escapeHtml(attachedLabelTitle(label.key))}</span><span class="places-ui-row-meta places-ui-row-meta--clip">${escapeHtml(jsonKeyLine(label.current))}</span></span><span class="places-ui-row-chevron" aria-hidden="true">›</span></button>`
+    : ''
   const empty = items.length ? '' : '<p class="places-ui-io-hint">値はまだありません。</p>'
   const endPanel = panel?.mode === 'insert' && panel.index === items.length ? panelHtml(items.length, 'insert') : ''
   app.innerHTML = `
@@ -7381,6 +7514,7 @@ async function renderJsonValueList(selected: JsonEditRow, items: string[], numbe
           <h2 class="places-ui-io-h">値</h2>
           ${empty}
           ${rows}
+          ${labelHtml}
           <div class="places-ui-cmds">
             <button type="button" class="places-ui-cmd" data-list="end">末尾に追加</button>
           </div>
@@ -7391,9 +7525,29 @@ async function renderJsonValueList(selected: JsonEditRow, items: string[], numbe
   </main>`
   wireListScrollCue()
   app.querySelector('#json-back')!.addEventListener('click', () => {
-    jsonEditKey = ''
+    onBack()
+    void render()
+  })
+  app.querySelector('#json-label')?.addEventListener('click', () => {
+    if (!label) return
+    jsonNest = { value: '', childKey: '', labelKey: label.key }
     jsonListPanel = null
     void render()
+  })
+  app.querySelectorAll<HTMLButtonElement>('[data-open]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const index = Number(btn.dataset.open)
+      const value = items[index]
+      if (!value) return
+      const children = mastersChildRows(selected.key, value)
+      jsonNest = {
+        value,
+        childKey: children.length === 1 ? children[0].key : '',
+        labelKey: '',
+      }
+      jsonListPanel = null
+      void render()
+    })
   })
   const input = app.querySelector('#json-next') ? wireJsonValueBox(panel?.mode === 'edit' ? items[panel.index] || '' : '') : null
   const apply = () => {
@@ -7578,6 +7732,8 @@ async function renderIO(): Promise<void> {
     if (ioBusy) return
     jsonEditFile = 'masters'
     jsonEditKey = ''
+    jsonNest = null
+    jsonListPanel = null
     view = 'json-edit'
     void render()
   })
@@ -7585,6 +7741,8 @@ async function renderIO(): Promise<void> {
     if (ioBusy) return
     jsonEditFile = 'tmp'
     jsonEditKey = ''
+    jsonNest = null
+    jsonListPanel = null
     view = 'json-edit'
     void render()
   })

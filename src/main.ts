@@ -1,7 +1,7 @@
 import './style.css'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { FIELDS, filled, resolveCustomLabel, resolveOptions } from './fields'
+import { FIELDS, filled, mastersKeyCaption, resolveCustomLabel, resolveOptions } from './fields'
 import {
   canOpen,
   formatNow,
@@ -7218,9 +7218,23 @@ async function saveJsonList(row: JsonEditRow, items: string[]): Promise<void> {
   await updateTmpField(row.key as 'DATA1', text)
 }
 
+function jsonRowTitle(row: JsonEditRow, index: number): string {
+  if (jsonEditFile !== 'masters') return `${index + 1}.${row.key}`
+  return mastersKeyCaption(row.key)?.text ?? row.key
+}
+
 async function renderJsonEdit(): Promise<void> {
   const title = jsonEditFile === 'masters' ? 'mst.json' : 'tmp.json'
-  const rows = await jsonEditRows()
+  const loaded = await jsonEditRows()
+  const rows =
+    jsonEditFile === 'masters'
+      ? [...loaded].sort((a, b) => {
+          const na = mastersKeyCaption(a.key)?.no ?? 10000
+          const nb = mastersKeyCaption(b.key)?.no ?? 10000
+          if (na !== nb) return na - nb
+          return a.key.localeCompare(b.key, 'ja')
+        })
+      : loaded
   const selected = jsonEditKey ? rows.find((row) => row.key === jsonEditKey) : undefined
   app.classList.add('places-ui-app')
   document.documentElement.classList.add('places-ui-lock')
@@ -7229,7 +7243,7 @@ async function renderJsonEdit(): Promise<void> {
     const list = rows
       .map((row, index) => {
         const preview = jsonKeyLine(row.current)
-        return `<button type="button" class="places-ui-row places-ui-row--field" data-key="${escapeHtml(row.key)}"><span class="places-ui-row-stack"><span class="places-ui-row-name">${escapeHtml(`${index + 1}.${row.key}`)}</span><span class="places-ui-row-meta places-ui-row-meta--clip">${escapeHtml(preview)}</span></span><span class="places-ui-row-chevron" aria-hidden="true">›</span></button>`
+        return `<button type="button" class="places-ui-row places-ui-row--field" data-key="${escapeHtml(row.key)}"><span class="places-ui-row-stack"><span class="places-ui-row-name">${escapeHtml(jsonRowTitle(row, index))}</span><span class="places-ui-row-meta places-ui-row-meta--clip">${escapeHtml(preview)}</span></span><span class="places-ui-row-chevron" aria-hidden="true">›</span></button>`
       })
       .join('')
     app.innerHTML = `
@@ -7263,7 +7277,7 @@ async function renderJsonEdit(): Promise<void> {
     return
   }
   const items = jsonValueItems(selected.current)
-  const numberedKey = `${rows.findIndex((row) => row.key === selected.key) + 1}.${selected.key}`
+  const numberedKey = jsonRowTitle(selected, rows.findIndex((row) => row.key === selected.key))
   if (selected.kind === 'lines' || items.length > 1) {
     await renderJsonValueList(selected, items, numberedKey)
     return

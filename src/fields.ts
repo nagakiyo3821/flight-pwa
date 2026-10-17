@@ -201,3 +201,34 @@ export function resolveCustomLabel(f: FieldDef): string {
   if (f.customLabelKey) return getLabel(f.customLabelKey)
   return f.customLabel || '任意の入力'
 }
+
+function earliestField(matches: FieldDef[]): FieldDef | undefined {
+  return matches.reduce<FieldDef | undefined>((best, field) => (!best || field.no < best.no ? field : best), undefined)
+}
+
+/** mst.json のキーを、登録データ管理の番号付き項目名へ対応づける。 */
+export function mastersKeyCaption(path: string): { no: number; text: string } | null {
+  const field = fieldForMastersPath(path)
+  if (!field) return null
+  return { no: field.no, text: `${field.no}.${field.label}(.${path})` }
+}
+
+function fieldForMastersPath(path: string): FieldDef | undefined {
+  if (path === 'drones.types' || path.startsWith('drones.ids.') || path === 'labels.droneIdCustom') {
+    return FIELDS.find((field) => field.no === 1)
+  }
+  let optionsKey = ''
+  let customKey = ''
+  if (path.startsWith('lists.')) optionsKey = path.slice('lists.'.length)
+  else if (path.startsWith('labels.')) customKey = path.slice('labels.'.length)
+  else if (path.startsWith('drones.profiles.')) {
+    const mark = '.lists.'
+    const at = path.indexOf(mark)
+    if (at < 0) return undefined
+    optionsKey = path.slice(at + mark.length)
+  } else {
+    return undefined
+  }
+  if (optionsKey) return earliestField(FIELDS.filter((field) => field.optionsKey === optionsKey))
+  return earliestField(FIELDS.filter((field) => field.customLabelKey === customKey))
+}

@@ -3207,6 +3207,12 @@ a.places-ui-cmd {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
+.places-ui-row-meta--clip {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  overflow-wrap: normal;
+}
 .places-ui-row-chevron {
   flex: 0 0 auto;
   color: var(--muted);

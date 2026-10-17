@@ -7154,6 +7154,12 @@ async function applyJsonEdit(row: JsonEditRow, mode: 'replace' | 'append', raw: 
   await updateTmpField(row.key as 'DATA1', raw.trim())
 }
 
+function jsonKeyLine(current: string): string {
+  const items = jsonValueItems(current)
+  if (!items.length) return '(?)'
+  return `(${items.join(',')})`
+}
+
 function jsonValueItems(current: string): string[] {
   return current
     .replace(/\r\n/g, '\n')
@@ -7221,9 +7227,9 @@ async function renderJsonEdit(): Promise<void> {
   resetViewportScroll()
   if (!selected) {
     const list = rows
-      .map((row) => {
-        const preview = row.current.trim() ? row.current.split('\n')[0] : '（空）'
-        return `<button type="button" class="places-ui-row" data-key="${escapeHtml(row.key)}"><span class="places-ui-row-stack"><span class="places-ui-row-name">${escapeHtml(row.key)}</span><span class="places-ui-row-meta">${escapeHtml(preview)}</span></span><span class="places-ui-row-chevron" aria-hidden="true">›</span></button>`
+      .map((row, index) => {
+        const preview = jsonKeyLine(row.current)
+        return `<button type="button" class="places-ui-row places-ui-row--field" data-key="${escapeHtml(row.key)}"><span class="places-ui-row-stack"><span class="places-ui-row-name">${escapeHtml(`${index + 1}.${row.key}`)}</span><span class="places-ui-row-meta places-ui-row-meta--clip">${escapeHtml(preview)}</span></span><span class="places-ui-row-chevron" aria-hidden="true">›</span></button>`
       })
       .join('')
     app.innerHTML = `
@@ -7237,7 +7243,7 @@ async function renderJsonEdit(): Promise<void> {
     </header>
     <main class="places-ui-main">
       <section class="card places-ui-card">
-        <p class="places-ui-io-hint">修正するキーを選んでください。</p>
+        <h2 class="places-ui-section">修正するキー ${rows.length}件</h2>
         ${placesListPaneHtml(list)}
       </section>
     </main>`
@@ -7257,8 +7263,9 @@ async function renderJsonEdit(): Promise<void> {
     return
   }
   const items = jsonValueItems(selected.current)
+  const numberedKey = `${rows.findIndex((row) => row.key === selected.key) + 1}.${selected.key}`
   if (selected.kind === 'lines' || items.length > 1) {
-    await renderJsonValueList(selected, items)
+    await renderJsonValueList(selected, items, numberedKey)
     return
   }
   const current = selected.current.trim() ? selected.current : '（空）'
@@ -7267,7 +7274,7 @@ async function renderJsonEdit(): Promise<void> {
     ${topNavBarHtml({ withBack: true, backId: 'json-back', backLabel: EDIT_HUB_BACK })}
     <div class="top-titles">
       <h1 class="prompt places-ui-title">
-        <span class="places-ui-title-text">${escapeHtml(selected.key)}</span>
+        <span class="places-ui-title-text">${escapeHtml(numberedKey)}</span>
       </h1>
     </div>
   </header>
@@ -7311,7 +7318,7 @@ async function renderJsonEdit(): Promise<void> {
   }
 }
 
-async function renderJsonValueList(selected: JsonEditRow, items: string[]): Promise<void> {
+async function renderJsonValueList(selected: JsonEditRow, items: string[], numberedKey: string): Promise<void> {
   const panel = jsonListPanel
   const panelHtml = (index: number, mode: 'edit' | 'insert') => {
     if (!panel || panel.index !== index || panel.mode !== mode) return ''
@@ -7321,8 +7328,9 @@ async function renderJsonValueList(selected: JsonEditRow, items: string[]): Prom
     return `<div class="json-list-panel">
       <h2 class="places-ui-io-h">${label}</h2>
       ${jsonValueBox(seed)}
-      <div class="places-ui-cmds places-ui-cmds--wrap">
+      <div class="places-ui-cmds">
         <button type="button" class="places-ui-cmd" id="json-apply">${button}</button>
+        <button type="button" class="places-ui-cmd" id="json-cancel">戻る</button>
       </div>
     </div>`
   }
@@ -7348,7 +7356,7 @@ async function renderJsonValueList(selected: JsonEditRow, items: string[]): Prom
     ${topNavBarHtml({ withBack: true, backId: 'json-back', backLabel: EDIT_HUB_BACK })}
     <div class="top-titles">
       <h1 class="prompt places-ui-title">
-        <span class="places-ui-title-text">${escapeHtml(selected.key)}</span>
+        <span class="places-ui-title-text">${escapeHtml(numberedKey)}</span>
       </h1>
     </div>
   </header>
@@ -7399,6 +7407,10 @@ async function renderJsonValueList(selected: JsonEditRow, items: string[]): Prom
     })()
   }
   app.querySelector('#json-apply')?.addEventListener('click', apply)
+  app.querySelector('#json-cancel')?.addEventListener('click', () => {
+    jsonListPanel = null
+    void render()
+  })
   app.querySelectorAll<HTMLButtonElement>('[data-list]').forEach((btn) => {
     btn.addEventListener('click', () => {
       const act = btn.dataset.list

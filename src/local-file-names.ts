@@ -4,7 +4,7 @@ const SPECS = {
   'log.json': { prefix: 'log', label: 'log', legacy: 'log.json' },
   'pos.json': { prefix: 'pos', label: 'pos', legacy: 'pos.json' },
   'tmp.json': { prefix: 'tmp', label: 'tmp', legacy: 'tmp.json' },
-  'masters.json': { prefix: 'mst', label: 'mst', legacy: 'masters.json' },
+  'masters.json': { prefix: 'mst', label: 'mst', legacy: 'masters.json', also: ['mst.json'] },
   'settings.json': { prefix: 'set', label: 'set', legacy: 'settings.json' },
 } as const
 
@@ -41,12 +41,14 @@ export function pickLatestEntry<T>(entries: readonly NamedEntry<T>[], canonical:
     return [...exact].sort((a, b) => a.depth - b.depth)[0] || null
   }
   const stamped = new RegExp(`^${spec.prefix}_(\\d{14})(?: \\((\\d+)\\)| (\\d+))?\\.json$`, 'i')
-  const legacy = new RegExp(`^${spec.legacy.replace('.', '\\.')}$`, 'i')
+  const plain = [spec.legacy, ...('also' in spec ? spec.also : [])].map(
+    (name) => new RegExp(`^${name.replace(/\./g, '\\.')}$`, 'i'),
+  )
   const ranked = entries.flatMap((entry) => {
     const base = entry.fileName.split('/').pop() || entry.fileName
     const hit = base.match(stamped)
     if (hit) return [{ entry, stamp: hit[1], copy: Number(hit[2] || hit[3] || 0) }]
-    if (legacy.test(base)) return [{ entry, stamp: '', copy: 0 }]
+    if (plain.some((pattern) => pattern.test(base))) return [{ entry, stamp: '', copy: 0 }]
     return []
   })
   ranked.sort((a, b) => {

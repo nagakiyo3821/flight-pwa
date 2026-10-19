@@ -16,7 +16,7 @@ export type ListKey =
   | 'fails'
   | 'batn'
 
-export type LabelKey = 'nameCustom' | 'batnCustom' | 'placeCustom' | 'droneIdCustom'
+export type LabelKey = 'nameCustom' | 'batnCustom' | 'droneIdCustom'
 
 export interface DroneProfile {
   lists?: Partial<Record<ListKey, string[]>>
@@ -57,7 +57,6 @@ const LIST_KEYS: ListKey[] = [
 const LABEL_KEYS: LabelKey[] = [
   'nameCustom',
   'batnCustom',
-  'placeCustom',
   'droneIdCustom',
 ]
 
@@ -203,6 +202,8 @@ export function mergeMasters(base: MastersFile, overlay: Partial<MastersFile> | 
   for (const k of LABEL_KEYS) {
     if (!out.labels[k] && base.labels[k]) out.labels[k] = base.labels[k]
   }
+  // 場所名は地図と pos.json で決める。旧「任意の場所名」文言は編集対象に残さない。
+  delete out.labels.placeCustom
   for (const t of out.drones.types) {
     if (!Array.isArray(out.drones.ids[t])) out.drones.ids[t] = []
   }

@@ -114,7 +114,7 @@ export type OptionsKey =
   | 'fails'
   | 'batn'
 
-export type CustomLabelKey = 'nameCustom' | 'batnCustom' | 'placeCustom'
+export type CustomLabelKey = 'nameCustom' | 'batnCustom'
 
 export interface FieldDef {
   no: number

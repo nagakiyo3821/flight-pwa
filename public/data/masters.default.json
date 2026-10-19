@@ -81,7 +81,6 @@
   "labels": {
     "nameCustom": "任意の氏名の入力",
     "batnCustom": "任意のバッテリー番号の入力",
-    "placeCustom": "任意の場所名の入力",
     "droneIdCustom": "任意の機体識別番号の入力"
   }
 }

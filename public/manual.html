@@ -75,7 +75,7 @@
     .toc ul { list-style: none; margin: 0; padding-left: 0; }
     .toc a { text-decoration: none; }
     .toc a:hover { text-decoration: underline; }
-    h3 { font-size: 1.02rem; margin: 1.1rem 0 0.35rem; }
+    h3 { font-size: 1.02rem; margin: 1.1rem 0 0.35rem; scroll-margin-top: 0.75rem; }
     p { margin: 0.45rem 0; }
     a { color: var(--accent); }
     ul, ol { margin: 0.35rem 0 0.6rem; padding-left: 1.25rem; }
@@ -94,25 +94,7 @@
       vertical-align: top;
     }
     th { background: #e8f2f6; }
-    table.ops { table-layout: fixed; }
-    table.ops th:nth-child(1),
-    table.ops td:nth-child(1) { width: 34%; }
-    table.ops th,
-    table.ops td { overflow-wrap: break-word; }
-    table.fields { table-layout: fixed; }
-    table.fields th:nth-child(1),
-    table.fields td:nth-child(1) { width: 26%; }
-    table.fields th:nth-child(2),
-    table.fields td:nth-child(2) { width: 22%; }
-    @media (max-width: 520px) {
-      table.fields th:nth-child(1),
-      table.fields td:nth-child(1) { width: 34%; }
-      table.fields th:nth-child(2),
-      table.fields td:nth-child(2) { width: 30%; }
-    }
-    table.fields th,
-    table.fields td,
-    table.fields code { overflow-wrap: break-word; }
+    th, td, code { overflow-wrap: break-word; }
     code {
       font-family: ui-monospace, Consolas, monospace;
       font-size: 0.88em;
@@ -129,12 +111,6 @@
       line-height: 1.45;
     }
     pre code { background: none; padding: 0; }
-    .note {
-      background: var(--card);
-      border-left: 4px solid var(--accent);
-      padding: 0.7rem 0.85rem;
-      margin: 0.7rem 0;
-    }
     .back { margin-top: 1.5rem; }
     footer { color: var(--muted); font-size: 0.85rem; margin-top: 2rem; }
   </style>
@@ -145,19 +121,19 @@
     <p><a href="./" data-open-app>アプリを開く</a></p>
   </header>
   <main>
-    <p>ドローンの飛行前点検、離着陸地点、飛行後点検を、スマートフォンの中に残すアプリです。記録の正本は端末の中です。端末の外へ自動で残すのは GoogleDrive自動バックアップだけです。「5.データ登録」のあと、オンならそのドライブのフォルダへ送ります。項目を編集しただけでは書き出しません。手動で残すときは、その場で選んだ場所へ出します。iPhone は「iPhone/iCloud」と「GoogleDrive」、Android は「Android」と「GoogleDrive」、パソコンは「パソコン」と「GoogleDrive」です。項目を編集しただけでは書き出しません。アプリは最新バージョンを使用してください。バージョンはアプリ画面上部右端の表示で確認できます。</p>
+    <p>ドローンの飛行前点検、離着陸地点、飛行後点検を、スマートフォンの中に残すアプリです。記録の正本は、いま開いている端末です。外へ自動で残すのは GoogleDrive自動バックアップだけで、送るのは「5.データ登録」のあと、オンのときです。項目を直しただけでは書き出しません。手動で残すときは、その場で選んだ場所へ出します。</p>
+    <p>アプリは最新バージョンを使ってください。版は画面上部の右端に出ます。</p>
 
     <nav class="toc" aria-label="目次">
       <p class="toc-title">目次</p>
       <ul>
-        <li><a href="#sec-1">1. 導入</a></li>
-        <li><a href="#sec-2">2. 準備するデータ</a></li>
-        <li><a href="#sec-3">3. ホーム画面の見方</a></li>
-        <li><a href="#sec-4">4. 1 回の飛行</a></li>
-        <li><a href="#sec-5">5. 登録データ管理</a></li>
-        <li><a href="#sec-6">6. 場所データ管理</a></li>
-        <li><a href="#sec-7">7. システム設定</a></li>
-        <li><a href="#sec-8">8. うまくいかないとき</a></li>
+        <li><a href="#sec-1">1. はじめに</a></li>
+        <li><a href="#sec-2">2. ホームと 1 回の飛行</a></li>
+        <li><a href="#sec-3">3. 場所</a></li>
+        <li><a href="#sec-4">4. 記録を直す</a></li>
+        <li><a href="#sec-5">5. システム設定</a></li>
+        <li><a href="#sec-6">6. ファイルの中身</a></li>
+        <li><a href="#sec-7">7. うまくいかないとき</a></li>
       </ul>
     </nav>
 
@@ -167,15 +143,16 @@
       <li>再配布・再公開はできません。</li>
       <li>商用で使うときは、事前の許諾が必要です。</li>
       <li>初回起動で「同意して使う」を押すと、次から同じ端末では同意画面は出ません。</li>
-      <li>全文はアプリの「システム設定」にある「利用条件を表示」から読めます。</li>
+      <li>全文は「システム設定」の「利用条件を表示」から読めます。</li>
     </ul>
 
-    <h2 id="sec-1" class="sec"><span>1. 導入</span><a class="to-top" href="#top" data-to-top aria-label="先頭へ"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 3.2 2.6 9.2h3.1V13h4.6V9.2h3.1L8 3.2z"/></svg></a></h2>
+    <h2 id="sec-1" class="sec"><span>1. はじめに</span><a class="to-top" href="#top" data-to-top aria-label="先頭へ"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 3.2 2.6 9.2h3.1V13h4.6V9.2h3.1L8 3.2z"/></svg></a></h2>
     <h3>開く</h3>
     <p>スマートフォンのブラウザで <a href="https://nagakiyo3821.github.io/flight-pwa/">https://nagakiyo3821.github.io/flight-pwa/</a> を開きます。</p>
-    <p>通信できる状態で一度開くと、その後は電波が弱い場所でも点検の入力ができます。気象の取得、住所の検索、地図、Google への書き出しと取り込みだけは通信が必要です。</p>
+    <p>通信できる状態で一度開くと、その後は電波が弱い場所でも点検を入力できます。気象の取得、住所の検索、地図、Google への書き出しと取り込みには通信が必要です。</p>
+    <p>位置情報は、離陸・着陸の登録と気象セットで使います。ブラウザ、またはホーム画面に追加したアプリに、位置情報を許可してください。</p>
 
-    <h3>ホーム画面に置く（推奨）</h3>
+    <h3>ホーム画面に置く</h3>
     <p>毎回 URL を探さなくて済み、全画面で使えます。</p>
     <p><strong>iPhone（Safari）</strong></p>
     <ol>
@@ -190,31 +167,186 @@
       <li>メニューの「アプリをインストール」または「ホーム画面に追加」を選ぶ。</li>
       <li>以降はアイコンから開く。</li>
     </ol>
-    <p>ホーム画面のアイコンから開くアプリは、そのアイコン専用の保存領域を持ちます。フォルダ名、Google のフォルダ ID、飛行記録はここに残ります。iPhone では、Safari の「履歴とWebサイトデータを消去」ではこの領域は消えません。初期設定からやり直すために保存領域ごと消すときは、ホーム画面のアイコンを削除し、Safari からもう一度追加します。消したあとは、利用条件のあとホームから始まります。フォルダやドライブにある <code>settings.json</code> は、このとき自動では読みません。</p>
-    <p>位置情報は、離陸・着陸の登録と気象セットで使います。ブラウザ、またはインストールしたアプリに、位置情報を許可してください。</p>
+    <p>ホーム画面のアイコンは、そのアイコン専用の保存領域を持ちます。飛行記録、場所、Google のフォルダはここに残ります。iPhone では、Safari の「履歴とWebサイトデータを消去」ではこの領域は消えません。保存領域ごと消すときは、アイコンを削除して、Safari からもう一度追加します。消したあとは、利用条件のあとホームから始まります。</p>
 
-    <h3>初回に出るもの</h3>
-    <p>利用条件の同意のあと、フォルダ選択は出ません。飛行記録や場所は、ファイルを取り込むまで空です。サンプルデータは自動では入りません。記録が残っているときは、アプリを閉じてもう一度開いても前回の記録から始まります。起動のたびに <code>settings.json</code> を探すことはありません。</p>
+    <h3>最初に出るもの</h3>
+    <p>利用条件の同意のあと、フォルダ選択は出ません。飛行記録と場所は、ファイルを取り込むまで空です。サンプルデータは自動では入りません。記録が残っているときは、閉じてもう一度開くと前回の続きからです。</p>
+    <p>ファイルを取り込まなくても飛行は始められます。飛行目的、飛行条件、障害物、正常／異常、機種名（Mavic2Pro / Tello / Other）は最初から入っています。氏名と機体の識別番号は、そのつど入力できます。毎回使う値は、あとから masters に入れておくと選択だけになります。</p>
 
-    <h2 id="sec-2" class="sec"><span>2. 準備するデータ</span><a class="to-top" href="#top" data-to-top aria-label="先頭へ"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 3.2 2.6 9.2h3.1V13h4.6V9.2h3.1L8 3.2z"/></svg></a></h2>
-    <p>出し入れするファイルは 4 つです。拡張子はすべて <code>.json</code> です。飛行の記録は <code>log.json</code> <code>pos.json</code> <code>tmp.json</code> <code>masters.json</code> です。画面で選ぶ名前は <code>log</code> <code>pos</code> <code>tmp</code> <code>mst</code> です。<code>mst</code> は masters です。GoogleDrive自動バックアップのフォルダは <code>tmp.json</code> の <code>googleAuto</code> に入れます。ログインのトークンは書きません。</p>
-    <p>Local フォルダと Google は、書き込みのたびに新しいファイルを作ります。名前は <code>log_20261014201245.json</code> のように、種類、アンダースコア、書いた年月日時分秒です。1回の書き込みでは、選んだ種類すべてが同じ14桁になります。<code>masters</code> は <code>mst_</code> です。取り込みは、種類ごとにいちばん大きい14桁を読みます。個別のファイルは選びません。日時の無い <code>log.json</code> や <code>masters.json</code> は、日時付きより古い版として読みます。</p>
+    <h2 id="sec-2" class="sec"><span>2. ホームと 1 回の飛行</span><a class="to-top" href="#top" data-to-top aria-label="先頭へ"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 3.2 2.6 9.2h3.1V13h4.6V9.2h3.1L8 3.2z"/></svg></a></h2>
+    <h3>ホーム</h3>
+    <p>上の 4 つは、いつでも開けます。</p>
     <table>
-      <thead>
-        <tr><th>ファイル</th><th>中身</th><th>いつ要るか</th></tr>
-      </thead>
+      <thead><tr><th>ボタン</th><th>用途</th></tr></thead>
       <tbody>
-        <tr><td><code>masters.json</code></td><td>操縦者名、機種、機体の識別番号、点検の選択肢</td><td>使い始める前</td></tr>
-        <tr><td><code>log.json</code></td><td>飛行ごとの点検記録</td><td>過去の記録を引き継ぐとき。無ければ空で開始</td></tr>
-        <tr><td><code>pos.json</code></td><td>場所（名前・住所・緯度経度・高度）</td><td>よく飛ぶ場所を先に入れておくとき。無くても当日登録できる</td></tr>
-        <tr><td><code>tmp.json</code></td><td>作業中の進行状態と、気象セットした時刻</td><td>作業の途中を別端末へ移すとき。通常はアプリが持つ</td></tr>
-        <tr><td><code>tmp.json</code> の <code>googleAuto</code></td><td>GoogleDrive自動バックアップのフォルダ名とフォルダ ID</td><td>別の端末へ自動フォルダを渡すとき。作業の進みと同じファイル</td></tr>
+        <tr><td>データリセット</td><td>作業中の記録を空に戻し、続けて現在地の気象を入れ直す</td></tr>
+        <tr><td>システム設定</td><td>マニュアル、中のデータの確認、GoogleDrive自動バックアップ、手動の書き出しと取り込み、初期化、利用条件</td></tr>
+        <tr><td>登録データ管理</td><td>過去の飛行と、いま作業中の記録を開いて直す</td></tr>
+        <tr><td>場所データ管理</td><td>離着陸地点の一覧、新規、修正、削除</td></tr>
       </tbody>
     </table>
-    <p>旧ショートカットの <code>log03.json</code> のように、名前の末尾に番号が付いたファイルも、中身が同じ形式なら取り込めます。値はすべて文字です。数値も <code>"15"</code> のように文字で入ります。</p>
+    <p>その下の 1〜5 が、1 回の飛行の順番です。</p>
+    <table>
+      <thead><tr><th>表示</th><th>意味</th></tr></thead>
+      <tbody>
+        <tr><td>≫ と「設定待ち」または「時間場所設定」</td><td>いまやる段</td></tr>
+        <tr><td>✓ と「修正可能」または「場所のみ更新」</td><td>入力済み。開き直して修正できる</td></tr>
+        <tr><td>色が薄く「ロック中」</td><td>手前の段が終わるまで開けない</td></tr>
+      </tbody>
+    </table>
+    <p>タイトルの下の <strong>SR / SS / T</strong>:</p>
+    <ul>
+      <li><strong>SR</strong> … 日の出（気象セットで入る）</li>
+      <li><strong>SS</strong> … 日の入</li>
+      <li><strong>T</strong> … 最後に気象をセットした時刻からの経過秒。離陸時刻ではない</li>
+    </ul>
+    <p>T が空のあいだは、経過の催促は出ません。</p>
 
-    <h3>ファイルの中身</h3>
-    <p><strong>log.json（飛行記録）</strong></p>
+    <h3>始める前（データリセット）</h3>
+    <p>新しい飛行では、ホームの「データリセット」を押します。</p>
+    <ol>
+      <li>確認で「リセット」を選ぶと、作業中の記録が空の <code>NEW</code> に戻ります。</li>
+      <li>「現在地の気象データをセットしますか？」で「セット」を選びます。</li>
+      <li>位置情報を許可し、現在地が取れると、天候、降水確率、風向、風速、気温、日の出、日の入が入ります。</li>
+      <li>この時刻が T の起点です。</li>
+    </ol>
+    <p>位置の入力をやめると、気象セットは中止されます。通信に失敗したときもセットされません。点検画面の「データセット」からやり直せます。</p>
+    <p>セットから <strong>2 時間</strong>を超えてホームを開くと、気象の入れ直しを求められます。<strong>24 時間</strong>を超えると、リセットして入れ直すことを求められます。「後で」も選べます。</p>
+
+    <h3>1. 離陸前チェック</h3>
+    <p>ロックが外れている「1.離陸前チェック」を開きます。項目は次の塊です。</p>
+    <ul>
+      <li>環境 … 機種と識別番号、操縦者、体調、許可証・飛行日誌、安全運航管理者、飛行目的、飛行条件、障害物、第三者</li>
+      <li>気象 … 天候、降水、風、気温（セット済みなら値が入っている）</li>
+      <li>作動前・作動・飛行点検 … 取付、プロペラ、電源、バッテリー、リモート ID、GNSS、高度・距離の制限、灯火、カメラ、異音、スティック</li>
+    </ul>
+    <ul>
+      <li>行を押すとその項目だけ開く</li>
+      <li><strong>全項目</strong> … 表示中の項目を先頭から順に確認する</li>
+      <li><strong>?項目</strong> … 空の項目だけ順に開く</li>
+      <li><strong>データセット</strong> … 現在地の気象を入れ直す（ほかの項目は消えない）</li>
+      <li>説明の末尾の <code>(?)</code> は未入力、<code>(値)</code> は入力済み</li>
+      <li>「正常 / 異常」は 2 択。飛行条件は複数選べます</li>
+      <li>リストに無い氏名、バッテリー番号、機体の識別番号は「任意の入力」から追加できます</li>
+      <li><strong>屋内</strong>を飛行条件に含めると、GNSS 捕捉数と地上風向は空でも次へ進めます</li>
+      <li>機種によっては最初から出ない項目があります（例: Tello のバッテリー詳細）</li>
+    </ul>
+    <p>必須が埋まると、ホームで 1 が ✓ になり、2 が開きます。備考（項目 63）は空でも登録できます。</p>
+
+    <h3>2. 離陸登録</h3>
+    <p>「2.離陸登録」を開くと、地図で地点を決めます。緯度、経度、高度、住所、場所名は、この 1 画面でまとめて入ります。場所名は masters の一覧には無く、ここか「場所データ管理」で付けます。</p>
+    <ul>
+      <li><strong>青</strong> … いまの GPS。位置そのものは動かせません。「再GPS計測」で取り直します</li>
+      <li><strong>橙</strong> … 記録する地点。地図をタップして動かせます。青や緑からコピーもできます</li>
+      <li><strong>緑</strong> … いちばん近い登録済みの場所</li>
+    </ul>
+    <p>橙を登録地点として確定すると、地点と離陸日時が記録されます。はじめての場所名なら場所一覧にも残ります。同名があるときは上書き確認が出ます。</p>
+    <p>緑と橙がおよそ 50m 以上離れているときは、橙を緑へ寄せる操作は使えません。別の場所として扱います。</p>
+    <p>一度時刻まで入ったあと、同じ段が「場所のみ更新」のときは、場所だけ直し、離陸時刻は維持します。画面を閉じると「離陸登録をキャンセルしました」となり、記録は変わりません。</p>
+
+    <h3>3. 着陸登録</h3>
+    <p>飛び終わったら「3.着陸登録」です。画面の意味は離陸と同じで、入るのは着陸側の地点と着陸日時です。飛行時間は離陸日時と着陸日時から計算します。</p>
+
+    <h3>4. 着陸後チェック</h3>
+    <p>着陸後のバッテリー、取付、汚れ、プロペラ、フレーム、発熱、操縦装置の電池、備考を入力します。やり方は離陸前チェックと同じです。</p>
+
+    <h3>5. データ登録</h3>
+    <p>「5.データ登録」で確定します。確認のあと、記録の名前が離陸日時（<code>年/月/日 時:分</code>）になります。作業用の空に近い <code>NEW</code> が残り、次の飛行の下書きになります。</p>
+    <p>離陸日時が空のままでは登録できません。登録すると工程は離陸前チェックに戻り、登録済みの内容は「登録データ管理」に残ります。</p>
+    <p>GoogleDrive自動バックアップがオン（ログイン済みで、自動用フォルダがある）なら、このとき <code>log</code> <code>pos</code> <code>tmp</code> <code>mst</code> を、そのドライブのフォルダへ、その時刻の新しいファイルとして送ります。ドライブへ書けなくても、端末の登録は取り消されません。起動したときや、通信が戻っただけでは送りません。</p>
+
+    <h2 id="sec-3" class="sec"><span>3. 場所</span><a class="to-top" href="#top" data-to-top aria-label="先頭へ"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 3.2 2.6 9.2h3.1V13h4.6V9.2h3.1L8 3.2z"/></svg></a></h2>
+    <p>離陸と着陸の地点は、その場の GPS から記録します。同じ場所でも GPS は数メートルから数十メートルずれるので、登録地点には場所名と位置精度を付けます。登録地点を中心にした円の内側は、同じ場所です。円の半径が <code>POSAC</code> です。空のときは 15m です。高度のずれは <code>ALTAC</code>（空なら 5m）で見ます。境界線の上は円の外です。</p>
+    <ul>
+      <li><strong>円の内側で「最寄地点確定」</strong> … 登録してある緯度、経度、高度、住所、場所名に統合して記録します。</li>
+      <li><strong>円の外</strong> … 別の場所です。住所から新しい名前を付け、位置精度 15m、高度精度 5m で追加します。</li>
+      <li><strong>円の内側で「タップ地点確定」</strong> … 登録地点の座標は動かさず、今回の点を別名で残します。名前は <code>自宅屋上_0</code> のように、元の名前へ番号を足します。</li>
+      <li>位置精度を広げると、より広いぶれを同じ場所に吸収できます。狭めると、少し離れた点は別場所になります。</li>
+      <li>緑（登録地点）と橙（今回の点）がおよそ 50m 以上離れているときは、橙を緑へ寄せる操作は使えません。</li>
+    </ul>
+    <p>飛行の前に場所を登録しておくと、次の離陸・着陸からこの統合が使えます。登録が無い状態でも GPS での記録はでき、確定した場所がこの一覧に残ります。</p>
+    <p>「場所データ管理」では次ができます。</p>
+    <ul>
+      <li><strong>新規場所登録</strong> … 地図で地点を決めて名前を付ける</li>
+      <li>一覧の行 … 名前、住所、緯度、経度、高度、位置精度、高度精度を直す。削除もここから</li>
+    </ul>
+
+    <h2 id="sec-4" class="sec"><span>4. 記録を直す</span><a class="to-top" href="#top" data-to-top aria-label="先頭へ"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 3.2 2.6 9.2h3.1V13h4.6V9.2h3.1L8 3.2z"/></svg></a></h2>
+    <p>ホームの「登録データ管理」は、記録の一覧です。新しいものが上です。作業中の <code>NEW</code>（と <code>NEW</code> に日時が付いたもの）が先頭に来ます。</p>
+    <p>行を開くと、項目 1〜63 を直接直せます。離陸地点（項目 43〜47）と着陸地点（項目 48〜52）は、それぞれ地図の 1 画面です。場所名だけを文字で足す欄はありません。</p>
+    <ul>
+      <li>作業中（<code>NEW</code>）には、削除、データ登録、データリセット、データセット、離陸、着陸、全項目、?項目があります</li>
+      <li>本登録済みの記録には、削除、全項目、?項目があります。離陸日時を変えると、新しい日時の記録が追加され、古いキーの記録も残ります</li>
+      <li>削除は確認のあと、その 1 件だけ消します</li>
+    </ul>
+
+    <h2 id="sec-5" class="sec"><span>5. システム設定</span><a class="to-top" href="#top" data-to-top aria-label="先頭へ"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 3.2 2.6 9.2h3.1V13h4.6V9.2h3.1L8 3.2z"/></svg></a></h2>
+    <p>上から、操作設定方法、PWA内部データ編集、GoogleDrive自動バックアップ、手動エクスポート、手動インポート、PWA初期化、利用条件です。</p>
+
+    <h3>GoogleDrive自動バックアップ</h3>
+    <p>保管先は、この端末で選んだマイドライブのフォルダです。自動用と手動用は別々に覚えます。「フォルダ変更」のあと、マイドライブ上のパス（例: <code>drone/data</code>）を探します。無いフォルダは作りません。同じ名前が複数あるときは、どれかを選びます。</p>
+    <p>動作中になるのは、ログインできていて、自動用フォルダが決まっているときです。画面を開いただけでは動作中になりません。「動作」はフォルダが決まっているときだけ押せます。「停止」を押すと停止中になり、ログインは切れ、フォルダは残ります。もう一度「動作」を押すまで停止中です。</p>
+    <p>フォルダを変えたときは、その時点で <code>tmp.json</code> を自動用フォルダへ書きます。ログイン済みで自動用フォルダがあるときに書きます。「動作」「停止」と、手動エクスポートでは、この自動の書き出しはしません。</p>
+
+    <h3>手動で書き出す・取り込む</h3>
+    <p>ボタンは端末で名前が変わります。iPhone は「iPhone/iCloud」と「GoogleDrive」、Android は「Android」と「GoogleDrive」、パソコンは「パソコン」と「GoogleDrive」です。前回のフォルダ名は出しません。押したあと、<code>log</code> <code>pos</code> <code>mst</code> <code>tmp</code> を選びます。はじめはすべてオフです。1 つも選ばないと「1つ以上選んでください。」と出ます。</p>
+    <p>書き出すファイル名は <code>log_20261014201245.json</code> のように、種類、アンダースコア、書いた年月日時分秒です。1 回の書き込みでは、選んだ種類すべてが同じ 14 桁になります。masters のファイル名は <code>mst_</code> です。日時の無い <code>log.json</code> や <code>masters.json</code> は、日時付きより古い版として読みます。旧ショートカットの <code>log03.json</code> のように末尾に番号が付いたファイルも、中身が同じ形式なら取り込めます。</p>
+    <ul>
+      <li><strong>パソコンと、フォルダを覚えられる Android</strong> … 書き出しは、選んだ種類を日時付きの新しいファイルとしてそのフォルダへ出します。取り込みは、種類ごとにフォルダ内のいちばん新しいファイルを読みます。個別のファイル名は選びません。</li>
+      <li><strong>iPhone の書き出し</strong> … 実行のあと共有が開き、「ファイルに保存」でフォルダを選びます。</li>
+      <li><strong>iPhone の取り込み</strong> … そのつどフォルダを選び、中のいちばん新しいファイルを読みます。</li>
+      <li><strong>GoogleDrive</strong> … マイドライブ以降のフォルダ名を入力します。書き出しは日時付きの新しいファイルを追加します。飛行記録の取り込みは、いちばん新しいファイルを読み、同じ記録は端末側を残し、ドライブにしか無い分を足します。</li>
+    </ul>
+    <p>フォルダからの取り込みは、選んだ種類で端末側を置き換えます。混ぜて編集したいときは、先にいまのデータを書き出してください。<code>tmp</code> の取り込みは、作業の進みと、入っていれば Google の自動フォルダを戻します。ログインは戻りません。</p>
+    <p>結果は、書いたファイル名、または読んだファイル名を 1 行で示します。処理中は他の操作を選べません。通信が止まったときは、時間内に終わらなかった旨を出して操作を戻します。</p>
+    <p>少なくとも <code>log</code> <code>pos</code> <code>mst</code> を残すと、別の端末へ引き継げます。自動フォルダも渡すときは <code>tmp</code> も選びます。</p>
+
+    <h3>中のデータを直す</h3>
+    <p>「PWA内部データ編集」のボタンは <code>log.json</code> <code>pos.json</code> <code>mst.json</code> <code>tmp.json</code> です。</p>
+    <table>
+      <thead><tr><th>ボタン</th><th>開くもの</th></tr></thead>
+      <tbody>
+        <tr><td><code>log.json</code></td><td>登録データ管理</td></tr>
+        <tr><td><code>pos.json</code></td><td>場所データ管理</td></tr>
+        <tr><td><code>mst.json</code></td><td>点検の選択肢。行は「番号.項目名」「キー」「値」</td></tr>
+        <tr><td><code>tmp.json</code></td><td>作業の進み、気象セット時刻、自動フォルダ</td></tr>
+      </tbody>
+    </table>
+    <p><code>mst.json</code> と <code>tmp.json</code> は、値が 1 つのときは修正値に現状値が入り、消去と元へ戻すが使えます。値が複数のときは一覧になり、選んだ値の修正、前や末尾への追加、削除ができます。機種名の行を開くと、その機種の識別番号と、出さない点検項目が続きます。</p>
+    <p>任意入力の文言は、氏名、バッテリー番号、機体の識別番号の 3 つです。それぞれ氏名の一覧、バッテリー番号の一覧、機種の一覧に付きます。場所名の文言はここにありません。古い mst に「任意の場所名の入力」が残っていても、起動時に除きます。</p>
+
+    <h3>初期化する</h3>
+    <p>「初期化」を押し、<code>log</code> <code>pos</code> <code>tmp</code> <code>mst</code> を選んで実行します。はじめはすべてオフです。飛行記録は空の <code>NEW</code> に、masters は初期の選択肢に戻ります。<code>tmp</code> を選ぶと、作業の進みと GoogleDrive自動バックアップのフォルダを未設定に戻します。ログインは残ります。ドライブやフォルダにあるファイルは消えません。</p>
+
+    <h3>Google のログイン</h3>
+    <p>公開ステータスは「テスト中」です。ログインできるのは、テストユーザーに登録した Google アカウントだけです。</p>
+    <p>「動作」、または手動の Google を押したあと、「このアプリは Google で確認されていません」と出ることがあります。<strong>詳細</strong> を開き、<strong>（安全ではないページ）に移動</strong> を選んでから、ドライブへの許可を出します。テスト中はログインのたびにこの画面になります。</p>
+    <p>ログインは、そのブラウザを開いているあいだ残り、およそ 1 時間で切れます。アプリを開き直したあとや切れたあとは、もう一度「動作」を押します。別のアカウントを使うときは、Cloud Console のテストユーザーへそのアドレスを追加します。上限は 100 人です。トークンは人に渡さず、リポジトリにも置きません。</p>
+
+    <h2 id="sec-6" class="sec"><span>6. ファイルの中身</span><a class="to-top" href="#top" data-to-top aria-label="先頭へ"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 3.2 2.6 9.2h3.1V13h4.6V9.2h3.1L8 3.2z"/></svg></a></h2>
+    <p>出し入れするファイルは 4 つです。拡張子は <code>.json</code> です。値はすべて文字です。数値も <code>"15"</code> のように文字で入ります。ログインのトークンと、フォルダへの書き込み許可は入りません。手動の Google フォルダは毎回指定するので、ファイルには残りません。古い <code>settings.json</code> を取り込むときは、中の <code>googleAuto</code> だけを <code>tmp.json</code> へ戻します。</p>
+    <table>
+      <thead><tr><th>画面の名前</th><th>ファイル</th><th>中身</th><th>いつ要るか</th></tr></thead>
+      <tbody>
+        <tr><td><code>log</code></td><td><code>log.json</code></td><td>飛行ごとの点検記録</td><td>過去の記録を引き継ぐとき。無ければ空で開始</td></tr>
+        <tr><td><code>pos</code></td><td><code>pos.json</code></td><td>場所（名前、住所、緯度経度、高度、精度）</td><td>よく飛ぶ場所を先に入れておくとき。無くても当日登録できる</td></tr>
+        <tr><td><code>mst</code></td><td><code>masters.json</code></td><td>操縦者名、機種、識別番号、点検の選択肢</td><td>使い始める前。氏名と識別番号を選択だけにしたいとき</td></tr>
+        <tr><td><code>tmp</code></td><td><code>tmp.json</code></td><td>作業の進み、気象セット時刻、Google の自動フォルダ</td><td>作業の途中や自動フォルダを別端末へ移すとき</td></tr>
+      </tbody>
+    </table>
+    <table>
+      <thead><tr><th></th><th>ファイルを準備しない</th><th>ファイルを準備する</th></tr></thead>
+      <tbody>
+        <tr><td>点検</td><td>できる。氏名と識別番号はそのつど入力</td><td>masters で氏名と識別番号を選ぶ。機種ごとに不要な点検を隠せる</td></tr>
+        <tr><td>離着陸の地点</td><td>できる。GPS と住所から、その場で場所ができる</td><td>登録地点の円の内側を、同じ場所へ統合できる</td></tr>
+        <tr><td>過去の飛行</td><td>端末の中に、いまの作業だけ</td><td>log で過去の点検を開いて直せる</td></tr>
+        <tr><td>別端末へ</td><td>書き出したあとに限る</td><td>tmp で進行と気象セット時刻を渡せる</td></tr>
+        <tr><td>クラウド</td><td>オフのままなら送らない</td><td>自動バックアップがオンなら、データ登録のあとドライブへ送る</td></tr>
+      </tbody>
+    </table>
+    <p>見本はリポジトリの <code>public/data/masters.sample.json</code> です。中身は架空です。氏名は「サンプル 一郎」「山田 太郎」、機体番号も例なので、自分の値に書き換えてから取り込んでください。見本には、氏名、機種と識別番号、飛行目的などの選択肢、機種によって出さない点検項目（Tello はバッテリー関連の一部）が入っています。</p>
+
+    <h3>log.json（飛行記録）</h3>
     <p>記録の名前がキー、中身が 1 回の飛行です。</p>
     <table>
       <thead><tr><th>キー</th><th>意味</th></tr></thead>
@@ -238,14 +370,15 @@
         <tr><td><code>A_SR</code> / <code>A_SS</code></td><td>日の出 / 日の入</td></tr>
         <tr><td><code>A_DATE</code> / <code>B_DATE</code></td><td>離陸日時 / 着陸日時</td></tr>
         <tr><td><code>A_DATA1</code> / <code>A_DATA2</code> / <code>A_DATA3</code></td><td>離陸地点の緯度 / 経度 / 高度（m）</td></tr>
-        <tr><td><code>A_ADRS</code> / <code>A_POS</code></td><td>離陸地点の住所 / 場所名</td></tr>
+        <tr><td><code>A_ADRS</code> / <code>A_POS</code></td><td>離陸地点の住所 / 場所名。地図の確定で入る</td></tr>
         <tr><td><code>B_DATA1</code> / <code>B_DATA2</code> / <code>B_DATA3</code></td><td>着陸地点の緯度 / 経度 / 高度（m）</td></tr>
-        <tr><td><code>B_ADRS</code> / <code>B_POS</code></td><td>着陸地点の住所 / 場所名</td></tr>
+        <tr><td><code>B_ADRS</code> / <code>B_POS</code></td><td>着陸地点の住所 / 場所名。地図の確定で入る</td></tr>
         <tr><td><code>REMARK</code></td><td>安全に影響した事項。空でも登録できる</td></tr>
       </tbody>
     </table>
-    <p>このほか、取付・プロペラ・バッテリー・GNSS・灯火など、点検の <code>正常</code> / <code>異常</code> と数値が <code>A_</code>（離陸前）と <code>B_</code>（着陸後）に分かれています。飛行時間そのものの欄は無く、離陸日時と着陸日時から計算します。</p>
-    <p><strong>pos.json（場所）</strong></p>
+    <p>このほか、取付、プロペラ、バッテリー、GNSS、灯火など、点検の <code>正常</code> / <code>異常</code> と数値が <code>A_</code>（離陸前）と <code>B_</code>（着陸後）に分かれています。飛行時間そのものの欄は無く、離陸日時と着陸日時から計算します。</p>
+
+    <h3>pos.json（場所）</h3>
     <p>場所名がキーです。1 件は次の 6 つです。</p>
     <table>
       <thead><tr><th>キー</th><th>意味</th></tr></thead>
@@ -266,7 +399,8 @@
     "ALTAC": "5"
   }
 }</code></pre>
-    <p><strong>tmp.json（作業状態）</strong></p>
+
+    <h3>tmp.json（作業状態）</h3>
     <table>
       <thead><tr><th>キー</th><th>意味</th></tr></thead>
       <tbody>
@@ -277,8 +411,9 @@
         <tr><td><code>googleAuto.folderName</code> / <code>googleAuto.folderId</code></td><td>GoogleDrive自動バックアップのフォルダ。未設定のときはキー自体を付けない</td></tr>
       </tbody>
     </table>
-    <p><code>tmp.json</code> は作業の進みと、GoogleDrive自動バックアップのフォルダです。データ登録のときに <code>log.json</code> <code>pos.json</code> <code>masters.json</code> と一緒に書きます。自動フォルダを変えたときも、中身が変わるので <code>tmp.json</code> だけを自動で書きます。「動作」と「停止」、手動エクスポートのフォルダ指定では書きません。</p>
-    <p><strong>masters.json（選択肢）</strong></p>
+
+    <h3>masters.json（選択肢）</h3>
+    <p>場所の一覧は入りません。場所は <code>pos.json</code> です。</p>
     <table>
       <thead><tr><th>キー</th><th>意味</th></tr></thead>
       <tbody>
@@ -287,198 +422,26 @@
         <tr><td><code>drones.types</code></td><td>機種名</td></tr>
         <tr><td><code>drones.ids</code></td><td>機種ごとの識別番号</td></tr>
         <tr><td><code>drones.profiles.*.hiddenKeys</code></td><td>その機種では出さない点検項目のキー</td></tr>
-        <tr><td><code>labels</code></td><td>「任意の入力」欄の表示名</td></tr>
-      </tbody>
-    </table>
-    <p>ログインのトークンと、フォルダへの書き込み許可は入りません。手動の GoogleDrive フォルダは毎回指定するので、ファイルには残しません。古い <code>settings.json</code> を取り込むときは <code>googleAuto</code> だけを戻します。</p>
-    <p>手動エクスポート、手動インポート、PWA初期化のファイルは <code>log</code> <code>pos</code> <code>tmp</code> <code>mst</code> です。はじめはオフです。PWA初期化で <code>tmp</code> を選ぶと、作業の進みと GoogleDrive自動バックアップのフォルダを未設定に戻します。外にあるファイルとログインは残ります。</p>
-    <h3>準備しないときと、準備したとき</h3>
-    <p>ファイルを何も取り込まなくても、飛行の記録は始められます。アプリには初期の選択肢（飛行目的、飛行条件、障害物、正常／異常、機種名 Mavic2Pro / Tello / Other など）が入っています。</p>
-    <table>
-      <thead><tr><th></th><th>準備しない</th><th>ファイルを準備する</th></tr></thead>
-      <tbody>
-        <tr><td>点検の入力</td><td>できる。氏名と識別番号は、そのつど任意入力</td><td><code>masters.json</code> で氏名・識別番号を選ぶだけになる。機種ごとに不要な点検を隠せる</td></tr>
-        <tr><td>離着陸の地点</td><td>できる。毎回の GPS と住所から、その場で場所ができる</td><td><code>pos.json</code> の登録地点に、精度の円の内側を同じ場所へ統合できる</td></tr>
-        <tr><td>過去の飛行</td><td>端末の中に、いまの作業だけ</td><td><code>log.json</code> で過去の点検を開いて直せる</td></tr>
-        <tr><td>作業の途中を別端末へ</td><td>書き出したあとに限る</td><td><code>tmp.json</code> で進行と気象セット時刻を渡せる</td></tr>
-        <tr><td>クラウド</td><td>オフのままなら送らない</td><td>GoogleDrive自動バックアップをオンにすると、データ登録のあとドライブへ送れる</td></tr>
+        <tr><td><code>labels.nameCustom</code></td><td>氏名リスト末尾の「任意の入力」の文言</td></tr>
+        <tr><td><code>labels.batnCustom</code></td><td>バッテリー番号リスト末尾の文言</td></tr>
+        <tr><td><code>labels.droneIdCustom</code></td><td>機体識別番号リスト末尾の文言</td></tr>
       </tbody>
     </table>
 
-    <h3>最初に作るもの（masters）</h3>
-    <p>点検の「誰が」「どの機体で」は <code>masters.json</code> に書いておきます。見本はリポジトリの <code>public/data/masters.sample.json</code> です。中身は架空です。氏名は「サンプル 一郎」「山田 太郎」、機体番号も例なので、必ず自分の値に書き換えてから取り込んでください。</p>
-    <p>見本に含まれる主な項目:</p>
-    <ul>
-      <li>操縦者・安全運航管理者の氏名（<code>names</code>）</li>
-      <li>機種（例: Mavic2Pro / Tello / Other）と、機種ごとの識別番号（<code>drones</code>）</li>
-      <li>飛行目的、飛行条件、障害物、風向、操縦モード、フェールセーフ、バッテリー番号などの選択肢</li>
-      <li>機種によって出さない点検項目（Tello はバッテリー関連の一部を出さない、など）</li>
-    </ul>
-    <p>編集はテキストエディタで行い、保存してからアプリへ取り込みます。氏名をその場で追加する欄もありますが、毎回使う名前と機体番号は masters に入れておくと、選択だけで済みます。</p>
-
-    <h3>取り込み手順</h3>
-    <ol>
-      <li>ホームの「システム設定」を開く。</li>
-      <li>「手動インポート」の「フォルダ指定」または「Google」を押す。</li>
-      <li><code>masters.json</code> にチェックを入れ、他は外して実行する。フォルダ指定は、そのあとフォルダを確定する。</li>
-      <li>過去の <code>log.json</code> / <code>pos.json</code> がある場合は、同じ手順で必要なファイルだけ選ぶ。</li>
-    </ol>
-    <div class="note">フォルダからの取り込みは、選んだファイルの内容で端末側を置き換えます。Google からの取り込みは、同じ記録は端末側が残り、ドライブにしか無い分が足されます。混ぜて編集したいときは、先にいまのデータを書き出してください。何も引き継がない場合は、masters だけで始められます。</div>
-
-    <h3>端末の中だけが正本</h3>
-    <p>ブラウザのサイトデータを消す、別のブラウザに変える、機種変更する、と記録は続きません。飛ばない日でも、次を残してください。</p>
-    <ol>
-      <li>「システム設定」の「手動エクスポート」を開く。</li>
-      <li>「フォルダ指定」または「Google」を押す。</li>
-      <li>少なくとも <code>log.json</code>・<code>pos.json</code>・<code>masters.json</code> を選んで実行する。自動フォルダも渡すときは <code>tmp.json</code> も選びます。ファイル選択は、はじめすべてオフです。</li>
-      <li>フォルダ指定は、ファイルアプリのフォルダを確定する。Google は手動用のドライブフォルダを確定する。</li>
-    </ol>
-    <p>iPhone の「iPhone/iCloud」は、書き出しと取り込みのたびにファイルアプリで場所を選びます。前回の場所は使いません。「GoogleDrive」も毎回、空欄からマイドライブ上のフォルダを指定します。Android とパソコンのフォルダ選択も、毎回フォルダを選びます。</p>
-
-    <h2 id="sec-3" class="sec"><span>3. ホーム画面の見方</span><a class="to-top" href="#top" data-to-top aria-label="先頭へ"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 3.2 2.6 9.2h3.1V13h4.6V9.2h3.1L8 3.2z"/></svg></a></h2>
-    <p>上段のボタンは、いつでも開けます。このマニュアルは「システム設定」の先頭「操作設定方法」から開きます。</p>
-    <table>
-      <thead><tr><th>ボタン</th><th>用途</th></tr></thead>
-      <tbody>
-        <tr><td>データリセット</td><td>作業中の記録を空に戻し、続けて現在地の気象を入れ直す</td></tr>
-        <tr><td>システム設定</td><td>Local / Google の自動バックアップ、手動の書き出しと取り込み、PWA初期化、利用条件</td></tr>
-        <tr><td>登録データ管理</td><td>過去の飛行と、いま作業中の記録を開いて直す</td></tr>
-        <tr><td>場所データ管理</td><td>離着陸地点の一覧・新規・修正・削除</td></tr>
-      </tbody>
-    </table>
-    <p>その下の 1〜5 が、1 回の飛行の順番です。</p>
-    <table>
-      <thead><tr><th>表示</th><th>意味</th></tr></thead>
-      <tbody>
-        <tr><td>≫ と「設定待ち」または「時間場所設定」</td><td>いまやる段</td></tr>
-        <tr><td>✓ と「修正可能」または「場所のみ更新」</td><td>入力済み。開き直して修正できる</td></tr>
-        <tr><td>色が薄く「ロック中」</td><td>手前の段が終わるまで開けない</td></tr>
-      </tbody>
-    </table>
-    <p>タイトルの下の <strong>SR / SS / T</strong>:</p>
-    <ul>
-      <li><strong>SR</strong> … 日の出時刻（気象セットで入る）</li>
-      <li><strong>SS</strong> … 日の入時刻</li>
-      <li><strong>T</strong> … 最後に気象をセットした時刻からの経過秒。離陸時刻ではありません</li>
-    </ul>
-    <p>T が空のあいだは、経過の催促は出ません。</p>
-
-    <h2 id="sec-4" class="sec"><span>4. 1 回の飛行</span><a class="to-top" href="#top" data-to-top aria-label="先頭へ"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 3.2 2.6 9.2h3.1V13h4.6V9.2h3.1L8 3.2z"/></svg></a></h2>
-    <h3>始める前（データリセット）</h3>
-    <p>新しい飛行に入るとき、ホームの「データリセット」を押します。</p>
-    <ol>
-      <li>確認で「リセット」を選ぶと、作業中の記録が空の <code>NEW</code> に戻ります。</li>
-      <li>続けて「現在地の気象データをセットしますか？」と出ます。「セット」を選びます。</li>
-      <li>位置情報を許可し、現在地が取れると、天候・降水確率・風向・風速・気温・日の出・日の入が入ります。</li>
-      <li>このときの時刻が T の起点です。</li>
-    </ol>
-    <p>位置の入力をやめると、気象セットは中止されます。通信に失敗したときもセットされません。点検画面の「データセット」からやり直せます。</p>
-    <p>セットから <strong>2 時間</strong>を超えてホームを開くと、気象の入れ直しを求められます。セットから <strong>24 時間</strong>を超えると、リセットして入れ直すことを求められます。「後で」も選べます。</p>
-
-    <h3>1. 離陸前チェック</h3>
-    <p>ロックが外れている「1.離陸前チェック」を開きます。項目はおおよそ次の塊です。</p>
-    <ul>
-      <li>環境 … 機種と識別番号、操縦者、体調、許可証・飛行日誌、安全運航管理者、飛行目的、飛行条件、障害物、第三者</li>
-      <li>気象 … 天候、降水、風、気温（セット済みなら値が入っている）</li>
-      <li>作動前・作動・飛行点検 … 取付、プロペラ、電源、バッテリー、リモート ID、GNSS、高度・距離の制限、灯火、カメラ、異音、スティック</li>
-    </ul>
-    <ul>
-      <li>行を押すとその項目だけ開く</li>
-      <li><strong>全項目</strong> … 表示中の項目を先頭から順に確認する</li>
-      <li><strong>?項目</strong> … 空の項目だけ順に開く</li>
-      <li><strong>データセット</strong> … 現在地の気象を入れ直す（記録の他の項目は消えない）</li>
-      <li>説明の末尾の <code>(?)</code> は未入力、<code>(値)</code> は入力済み</li>
-      <li>「正常 / 異常」は 2 択。飛行条件は複数選べます</li>
-      <li>リストに無い氏名・バッテリー番号は「任意の入力」から追加できます</li>
-      <li><strong>屋内</strong>を飛行条件に含めると、GNSS 捕捉数と地上風向は空でも次へ進めます</li>
-      <li>機種によっては最初から出ない項目があります（例: Tello のバッテリー詳細）</li>
-    </ul>
-    <p>必須が埋まると、ホームで 1 が ✓ になり、2 が開きます。備考（項目 63）は空でも構いません。</p>
-
-    <h3>2. 離陸登録</h3>
-    <p>「2.離陸登録」を開くと、地図で地点を決めます。</p>
-    <ul>
-      <li><strong>青</strong> … いまの GPS。位置そのものは動かせません。「再GPS計測」で取り直します</li>
-      <li><strong>橙</strong> … 記録する地点。地図をタップして動かせます。青や緑からコピーもできます</li>
-      <li><strong>緑</strong> … いちばん近い登録済みの場所</li>
-    </ul>
-    <p>橙を登録地点として確定すると、緯度・経度・高度・住所・場所名が記録され、離陸日時が入ります。はじめての場所名なら場所一覧にも残ります。同名があるときは上書き確認が出ます。</p>
-    <p>緑と橙がおよそ 50m 以上離れているときは、橙を緑へ寄せる操作は使えません。別の場所として扱います。</p>
-    <p>一度時刻まで入ったあと、同じ段が「場所のみ更新」のときは、場所だけ直し、離陸時刻は維持します。画面を閉じると「離陸登録をキャンセルしました」となり、記録は変わりません。</p>
-
-    <h3>3. 着陸登録</h3>
-    <p>飛び終わったら「3.着陸登録」です。画面の意味は離陸と同じで、入るのは着陸側の地点と着陸日時です。飛行時間は離陸日時と着陸日時から計算されます。</p>
-
-    <h3>4. 着陸後チェック</h3>
-    <p>着陸後のバッテリー、取付、汚れ、プロペラ、フレーム、発熱、操縦装置の電池、備考を入力します。やり方は離陸前チェックと同じです。</p>
-
-    <h3>5. データ登録</h3>
-    <p>「5.データ登録」で確定します。確認のあと、記録の名前が離陸日時（<code>年/月/日 時:分</code>）になります。作業用の空に近い <code>NEW</code> が残り、次の飛行の下書きになります。</p>
-    <p>離陸日時が空のままでは登録できません。登録すると工程は離陸前チェックに戻ります。登録済みの内容は「登録データ管理」に残ります。</p>
-    <p>フォルダを直接書ける端末で Local自動バックアップがオンなら、このとき <code>log</code> <code>pos</code> <code>tmp</code> <code>mst</code> を、起動時に選んだフォルダへ、その時刻の新しいファイルとしてまとめて書きます。iPhone では書きません。フォルダへ書けなかったときは、その書き出しが終わるまで次の登録を進めません。アクセスをオフにしているあいだは書きません。GoogleDrive自動バックアップがオン（ログイン済みで、自動用フォルダがある）なら、同じ4種類をそのドライブのフォルダへ、同じ規則の新しいファイルとして送ります。ドライブへ書けなくても、端末の登録は取り消されません。起動したときや通信が戻っただけでは送りません。</p>
-
-    <h2 id="sec-5" class="sec"><span>5. 登録データ管理</span><a class="to-top" href="#top" data-to-top aria-label="先頭へ"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 3.2 2.6 9.2h3.1V13h4.6V9.2h3.1L8 3.2z"/></svg></a></h2>
-    <p>ホームの「登録データ管理」は、記録の一覧です。新しいものが上です。作業中の <code>NEW</code>（と <code>NEW</code> に日時が付いたもの）が先頭に来ます。</p>
-    <p>行を開くと、項目 1〜63 を直接直せます。</p>
-    <ul>
-      <li>作業中（<code>NEW</code>）には、削除・データ登録・データリセット・データセット・離陸・着陸・全項目・?項目があります</li>
-      <li>本登録済みの記録には、削除・全項目・?項目があります。離陸日時を変えると、新しい日時の記録が追加され、古いキーの記録も残ります</li>
-      <li>削除は確認のあと、その 1 件だけ消します</li>
-    </ul>
-
-    <h2 id="sec-6" class="sec"><span>6. 場所データ管理</span><a class="to-top" href="#top" data-to-top aria-label="先頭へ"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 3.2 2.6 9.2h3.1V13h4.6V9.2h3.1L8 3.2z"/></svg></a></h2>
-    <p>離陸・着陸の地点は、毎回その場の GPS から記録します。同じ場所でも GPS は数メートルから数十メートルずれ、そのまま毎回新しい座標と場所名にすると、いつもの地点が別々の場所に分裂します。</p>
-    <p>それを吸収するため、登録地点には場所名と位置精度（メートル）を付けます。登録地点を中心にした円の内側は、同じ場所です。円の半径が <code>POSAC</code> です。空のときは 15m です。高度のずれは <code>ALTAC</code>（空なら 5m）で見ます。境界線の上は円の外です。</p>
-    <ul>
-      <li><strong>円の内側で「最寄地点確定」</strong> … 今回の GPS のばらつきは使わず、登録してある緯度・経度・高度・住所・場所名に統合して記録します。</li>
-      <li><strong>円の外</strong> … 別の場所です。住所から新しい名前を付け、位置精度 15m・高度精度 5m で追加します。</li>
-      <li><strong>円の内側で「タップ地点確定」</strong> … 登録地点の座標は動かさず、今回の点を別名で残します。名前は <code>自宅屋上_0</code> のように、元の名前へ番号を足します。いつもの場所が、GPS のぶれで書き換わるのを防ぎます。</li>
-      <li>位置精度を広げると、より広いぶれを同じ場所に吸収できます。狭めると、少し離れた点は別場所になります。</li>
-      <li>緑（登録地点）と橙（今回の点）がおよそ 50m 以上離れているときは、橙を緑へ寄せる操作は使えません。</li>
-    </ul>
-    <p>飛行の前に場所を登録しておくと、次の離陸・着陸からこの統合が使えます。登録が無い状態でも GPS での記録はでき、確定した場所がこの一覧に残ります。</p>
-    <ul>
-      <li><strong>新規場所登録</strong> … 地図で地点を決めて名前を付ける</li>
-      <li>一覧の行 … 名前、住所、緯度、経度、高度、位置精度、高度精度を直す。削除もここから</li>
-    </ul>
-
-    <h2 id="sec-7" class="sec"><span>7. システム設定</span><a class="to-top" href="#top" data-to-top aria-label="先頭へ"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 3.2 2.6 9.2h3.1V13h4.6V9.2h3.1L8 3.2z"/></svg></a></h2>
-    <p>画面は、操作設定方法、PWA内部データ編集、GoogleDrive自動バックアップ、手動エクスポート、手動インポート、PWA初期化、利用条件の順です。Local自動バックアップはありません。</p>
-    <p>PWA内部データ編集の説明は「PWA内部データを確認し、編集できます。」です。ボタンは <code>log.json</code> <code>pos.json</code> <code>mst.json</code> <code>tmp.json</code> の 2×2 です。<code>log.json</code> は登録データ管理、<code>pos.json</code> は場所データ管理です。<code>mst.json</code> と <code>tmp.json</code> は、値が1つのときは修正値に現状値が入り、消去と元へ戻すが使えます。値が複数のときは一覧になり、選んだ値の修正、前や末尾への追加、削除ができます。</p>
-    <p>タイトルの下は「PWA内部データをデータ登録時に自動で書き出します。」です。はじめは「アクセス: 停止中」です。動作中のとき、表示は「アクセス: 動作中」、ボタンは「停止」です。「停止」を押すと「アクセス: 停止中」になり、フォルダの記憶は残ります。ボタンは「動作」に戻ります。「動作」は、フォルダが決まっているときだけ押せます。決まっていないときは「フォルダ: 未設定」で、「動作」は押せません。となりのボタンは「フォルダ変更」です。</p>
-    <h3>GoogleDrive自動バックアップ</h3>
-    <p>保管先は、この端末で選んだマイドライブのフォルダです。自動用と手動用は別々に覚えます。「フォルダ変更」のあと、マイドライブ上のパス（例: <code>drone/data</code>）を探します。無いフォルダは作りません。同じ名前が複数あるときは、どれかを選びます。</p>
-    <p>動作中になるのは、ログインできていて、自動用フォルダが決まっているときです。画面を開いただけでは動作中になりません。「停止」のあとは、もう一度「動作」を押すまで停止中です。「動作」はフォルダが無いと押せません。「停止」はログインを切りますが、フォルダは残します。</p>
-    <h3>手動エクスポートと手動インポート</h3>
-    <p>手動エクスポートの下は「PWA内部データを手動で書き出します。」、手動インポートの下は「PWA内部データを手動で読み込みます。」です。直近のフォルダ名は出しません。iPhone は「iPhone/iCloud」と「GoogleDrive」、Android は「Android」と「GoogleDrive」、パソコンは「パソコン」と「GoogleDrive」です。押したあと、<code>log</code> <code>pos</code> <code>mst</code> <code>tmp</code> を横一列で選びます。はじめはすべてオフです。PWA初期化のファイル選択も同じ並びです。1つも選ばないと「1つ以上選んでください。」と出ます。送った結果と取得した結果は、実際に書いたファイル名、または読んだファイル名を1行で示します。</p>
-    <p>iPhone の書き出しでは、ファイル選択の中に「実行後、共有の「ファイルに保存」を選び、保存するフォルダを指定してください。」と出ます。実行すると共有メニューが開き、そこで「ファイルに保存」とフォルダを選びます。</p>
-    <p>「GoogleDrive」のあとの画面は、書き出しが「GoogleDrive手動エクスポート」、取り込みが「GoogleDrive手動インポート」です。説明は「マイドライブ以降の対象フォルダディレクトリ名を入力してください。」です。</p>
-    <p>フォルダ指定は、ファイルを選んだあとフォルダの確認画面へ進みます。書き出しは選んだ種類だけを、日時付きの新しいファイルとしてそのフォルダへ出します。取り込みは、選んだ種類ごとにフォルダ内のいちばん新しいファイルで端末側を更新します。個別のファイル名は選びません。<code>tmp</code> の取り込みは、作業の進みと、<code>googleAuto</code> があれば自動フォルダを戻します。書き込み許可とログインは戻りません。</p>
-    <p>iPhone の取り込みは Google だけです。パソコンのフォルダ指定は、選んだ種類ごとにフォルダ内のいちばん大きい14桁を読みます。許可が切れているときは、確定で開き直します。選んだ種類がフォルダに無いときは、その種類名を表示します。Google も同じ名前の規則で、フォルダ内のいちばん新しいファイルを読みます。</p>
-    <p>Google は手動用のドライブフォルダです。書き出しは、選んだ種類を日時付きの新しいファイルとして追加します。飛行記録の取り込みは、いちばん新しいファイルを読み、同じ記録は端末側を残し、ドライブにしか無い分を足します。未ログインなら、ここでログイン画面が出ます。書き出しと取り込みのあいだは「処理中…」になり、他の操作は選べません。通信が止まったときは、時間内に終わらなかった旨を出して操作を戻します。</p>
-    <p>手動エクスポートと手動インポートの結果は、選んだファイルをそのフォルダへ書いたか、そのフォルダから読んだかだけを表示します。</p>
-    <p>GoogleDrive自動バックアップのフォルダを変えたときは、その時点で <code>tmp.json</code> を自動バックアップします。「動作」と「停止」、手動エクスポートのフォルダ指定では書き出しません。ログイン済みで自動用フォルダがあるときに書きます。</p>
-    <h3>PWA初期化</h3>
-    <p>「PWA内部データを初期化します。」と出ます。「初期化」を押し、<code>log</code> <code>pos</code> <code>tmp</code> <code>mst</code> を個別に選び、最終確認のあと実行します。はじめはすべてオフです。飛行記録は空の <code>NEW</code> に、masters は初期状態に戻ります。<code>tmp</code> を選ぶと、作業の進みと GoogleDrive自動バックアップのフォルダを未設定に戻します。ログインは残ります。ドライブやフォルダにあるファイルは消えません。記録が空でも、初期化のあとはホームへ進みます。</p>
-    <h3>ログインの運用（2026-10-11 確認）</h3>
-    <p>Google Cloud の公開ステータスは「テスト中」のまま運用する。運用を始めてからも本番には移さない。ログインできるのは、テストユーザーに登録した自分の Google アカウントだけ。</p>
-    <p>「動作」、または手動の Google を押したあと、「このアプリは Google で確認されていません」と出ることがあります。<strong>詳細</strong> を開き、<strong>（安全ではないページ）に移動</strong> を選んでから、ドライブへの許可を出します。テスト中はログインのたびにこの画面になります。</p>
-    <p>ログイン状態は、そのブラウザを開いている間だけ残ります。約 1 時間で切れます。アプリを開き直したときや切れたあとは、もう一度「動作」を押します。別の Google アカウントを使うときは、Cloud Console のテストユーザーへそのアドレスを追加します。上限は 100 人。トークンを人に渡したり、リポジトリに置いたりしないでください。</p>
-
-    <h2 id="sec-8" class="sec"><span>8. うまくいかないとき</span><a class="to-top" href="#top" data-to-top aria-label="先頭へ"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 3.2 2.6 9.2h3.1V13h4.6V9.2h3.1L8 3.2z"/></svg></a></h2>
+    <h2 id="sec-7" class="sec"><span>7. うまくいかないとき</span><a class="to-top" href="#top" data-to-top aria-label="先頭へ"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 3.2 2.6 9.2h3.1V13h4.6V9.2h3.1L8 3.2z"/></svg></a></h2>
     <table>
       <thead><tr><th>状況</th><th>対処</th></tr></thead>
       <tbody>
         <tr><td>ボタンがロック中</td><td>手前の段の必須項目を埋める。場所の段なら離陸前、着陸後なら着陸登録</td></tr>
         <tr><td>気象が入らない</td><td>通信と位置情報を確認し、「データセット」をやり直す</td></tr>
-        <tr><td>地図が出ない</td><td>通信できる場所で開く。タイルは国土地理院の地図</td></tr>
-        <tr><td>氏名や機種が出てこない</td><td>masters を取り込んだか、ブラウザを変えていないかを確認する</td></tr>
-        <tr><td>別の端末に記録が無い</td><td>書き出した log / pos / masters を、その端末の「手動インポート」で読む</td></tr>
-        <tr><td>記録が消えた</td><td>サイトデータの削除や、別ブラウザで開いている。外に書き出したファイルから取り込む</td></tr>
-        <tr><td>再起動してもフォルダ情報が残る</td><td>ホーム画面のアイコンから開いているときは、Safari の履歴とWebサイトデータの消去では消えません。アイコンを削除して追加し直すか、PWA初期化で tmp を初期化します</td></tr>
-        <tr><td>自動フォルダを未設定に戻したい</td><td>PWA初期化で tmp を選ぶと、作業の進みと GoogleDrive自動バックアップのフォルダが未設定になります。起動時にフォルダは自動では読みません</td></tr>
+        <tr><td>地図が出ない</td><td>通信できる場所で開く。地図は国土地理院のタイルです</td></tr>
+        <tr><td>氏名や機種が出てこない</td><td>masters を取り込んだか、別のブラウザで開いていないかを確認する</td></tr>
+        <tr><td>別の端末に記録が無い</td><td>書き出した log / pos / mst を、その端末の「手動インポート」で読む</td></tr>
+        <tr><td>記録が消えた</td><td>サイトデータの削除や、別ブラウザで開いています。外に書き出したファイルから取り込みます</td></tr>
+        <tr><td>再起動してもフォルダが残る</td><td>ホーム画面のアイコンから開いているときは、Safari の履歴消去では消えません。アイコンを削除して追加し直すか、初期化で tmp を選びます</td></tr>
+        <tr><td>自動フォルダを未設定に戻したい</td><td>初期化で tmp を選びます。起動時にフォルダは自動では読みません</td></tr>
         <tr><td>24 時間たった</td><td>ホームの案内に従い、リセットして気象をセットし直す</td></tr>
-        <tr><td>「このアプリは Google で確認されていません」</td><td>テスト中の通常の画面。詳細を開き、「（安全ではないページ）に移動」を選ぶ</td></tr>
+        <tr><td>「このアプリは Google で確認されていません」</td><td>テスト中の通常の画面です。詳細を開き、「（安全ではないページ）に移動」を選びます</td></tr>
       </tbody>
     </table>
     <p class="back"><a href="./" data-open-app>アプリを開く</a></p>

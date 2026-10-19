@@ -20,7 +20,7 @@
 
 GoogleDrive自動バックアップのフォルダは端末に覚え、同じ内容を `tmp.json` の `googleAuto` に出す。フォルダを変えたときにその `tmp.json` を自動で書く。ログインのトークンは入れない。`tmp` の取り込みでフォルダ名とフォルダ ID は戻る。書き込み許可と Google のログインは戻らない。手動フォルダは毎回指定するのでファイルには残さない。
 
-データ登録のあと、GoogleDrive自動バックアップが動作中なら log / pos / tmp / mst をドライブへ、その時刻の新しいファイルとして送る。Local自動バックアップはない。手動は、書き出しと取り込みのたびに iPhone/iCloud、Android、パソコン、または GoogleDrive の場所を選び直す。前回の場所は使わない。名前は `log_20261014201245.json` の形。起動時と通信復帰の自動同期はしない。無いフォルダは作らない。
+データ登録のあと、GoogleDrive自動バックアップが動作中なら log / pos / tmp / mst をドライブへ、その時刻の新しいファイルとして送る。手動は、書き出しと取り込みのたびに iPhone/iCloud、Android、パソコン、または GoogleDrive の場所を選び直す。前回の場所は使わない。名前は `log_20261014201245.json` の形。起動時と通信復帰の自動同期はしない。無いフォルダは作らない。
 
 記録が残っていれば再起動は前回の続きです。起動時にフォルダ選択は出ません。起動時に `settings.json` は自動では読みません。
 
@@ -28,4 +28,4 @@ GoogleDrive自動バックアップのフォルダは端末に覚え、同じ内
 
 PWA初期化で `tmp` を選ぶと、作業の進みと GoogleDrive自動バックアップのフォルダを未設定に戻します。外のファイルとログインは残ります。ホーム画面のアイコン専用の保存領域は、Safari の履歴とWebサイトデータの消去では消えません。消すときはアイコンを削除して、もう一度追加します。
 
-見本 `settings.google.sample.json` / `settings.none.sample.json` は古い接続設定の形です。いまの画面の手順はマニュアルの「7. システム設定」（`MANUAL.md` / `public/manual.html`）です。
+見本 `settings.google.sample.json` / `settings.none.sample.json` は古い接続設定の形です。いまの画面の手順はマニュアルの「5. システム設定」（`MANUAL.md` / `public/manual.html`）です。場所名は `pos.json` にあり、mst の任意入力には含まれません。
